@@ -128,6 +128,22 @@ Still open, complementary micro-op: batch `IDiaEnum*::Next(N)` instead of
 Replace the coverage data model with columnar, index-based, immutable structures.
 This is the foundation everything else hangs off.
 
+**Progress — shipped so far:**
+- ✅ **Hash the address indexes.** `std::map<Address, …>` (per-hit lookup:
+  ~log₂(A) cache-missing tree-node comparisons) → `std::unordered_map` with an
+  `Address` hash, for both line (`ExecutedAddressManager`) and branch
+  (`BranchCoverageManager`) hits. Dropped the per-probe `LOG_TRACE` from the
+  registration loops. MSVC's node-based `unordered_map` keeps the `bool*`
+  fan-out valid.
+- ✅ **Iterate lines without copying.** Added `FileCoverage::GetLineCollection()`
+  (const ref to the ordered map); the rate computer, Cobertura exporter, binary
+  serializer, and merger no longer copy every line (with its branch vector) per
+  file. Merge ~35% faster (4.6 → 3.0 ms).
+
+**Still to do** (the bigger structural pieces below): the columnar SoA probe
+table, string interning, immutable per-module line tables, and arenas. These
+remain the plan; the two items above are the low-risk, high-value first cuts.
+
 ### 4.1 The problem with today's model
 
 - `map<wstring,Module>` → `unordered_map<wstring,File>` → `map<unsigned,bool>`,
