@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <boost/optional/optional_fwd.hpp>
+#include <optional>
 #include <ctime>
 #include <filesystem>
 
@@ -27,7 +27,7 @@ namespace CppCoverage
 	  public:
 		virtual ~IFileSystem() = default;
 
-		virtual boost::optional<std::filesystem::file_time_type>
+		virtual std::optional<std::filesystem::file_time_type>
 		GetLastWriteTime(const std::filesystem::path&) const = 0;
 	};
 }

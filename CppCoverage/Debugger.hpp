@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <boost/optional/optional.hpp>
+#include <optional>
 
 #include <unordered_map>
 #include <Windows.h>
@@ -79,7 +79,7 @@ namespace CppCoverage
 	private:
 		std::unordered_map<DWORD, HANDLE> processHandles_;
 		std::unordered_map<DWORD, HANDLE> threadHandles_;
-		boost::optional<DWORD> rootProcessId_;
+		std::optional<DWORD> rootProcessId_;
 		bool coverChildren_;
 		bool continueAfterCppException_;
         bool stopOnAssert_;

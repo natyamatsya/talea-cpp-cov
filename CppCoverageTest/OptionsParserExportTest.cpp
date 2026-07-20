@@ -148,7 +148,7 @@ namespace CppCoverageTest
 			cov::ExportOptionParser::ExportSeparator + temporaryPath.GetPath().string();
 		auto options = TestTools::Parse(*parser, { TestTools::GetOptionPrefix() + cov::ExportOptionParser::ExportTypeOption, 
 								exportStr });
-		ASSERT_NE(nullptr, options.get_ptr());
+		ASSERT_TRUE(options.has_value());
 	}
 
 	//-------------------------------------------------------------------------

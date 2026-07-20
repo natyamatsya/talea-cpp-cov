@@ -17,7 +17,7 @@
 #include "stdafx.h"
 #include "HtmlExporter.hpp"
 
-#include <boost/optional/optional.hpp>
+#include <optional>
 #include <sstream>
 #include <iomanip>
 #include "CTemplate.hpp"
@@ -139,18 +139,18 @@ namespace Exporter
 		for (const auto& file : coverageRateComputer.SortFilesByCoverageRate(module))
 		{
 			const auto& fileCoverageRate = coverageRateComputer.GetCoverageRate(*file);
-			boost::optional<fs::path> generatedOutput = ExportFile(htmlFolderStructure, *file);
+			std::optional<fs::path> generatedOutput = ExportFile(htmlFolderStructure, *file);
 			exporter_.AddFileSectionToDictionary(
-				file->GetPath(), 
-				fileCoverageRate, 
+				file->GetPath(),
+				fileCoverageRate,
 				false,
-				generatedOutput.get_ptr(), 
+				generatedOutput ? &*generatedOutput : nullptr,
 				moduleTemplateDictionary);
 		}
 	}
 
 	//---------------------------------------------------------------------
-	boost::optional<fs::path> HtmlExporter::ExportFile(
+	std::optional<fs::path> HtmlExporter::ExportFile(
 		const HtmlFolderStructure& htmlFolderStructure,
 		const Plugin::FileCoverage& fileCoverage) const
 	{
@@ -158,7 +158,7 @@ namespace Exporter
 		std::wostringstream ostr;
 		
 		if (!Tools::FileExists(fileCoverage.GetPath()))
-			return boost::optional<fs::path>();
+			return std::optional<fs::path>();
 
 		auto enableCodePrettify = fileCoverageExporter_.Export(fileCoverage, ostr);
 

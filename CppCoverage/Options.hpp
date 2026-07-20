@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <filesystem>
 
 #include "CppCoverageExport.hpp"
@@ -100,7 +100,7 @@ namespace CppCoverage
 	private:
 		Patterns modules_;
 		Patterns sources_;
-		boost::optional<StartInfo> optionalStartInfo_;
+		std::optional<StartInfo> optionalStartInfo_;
 
 		LogLevel logLevel_;
 		bool isPluginModeEnabled_;

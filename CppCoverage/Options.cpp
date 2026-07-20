@@ -74,7 +74,7 @@ namespace CppCoverage
 	//-------------------------------------------------------------------------
 	const StartInfo* Options::GetStartInfo() const
 	{
-		return optionalStartInfo_.get_ptr();
+		return optionalStartInfo_ ? &*optionalStartInfo_ : nullptr;
 	}
 
 	//-------------------------------------------------------------------------
@@ -261,7 +261,7 @@ namespace CppCoverage
 		for (const auto& settings : options.unifiedDiffSettingsCollection_)
 		{
 			ostr << settings.GetUnifiedDiffPath() << L" Root folder: ";
-			ostr << settings.GetRootDiffFolder().get_value_or(L"") << " ";
+			ostr << settings.GetRootDiffFolder().value_or(L"") << " ";
 		}
 		ostr << std::endl;
 

@@ -126,13 +126,13 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	boost::optional<unsigned char> ExecutedAddressManager::MarkAddressAsExecuted(
+	std::optional<unsigned char> ExecutedAddressManager::MarkAddressAsExecuted(
 		const Address& address)
 	{
 		auto it = addressLineMap_.find(address);
 
 		if (it == addressLineMap_.end())
-			return boost::none;
+			return std::nullopt;
 
 		auto& line = it->second;
 
@@ -146,13 +146,13 @@ namespace CppCoverage
 	}
 	
 	//-------------------------------------------------------------------------
-	boost::optional<unsigned char>
+	std::optional<unsigned char>
 	ExecutedAddressManager::GetOriginalInstruction(const Address& address) const
 	{
 		auto it = addressLineMap_.find(address);
 
 		if (it == addressLineMap_.end())
-			return boost::none;
+			return std::nullopt;
 		return it->second.instructionToRestore_;
 	}
 

@@ -19,7 +19,7 @@
 #include "PathMatcher.hpp"
 #include <filesystem>
 
-#include <boost/optional/optional.hpp>
+#include <optional>
 #include <boost/algorithm/string.hpp>
 
 #include <unordered_map>
@@ -123,7 +123,7 @@ namespace FileFilter
 			PathData(PathData&& pathData) = default;
 			
 			File postFixPath_;
-			boost::optional<fs::path> matchedPath_;
+			std::optional<fs::path> matchedPath_;
 		};
 		
 		std::unordered_map<std::wstring, std::vector<PathData>> postFixPathByFilename_;
@@ -195,7 +195,7 @@ namespace FileFilter
 	//-------------------------------------------------------------------------
 	PathMatcher::PathMatcher(
 		std::vector<File>&& files,
-		const boost::optional<fs::path>& parentPath)
+		const std::optional<fs::path>& parentPath)
 	{
 		if (parentPath)
 			pathMatcherEngine_ = std::make_unique<FullPathMatcherEngine>(*parentPath, std::move(files));

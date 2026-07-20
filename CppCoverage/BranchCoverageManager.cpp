@@ -145,13 +145,13 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	boost::optional<unsigned char>
+	std::optional<unsigned char>
 	BranchCoverageManager::GetOriginalInstruction(const Address& address) const
 	{
 		auto it = branches_.find(address);
 
 		if (it == branches_.end())
-			return boost::none;
+			return std::nullopt;
 		return it->second.originalInstruction_;
 	}
 

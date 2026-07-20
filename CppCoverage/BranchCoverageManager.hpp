@@ -20,7 +20,7 @@
 #include <map>
 
 #include <Windows.h>
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "Plugin/Exporter/CoverageData.hpp"
 #include "BranchInstruction.hpp"
@@ -53,7 +53,7 @@ namespace CppCoverage
 		                    unsigned char originalInstruction);
 
 		bool IsMonitoredBranch(const Address&) const;
-		boost::optional<unsigned char> GetOriginalInstruction(const Address&) const;
+		std::optional<unsigned char> GetOriginalInstruction(const Address&) const;
 
 		void OnBreakPointHit(const Address&, HANDLE hThread, const BreakPoint&);
 		bool OnSingleStep(HANDLE hProcess, HANDLE hThread, const BreakPoint&);

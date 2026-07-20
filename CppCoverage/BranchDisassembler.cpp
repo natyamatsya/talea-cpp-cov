@@ -17,7 +17,7 @@
 #include "stdafx.h"
 #include "BranchDisassembler.hpp"
 
-#include <boost/optional.hpp>
+#include <optional>
 
 #define ZYDIS_STATIC_BUILD
 #include <Zydis/Zydis.h>
@@ -29,7 +29,7 @@ namespace CppCoverage
 	namespace
 	{
 		//---------------------------------------------------------------------
-		boost::optional<BranchCondition>
+		std::optional<BranchCondition>
 		GetBranchCondition(ZydisMnemonic mnemonic)
 		{
 			switch (mnemonic)
@@ -57,7 +57,7 @@ namespace CppCoverage
 					// LOOP/LOOPE/LOOPNE are also conditional branches but
 					// involve a pre-decrement of RCX. They are never emitted
 					// by MSVC and are excluded on purpose.
-					return boost::none;
+					return std::nullopt;
 			}
 		}
 	}

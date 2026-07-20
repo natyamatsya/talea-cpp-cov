@@ -9,7 +9,6 @@
     "boost-iostreams",
     "boost-locale",
     "boost-log",
-    "boost-optional",
     "boost-program-options",
     "boost-property-tree",
     "boost-range",
