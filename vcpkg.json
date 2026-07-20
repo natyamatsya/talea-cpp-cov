@@ -10,7 +10,6 @@
     "boost-locale",
     "boost-log",
     "boost-program-options",
-    "boost-property-tree",
     "boost-range",
     "boost-regex",
     "boost-uuid",
