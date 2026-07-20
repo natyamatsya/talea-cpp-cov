@@ -1,0 +1,34 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+  </Configurations>
+  <Project Path="CppCoverage/CppCoverage.vcxproj" />
+  <Project Path="CppCoverageTest/CppCoverageTest.vcxproj">
+    <BuildDependency Project="CppCoverage/CppCoverage.vcxproj" />
+    <BuildDependency Project="TestCoverageConsole/TestCoverageConsole.vcxproj" />
+    <BuildDependency Project="TestCppCli/TestCppCli.vcxproj" />
+  </Project>
+  <Project Path="Exporter/Exporter.vcxproj" />
+  <Project Path="ExporterTest/ExporterTest.vcxproj">
+    <BuildDependency Project="CppCoverage/CppCoverage.vcxproj" />
+    <BuildDependency Project="Exporter/Exporter.vcxproj" />
+  </Project>
+  <Project Path="FileFilter/FileFilter.vcxproj" />
+  <Project Path="FileFilterTest/FileFilterTest.vcxproj" />
+  <Project Path="OpenCppCoverage/OpenCppCoverage.vcxproj" />
+  <Project Path="OpenCppCoverageTest/OpenCppCoverageTest.vcxproj">
+    <BuildDependency Project="CppCoverageTest/CppCoverageTest.vcxproj" />
+    <BuildDependency Project="ExporterTest/ExporterTest.vcxproj" />
+    <BuildDependency Project="OpenCppCoverage/OpenCppCoverage.vcxproj" />
+  </Project>
+  <Project Path="Plugin/Plugin.vcxproj" />
+  <Project Path="PluginTest/PluginTest.vcxproj" />
+  <Project Path="TestCoverageConsole/TestCoverageConsole.vcxproj" />
+  <Project Path="TestCoverageOptimizedBuild/TestCoverageOptimizedBuild.vcxproj" />
+  <Project Path="TestCoverageSharedLib/TestCoverageSharedLib.vcxproj" />
+  <Project Path="TestCppCli/TestCppCli.vcxproj" />
+  <Project Path="TestHelper/TestHelper.vcxproj" />
+  <Project Path="Tools/Tools.vcxproj" />
+  <Project Path="ToolsTest/ToolsTest.vcxproj" />
+  <Project Path="Zydis/Zydis.vcxproj" />
+</Solution>
