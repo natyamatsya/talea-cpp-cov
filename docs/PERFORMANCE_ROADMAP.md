@@ -3,9 +3,10 @@
 *An ambitious plan for making OpenCppCoverage fast on large translation units,
 ordered low-hanging fruit first, with a data-oriented design (DOD) throughline.*
 
-> Status: research + design document. Nothing here is committed to yet; it is a
-> menu of options with measured/estimated payoffs so we can pick a path.
-> This is a private, experimental fork — the roadmap is aspirational.
+> Status: **Tier 0 shipped** (commits on `main`, July 2026); Tiers 1–4 are a
+> design menu with measured/estimated payoffs. This is a private, experimental
+> fork — the later tiers are aspirational. This is the single canonical roadmap;
+> it consolidates two earlier drafts.
 
 ---
 
@@ -65,25 +66,50 @@ DATA.
 
 ---
 
-## 3. Tier 0 — Low-hanging fruit (days, no architecture change)
+## 3. Tier 0 — Low-hanging fruit (SHIPPED, no architecture change)
 
-These are safe, local, individually shippable. They come straight out of the
-profiling and cost the least.
+Safe, local, individually shippable fixes straight out of the profiling.
+**Status: done and pushed to `main`, with measured results.**
 
-| Fix | File(s) | Win |
+| Fix | File(s) | Result |
 |---|---|---|
-| **Skip `findSymbolByVA` per line record** unless `--optimized_build` is on (its `symIndex` result is consumed *only* by `ReleaseCoverageFilter`). | `DebugInformationEnumerator.cpp:296-306` | Removes the single most expensive per-record COM query for the common debug-build case. |
-| **`LineFilter` empty-regex early-out** — return `true` immediately when no `--excluded_line_regex` was given, instead of memory-mapping and line-splitting every selected source file. | `FileFilter/LineFilter.cpp` | Deletes a full source-tree read + per-line `std::string` at instrument time for the common case. |
-| **Set `_NO_DEBUG_HEAP=1`** in the debuggee environment. A debugger-created process otherwise gets the slow NT debug heap. | `CppCoverage/Process.cpp` (CreateProcess env block) | Measured +50% on allocation-heavy debuggees; one-line, risk-free. |
-| **Streaming Cobertura writer** replacing `boost::property_tree`. The schema is tiny and fixed. | `Exporter/CoberturaExporter.cpp` | ~4.7 µs/line → a fraction; removes per-line wstring-node allocation and a second tree walk. (Benchmarked: 140 ms for 30k lines today.) |
-| **Lazy `wostringstream` in the debug-event handler** (only built on error paths today, but constructed every event). | `CodeCoverageRunner.cpp:149` | Shaves a constant off every single hit. |
-| **Trim `CONTEXT_ALL` → `CONTEXT_CONTROL`** on the breakpoint-adjust path. | `BreakPoint.cpp` | Smaller Get/SetThreadContext in the hot loop. |
-| **Stop calling `FlushInstructionCache`** on x64 in the patch path — it is a no-op on x86/x64 (hardware I/D coherency). | `Tools/ProcessMemory.cpp` | Removes a syscall per breakpoint write. Keep a comment; it matters only cross-arch. |
-| **Drop the per-event `RemoveAddressLineIf` O(n) scan** where possible; index addresses per (process, module) so unload/exit erases a bucket. | `ExecutedAddressManager.cpp:192-223` | O(M×A) → O(A) on module churn. |
+| ✅ **Skip `findSymbolByVA` per line record** unless `--optimized_build` is on (its `symIndex` result is consumed *only* by `ReleaseCoverageFilter`). | `DebugInformationEnumerator.cpp` | Removes the most expensive per-record COM query for the common debug-build case. |
+| ✅ **`LineFilter` empty-regex early-out** — return `true` immediately when no `--excluded_line_regex` was given, instead of memory-mapping and line-splitting every selected source file. | `FileFilter/LineFilter.cpp` | Part of the 5,000-header startup drop below. |
+| ✅ **Set `_NO_DEBUG_HEAP=1`** in the debuggee environment. A debugger-created process otherwise gets the slow NT debug heap. | `CppCoverage/Process.cpp` | Debug-heap penalty gone; allocation-heavy debuggees run near-native under coverage. |
+| ✅ **Streaming Cobertura writer** replacing `boost::property_tree` (byte-identical output). | `Exporter/CoberturaExporter.cpp` | Export **~140 ms → 22.6 ms (6.2×)** in the benchmark; also drops the boost-property-tree dependency. |
+| ✅ **Reuse the `wostringstream`** in the debug-event handler instead of constructing (and re-imbuing the locale on) a fresh one per event. | `CodeCoverageRunner.cpp` | Shaves a constant off every hit. |
+| ✅ **`CONTEXT_CONTROL` instead of `CONTEXT_ALL`** on the breakpoint-adjust path. | `BreakPoint.cpp` | Smaller Get/SetThreadContext in the hot loop. |
+| ✅ **Drop `FlushInstructionCache`** on the patch path — a no-op syscall on x86/x64 (hardware I/D coherency). | `Tools/ProcessMemory.cpp` | Removes a kernel transition per breakpoint write. |
+| ⏳ **Drop the per-event `RemoveAddressLineIf` O(n) scan**; index addresses per (process, module) so unload/exit erases a bucket. | `ExecutedAddressManager.cpp` | O(M×A) → O(A) on module churn. *(Not yet done — folds naturally into the Tier 1 data model.)* |
 
-Expected effect: large-TU **startup roughly file-count-independent** (the first
-two rows), the debug-heap multiplier gone, export ~10–50× cheaper. No data-model
-change yet.
+**Measured effect:** 5,000-header startup **4,731 ms → 3,638 ms** (~23%), export
+**6.2× faster**, debug-heap penalty eliminated. All test suites green; the two
+Cobertura golden files are unchanged (byte-identical output).
+
+Also pending (minor, same spirit): guard the per-file `wostringstream` message
+in `WildcardCoverageFilter` behind a log-level check (built even when the log is
+filtered out), and hoist the per-line-record `LOG_TRACE` out of the registration
+loop in `ExecutedAddressManager`/`BranchCoverageManager`.
+
+The remaining ~0.9 ms-per-file startup term is *not* addressed by Tier 0 — it is
+the DIA enumeration itself, tackled next.
+
+---
+
+## 3.5. The next startup win — single-pass DIA line-table enumeration
+
+The dominant startup cost is `IDiaSourceFile::get_compilands` +
+`IDiaSession::findLines(compiland, file)` issued **per selected source file**, so
+a compiland's line data is rescanned once per header that shares it — O(files ×
+compiland-line-data). The fix, without leaving DIA:
+
+- Enumerate the module's line table **once** (`IDiaEnumLineNumbers` over the
+  whole image, or `findLinesByRVA` per compiland once), batching `Next(1000, …)`
+  instead of one COM call per record, and **bucket records by source-file id**
+  ourselves — one O(L) pass per module instead of the F×C query pattern.
+- This is a self-contained change behind the existing `IDebugInformationHandler`
+  interface and is the highest-leverage remaining startup item. It also sets up
+  the Tier 2 PDB-parse cache and the eventual DIA-free raw reader.
 
 ---
 
