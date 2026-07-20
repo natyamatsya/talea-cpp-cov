@@ -20,20 +20,24 @@
 #include "ToolsException.hpp"
 #include "Tools/Tool.hpp"
 
-#include <boost/iostreams/device/mapped_file.hpp>
+#include <system_error>
+#include <mio/mmap.hpp>
 
 namespace Tools
 {
 	//-------------------------------------------------------------------------
 	MappedFile::MappedFile(const std::filesystem::path& path)
 	{
-		boost::iostreams::mapped_file mappedFile(path.string(), boost::iostreams::mapped_file::readonly);
+		// TryCreate guarantees the file exists and is non-empty, so mio does
+		// not need to handle those error cases here.
+		std::error_code error;
+		mio::mmap_source mappedFile = mio::make_mmap_source(path.string(), error);
 
-		if (!mappedFile)
+		if (error)
 			THROW(L"Cannot create mapped file: " + path.wstring());
 
-		auto begin = mappedFile.const_begin();
-		const auto end = mappedFile.const_end();
+		auto begin = mappedFile.begin();
+		const auto end = mappedFile.end();
 		for (auto it = begin; it != end; ++it)
 		{
 			if (*it == '\n')

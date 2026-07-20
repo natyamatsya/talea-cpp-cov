@@ -6,7 +6,6 @@
     "benchmark",
     "boost-algorithm",
     "boost-container",
-    "boost-iostreams",
     "boost-locale",
     "boost-log",
     "boost-program-options",
@@ -15,6 +14,7 @@
     "boost-uuid",
     "ctemplate",
     "gtest",
+    "mio",
     "poco",
     "protobuf"
   ]
