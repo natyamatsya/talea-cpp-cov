@@ -84,8 +84,12 @@ namespace Tools
 			if (written == 0)
 				THROW("Cannot write process memory");
 
-			if (!FlushInstructionCache(hProcess, startBuffer, written))
-				THROW("Cannot flush memory:");
+			// No FlushInstructionCache: on x86/x64 the instruction cache is
+			// kept coherent with stores by hardware, and the debuggee threads
+			// are suspended during the debug event and serialize on resume, so
+			// patched breakpoints are observed correctly. The call is a no-op
+			// syscall on these architectures; skipping it removes a kernel
+			// transition from the per-hit breakpoint-removal path.
 			totalWritten += written;
 		}
 	}

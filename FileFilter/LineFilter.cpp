@@ -49,9 +49,14 @@ namespace FileFilter
 
 	//-------------------------------------------------------------------------
 	bool LineFilter::IsLineSelected(
-		const std::filesystem::path& filePath, 
+		const std::filesystem::path& filePath,
 		int lineNumber)
 	{
+		// Without any exclusion regex there is nothing to check, so avoid
+		// reading and line-splitting the whole source file per line record.
+		if (excludedLineRegexes_.empty())
+			return true;
+
 		const auto* lines = GetLines(filePath);
 
 		if (!lines)

@@ -104,7 +104,9 @@ namespace CppCoverage
 	void BreakPoint::AdjustEipAfterBreakPointRemoval(HANDLE hThread) const
 	{
 		CONTEXT lcContext;
-		lcContext.ContextFlags = CONTEXT_ALL;
+		// Only the control registers (instruction pointer, flags) are read
+		// and written here, so avoid the cost of a full CONTEXT_ALL fetch.
+		lcContext.ContextFlags = CONTEXT_CONTROL;
 		if (!GetThreadContext(hThread, &lcContext))
 			THROW_LAST_ERROR("Error in GetThreadContext", GetLastError());
 
@@ -122,7 +124,7 @@ namespace CppCoverage
 	{
 		const DWORD trapFlag = 0x100;
 		CONTEXT lcContext;
-		lcContext.ContextFlags = CONTEXT_ALL;
+		lcContext.ContextFlags = CONTEXT_CONTROL;
 		if (!GetThreadContext(hThread, &lcContext))
 			THROW_LAST_ERROR("Error in GetThreadContext", GetLastError());
 

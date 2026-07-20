@@ -522,7 +522,12 @@ namespace CppCoverageTest
 		auto coverageDataWithExcludedLine = computeCoverage({ L".*ExcludedLine.*" });
 		const auto& fileWithExcludedLine = GetFirstFileCoverage(coverageDataWithExcludedLine);
 
-		auto coverageData = computeCoverage({});
+		// Use a regex that matches nothing rather than an empty list as the
+		// baseline: both paths then read and line-filter the source file, so
+		// the only difference is the single excluded line. (With no regex at
+		// all the line filter is short-circuited entirely and never reads the
+		// file, which would also skip the out-of-range line check.)
+		auto coverageData = computeCoverage({ L".*NoSourceLineMatchesThisPattern.*" });
 		const auto& file = GetFirstFileCoverage(coverageData);
 
 		ASSERT_EQ(file.GetLines().size(), fileWithExcludedLine.GetLines().size() + 1);

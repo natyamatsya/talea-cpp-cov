@@ -63,7 +63,12 @@ namespace CppCoverage
 	class CPPCOVERAGE_DLL DebugInformationEnumerator
 	{
 	  public:
-		explicit DebugInformationEnumerator(const std::vector<SubstitutePdbSourcePath>&);
+		// needSymbolIndex controls whether the (expensive) DIA symbol index
+		// is resolved per line record. It is only consumed by the optimized
+		// build filter, so it defaults to off.
+		explicit DebugInformationEnumerator(
+		    const std::vector<SubstitutePdbSourcePath>&,
+		    bool needSymbolIndex = false);
 		bool Enumerate(const std::filesystem::path&,
 		               IDebugInformationHandler&);
 
@@ -78,5 +83,6 @@ namespace CppCoverage
 
 		std::vector<IDebugInformationHandler::Line> lines_;
 		const std::vector<SubstitutePdbSourcePath> substitutePdbSourcePaths_;
+		const bool needSymbolIndex_;
 	};
 }

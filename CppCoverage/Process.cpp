@@ -52,7 +52,37 @@ namespace CppCoverage
 			}
 
 			return commandLine;
-		}		
+		}
+
+		//---------------------------------------------------------------------
+		// Builds an environment block inheriting the current environment plus
+		// _NO_DEBUG_HEAP=1. A process created by a debugger otherwise uses the
+		// slow NT debug heap (tail checking, fill patterns, serialized
+		// validation), which makes allocation-heavy debuggees markedly slower.
+		std::vector<wchar_t> CreateEnvironmentWithoutDebugHeap()
+		{
+			std::vector<wchar_t> block;
+
+			auto* environment = GetEnvironmentStringsW();
+			if (environment)
+			{
+				const wchar_t* entry = environment;
+				while (*entry)
+				{
+					auto length = wcslen(entry);
+					block.insert(block.end(), entry, entry + length + 1);
+					entry += length + 1;
+				}
+				FreeEnvironmentStringsW(environment);
+			}
+
+			static const wchar_t noDebugHeap[] = L"_NO_DEBUG_HEAP=1";
+			// std::end includes the terminating null of the string literal.
+			block.insert(block.end(), std::begin(noDebugHeap), std::end(noDebugHeap));
+			block.push_back(L'\0'); // final block terminator
+
+			return block;
+		}
 	}
 
 	const std::wstring Process::CannotFindPathMessage = L"Cannot find path: ";
@@ -92,6 +122,7 @@ namespace CppCoverage
 		const auto* workindDirectory = startInfo_.GetWorkingDirectory();
 		auto optionalCommandLine = CreateCommandLine(startInfo_.GetArguments());
 		auto commandLine = (optionalCommandLine) ? &(*optionalCommandLine)[0] : nullptr;
+		auto environment = CreateEnvironmentWithoutDebugHeap();
 
 		processInformation_ = PROCESS_INFORMATION{};
 		if (!CreateProcess(
@@ -100,8 +131,8 @@ namespace CppCoverage
 			nullptr,
 			nullptr,
 			FALSE,
-			creationFlags,
-			nullptr,
+			creationFlags | CREATE_UNICODE_ENVIRONMENT,
+			environment.data(),
 			(workindDirectory) ? workindDirectory->c_str() : nullptr,
 			&lpStartupInfo,
 			&*processInformation_

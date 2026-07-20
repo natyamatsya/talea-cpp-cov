@@ -17,6 +17,7 @@
 #pragma once
 
 #include <memory>
+#include <sstream>
 
 #include "Plugin/Exporter/CoverageData.hpp"
 #include "IDebugEventsHandler.hpp"
@@ -72,6 +73,7 @@ namespace CppCoverage
 		std::unique_ptr<ExceptionHandler> exceptionHandler_;
 		std::shared_ptr<Tools::WarningManager> warningManager_;
 		std::shared_ptr<FilterAssistant> filterAssistant_;
+		std::wostringstream exceptionMessage_;
 	};
 }
 

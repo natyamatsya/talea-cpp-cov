@@ -214,8 +214,10 @@ namespace CppCoverage
 
 	//--------------------------------------------------------------------------
 	DebugInformationEnumerator::DebugInformationEnumerator(
-	    const std::vector<SubstitutePdbSourcePath>& substitutePdbSourcePaths)
+	    const std::vector<SubstitutePdbSourcePath>& substitutePdbSourcePaths,
+	    bool needSymbolIndex)
 		: substitutePdbSourcePaths_{ substitutePdbSourcePaths }
+		, needSymbolIndex_{ needSymbolIndex }
 	{
 	}
 
@@ -293,17 +295,24 @@ namespace CppCoverage
 			if (lineNumber.get_virtualAddress(&virtualAddress) != S_OK)
 				THROW("DIA: Cannot get virtual address");
 
-			CComPtr<IDiaSymbol> symbol;
-			if (session.findSymbolByVA(
-			        virtualAddress, SymTagEnum::SymTagNull, &symbol) != S_OK ||
-			    !symbol)
-			{
-				THROW("DIA: Cannot find symbol");
-			}
-
+			// findSymbolByVA is a full symbol-table query per line record and
+			// its result (the symbol index) is only used by the optimized
+			// build filter, so skip it entirely otherwise.
 			unsigned long symIndex = 0;
-			if (symbol->get_symIndexId(&symIndex) != S_OK)
-				THROW("DIA: Cannot get symIndex");
+			if (needSymbolIndex_)
+			{
+				CComPtr<IDiaSymbol> symbol;
+				if (session.findSymbolByVA(virtualAddress,
+				                           SymTagEnum::SymTagNull,
+				                           &symbol) != S_OK ||
+				    !symbol)
+				{
+					THROW("DIA: Cannot find symbol");
+				}
+
+				if (symbol->get_symIndexId(&symIndex) != S_OK)
+					THROW("DIA: Cannot get symIndex");
+			}
 
 			DWORD length = 0;
 			if (lineNumber.get_length(&length) != S_OK)

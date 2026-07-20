@@ -79,7 +79,9 @@ namespace CppCoverage
 		    breakpoint_,
 		    executedAddressManager_,
 		    coverageFilterManager_,
-		    std::make_unique<DebugInformationEnumerator>(settings.GetSubstitutePdbSourcePaths()),
+		    std::make_unique<DebugInformationEnumerator>(
+		        settings.GetSubstitutePdbSourcePaths(),
+		        settings.GetOptimizedBuildSupport()),
 			filterAssistant_,
 			branchCoverageManager_);
 
@@ -146,9 +148,13 @@ namespace CppCoverage
 		HANDLE hThread, 
 		const EXCEPTION_DEBUG_INFO& exceptionDebugInfo)
 	{
-		std::wostringstream ostr;
-		
-		auto status = exceptionHandler_->HandleException(hProcess, exceptionDebugInfo, ostr);
+		// Reuse the stream across events instead of constructing a fresh
+		// wostringstream (and re-imbuing the locale) on every debug event.
+		exceptionMessage_.str(std::wstring{});
+		exceptionMessage_.clear();
+
+		auto status = exceptionHandler_->HandleException(
+		    hProcess, exceptionDebugInfo, exceptionMessage_);
 
 		switch (status)
 		{
@@ -174,13 +180,13 @@ namespace CppCoverage
 			}
 			case CppCoverage::ExceptionHandlerStatus::Error:
 			{
-				LOG_ERROR << ostr.str();
-				
+				LOG_ERROR << exceptionMessage_.str();
+
 				return IDebugEventsHandler::ExceptionType::Error;
 			}
 			case CppCoverage::ExceptionHandlerStatus::CppError:
 			{
-				LOG_ERROR << ostr.str();
+				LOG_ERROR << exceptionMessage_.str();
 
 				return IDebugEventsHandler::ExceptionType::CppError;
 			}
