@@ -50,11 +50,11 @@ namespace Exporter
 		{
 			fileProtoBuff.set_path(Tools::ToUtf8String(file.GetPath().wstring()));
 
-			for (const auto& line : file.GetLines())
+			for (const auto& [lineNumber, line] : file.GetLineCollection())
 			{
 				auto lineProtoBuff = fileProtoBuff.add_lines();
 
-				lineProtoBuff->set_linenumber(line.GetLineNumber());
+				lineProtoBuff->set_linenumber(lineNumber);
 				lineProtoBuff->set_hasbeenexecuted(line.HasBeenExecuted());
 
 				for (const auto& branch : line.GetBranches())

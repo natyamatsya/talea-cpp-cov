@@ -38,6 +38,10 @@ namespace Plugin
 		const LineCoverage* operator[](unsigned int line) const;
 		std::vector<LineCoverage> GetLines() const;
 
+		// Zero-copy access to the lines (ordered by line number). Prefer this
+		// over GetLines() on hot paths; GetLines() copies every line.
+		const std::map<unsigned int, LineCoverage>& GetLineCollection() const;
+
 		FileCoverage& operator=(const FileCoverage&) = default;
 
 	private:

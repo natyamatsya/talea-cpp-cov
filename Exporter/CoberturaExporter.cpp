@@ -222,7 +222,7 @@ namespace Exporter
 			writer.OpenTag(L"methods");
 			writer.CloseEmpty();
 
-			auto lines = file.GetLines();
+			const auto& lines = file.GetLineCollection();
 			if (lines.empty())
 			{
 				writer.OpenTag(L"lines");
@@ -232,11 +232,10 @@ namespace Exporter
 			{
 				writer.OpenTag(L"lines");
 				writer.CloseWithChildren();
-				for (const auto& line : lines)
+				for (const auto& [lineNumber, line] : lines)
 				{
 					writer.OpenTag(L"line");
-					writer.Attr(L"number",
-					            std::to_wstring(line.GetLineNumber()));
+					writer.Attr(L"number", std::to_wstring(lineNumber));
 					writer.Attr(L"hits",
 					            line.HasBeenExecuted() ? L"1" : L"0");
 

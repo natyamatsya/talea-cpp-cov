@@ -104,6 +104,13 @@ namespace Plugin
 	}
 		
 	//-------------------------------------------------------------------------
+	const std::map<unsigned int, LineCoverage>&
+	FileCoverage::GetLineCollection() const
+	{
+		return lines_;
+	}
+
+	//-------------------------------------------------------------------------
 	std::vector<LineCoverage> FileCoverage::GetLines() const
 	{
 		std::vector<LineCoverage> lines;

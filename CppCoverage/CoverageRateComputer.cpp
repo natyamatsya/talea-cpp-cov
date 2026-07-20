@@ -34,7 +34,7 @@ namespace CppCoverage
 			int coveredBranches = 0;
 			int totalBranches = 0;
 
-			for (const auto& lineCoverage : file.GetLines())
+			for (const auto& [lineNumber, lineCoverage] : file.GetLineCollection())
 			{
 				if (lineCoverage.HasBeenExecuted())
 					++executedLines;

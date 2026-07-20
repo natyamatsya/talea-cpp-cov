@@ -76,9 +76,8 @@ namespace CppCoverage
 		{
 			if (sourceFile && destinationFile)
 			{
-				for (const auto& line : sourceFile->GetLines())
+				for (const auto& [lineNumber, line] : sourceFile->GetLineCollection())
 				{
-					auto lineNumber = line.GetLineNumber();
 					auto hasBeenExecuted = line.HasBeenExecuted();
 
 					if (!(*destinationFile)[lineNumber])
