@@ -63,7 +63,10 @@ namespace FileFilterTest
 
 		// Example: "      CCF  HIGHLOW            1001C3E8"
 		//       or "      150  DIR64      000000018001B7D0"
-		std::regex r(R"(^\s*[[:xdigit:]]*\s*(HIGHLOW|DIR64)\s*([[:xdigit:]]*))");
+		// multiline: recent MSVC versions no longer match '^' at the
+		// beginning of every line by default.
+		std::regex r(R"(^\s*[[:xdigit:]]*\s*(HIGHLOW|DIR64)\s*([[:xdigit:]]*))",
+		             std::regex::ECMAScript | std::regex::multiline);
 
 		while (std::regex_search(current, end, match, r))
 		{			
@@ -87,8 +90,9 @@ namespace FileFilterTest
 		const std::string value = TestHelper::RunProcess(dumpBinPath, args);
 		std::smatch match;
 		
-		// Example: "        10000000 image base (10000000 to 1001FFFF)"		
-		std::regex r(R"(^\s*([[:xdigit:]]*) image base )");
+		// Example: "        10000000 image base (10000000 to 1001FFFF)"
+		std::regex r(R"(^\s*([[:xdigit:]]*) image base )",
+		             std::regex::ECMAScript | std::regex::multiline);
 
 		if (!std::regex_search(value, match, r) || match.size() != 2)
 			throw std::runtime_error("Cannot extract image base");

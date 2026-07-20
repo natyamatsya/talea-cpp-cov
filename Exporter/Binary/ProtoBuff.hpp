@@ -19,6 +19,7 @@
 #pragma warning(push)
 
 #pragma warning(disable: 4244) // conversion from '__int64' to 'int', possible loss of data
+#pragma warning(disable: 4267) // conversion from 'size_t' to 'uint32_t', possible loss of data
 
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>

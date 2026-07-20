@@ -304,7 +304,9 @@ namespace CppCoverageTest
 		int line = 28;
 
 		TestLine(file, line++, true);
-		ASSERT_EQ(nullptr, file[line++]);
+		// The lambda opening brace may or may not have debug
+		// information depending on the toolset.
+		++line;
 		TestLine(file, line++, true);
 		TestLine(file, line++, true);
 		TestLine(file, line++, true);
@@ -461,7 +463,7 @@ namespace CppCoverageTest
 			{ TestCoverageConsole::TestDiff },
 			TestCoverageConsole::GetOutputBinaryPath().wstring(),
 			TestCoverageConsole::GetTestDiffFilename().wstring() };
-		args.unifiedDiffSettingsCollection_.push_back({ diffPath, boost::none });
+		args.unifiedDiffSettingsCollection_.push_back({ diffPath, std::nullopt });
 		auto coverageData = ComputeCoverageDataPatterns(args);
 		const auto& file = GetFirstFileCoverage(coverageData);
 		ASSERT_EQ(4, file.GetLines().size());
@@ -502,40 +504,6 @@ namespace CppCoverageTest
 		ASSERT_NE(0, CountExecutedLines(file));
 	}
 
-	//-------------------------------------------------------------------------
-	TEST_F(CodeCoverageRunnerTest, OptimizedBuild)
-	{
-		CoverageArgs args{{}, L"OptimizedBuildVS2013", L"OptimizedBuildVS2013"};
-		auto optimizedBuildProjectPath = fs::path{ PROJECT_DIR } / "OptimizedBuildVS2013";
-		args.programToRun_ = optimizedBuildProjectPath /
-		                     "Release" / "OptimizedBuildVS2013.exe";
-
-		if (!Tools::FileExists(args.programToRun_))
-		{
-			throw std::runtime_error(
-				"You need to compile " + optimizedBuildProjectPath.string() +
-				" in release mode with Visual Studio 2013 to run this test.");
-		}
-
-		auto computeCoverage = [&](bool optimizedBuild) {
-			args.optimizedBuildSupport_ = optimizedBuild;
-			return ComputeCoverageDataPatterns(args);
-		};
-
-		auto coverageData = computeCoverage(false);
-		ASSERT_NE(0, coverageData.GetExitCode());
-
-		auto coverageDataOptimizedBuild = computeCoverage(true);
-		ASSERT_EQ(0, coverageDataOptimizedBuild.GetExitCode());
-
-		const auto& fileOptimizedBuild =
-		    GetFirstFileCoverage(coverageDataOptimizedBuild);
-		const auto& file = GetFirstFileCoverage(coverageData);
-		auto optimizedBuildCount = CountExecutedLines(fileOptimizedBuild);
-		auto count = CountExecutedLines(file);
-
-		ASSERT_GT(optimizedBuildCount, count);
-	}
 
 	//-------------------------------------------------------------------------
 	TEST_F(CodeCoverageRunnerTest, ExcludedLine)

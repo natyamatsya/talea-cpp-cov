@@ -15,6 +15,11 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+
+// Protobuf and abseil headers raise conversion warnings when their
+// templates are instantiated, which happens after any warning(pop).
+#pragma warning(disable : 4018 4244 4267)
+
 #include "CoverageDataDeserializer.hpp"
 
 #include <fstream>
@@ -32,7 +37,7 @@
 #include "CoverageDataSerializer.hpp"
 #include "ProtoBuff.hpp"
 
-namespace pb = ProtoBuff;
+namespace covpb = ProtoBuff;
 
 namespace Exporter
 {
@@ -58,14 +63,14 @@ namespace Exporter
 		//---------------------------------------------------------------------
 		void InitCoverageDataFrom(
 			google::protobuf::io::CodedInputStream&  input,
-			const pb::CoverageData& coverageDataProtoBuff,
+			const covpb::CoverageData& coverageDataProtoBuff,
 			Plugin::CoverageData& coverageData)
 		{
 			auto moduleCount = coverageDataProtoBuff.modulecount();
 
 			for (size_t i = 0; i < moduleCount; ++i)
 			{
-				pb::ModuleCoverage moduleProtoBuff;
+				covpb::ModuleCoverage moduleProtoBuff;
 
 				ReadMessage(input, moduleProtoBuff);				
 				auto& module = coverageData.AddModule(Tools::Utf8ToWString(moduleProtoBuff.path()));
@@ -104,7 +109,7 @@ namespace Exporter
 			if (!codedInputStream.ReadVarint32(&fileTypeId) || fileTypeId != CoverageDataSerializer::FileTypeId)
 				throw std::runtime_error(errorIfNotCorrectFormat);
 
-			pb::CoverageData coverageDataProtoBuff;
+			covpb::CoverageData coverageDataProtoBuff;
 
 			ReadMessage(codedInputStream, coverageDataProtoBuff);
 

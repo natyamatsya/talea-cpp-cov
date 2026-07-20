@@ -18,5 +18,7 @@
 
 #pragma warning(push)
 #pragma warning(disable: 4146) // unary minus operator applied to unsigned type, result still unsigned
+#pragma warning(disable: 4244) // conversion, possible loss of data
+#pragma warning(disable: 4267) // conversion from 'size_t', possible loss of data
 #include "CoverageData.pb.h"
 #pragma warning(pop)

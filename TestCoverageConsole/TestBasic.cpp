@@ -35,6 +35,7 @@ namespace TestCoverageConsole
 		{
 			int answer = 42;
 		}
+		volatile int excludedLine = 42; // For CodeCoverageRunnerTest::ExcludedLine
 	}
 
 	//-------------------------------------------------------------------------
@@ -70,6 +71,4 @@ namespace TestCoverageConsole
 
 		auto fct = (void (*)())GetProcAddress(module, "TestUnloadDll");
 		fct();	}
-
-	const std::string ExcludedLine = "For CodeCoverageRunnerTest::ExcludedLine";
 }

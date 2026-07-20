@@ -15,6 +15,11 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+
+// Protobuf and abseil headers raise conversion warnings when their
+// templates are instantiated, which happens after any warning(pop).
+#pragma warning(disable : 4018 4244 4267)
+
 #include "CoverageDataSerializer.hpp"
 #include <fstream>
 
@@ -32,7 +37,7 @@
 #include "ProtoBuff.hpp"
 #include "../InvalidOutputFileException.hpp"
 
-namespace pb = ProtoBuff;
+namespace covpb = ProtoBuff;
 
 namespace Exporter
 {
@@ -41,7 +46,7 @@ namespace Exporter
 		//---------------------------------------------------------------------
 		void InitializeProtoBuffFrom(
 			const Plugin::FileCoverage& file,
-			pb::FileCoverage& fileProtoBuff)
+			covpb::FileCoverage& fileProtoBuff)
 		{
 			fileProtoBuff.set_path(Tools::ToUtf8String(file.GetPath().wstring()));
 
@@ -67,7 +72,7 @@ namespace Exporter
 		//---------------------------------------------------------------------
 		void InitializeModuleProtoBuffFrom(
 			const Plugin::ModuleCoverage& module,
-			pb::ModuleCoverage& moduleProtoBuff)
+			covpb::ModuleCoverage& moduleProtoBuff)
 		{
 			moduleProtoBuff.set_path(Tools::ToUtf8String(module.GetPath().wstring()));
 			
@@ -81,7 +86,7 @@ namespace Exporter
 		//---------------------------------------------------------------------
 		void FillCoverageDataProtoBuffFrom(
 			const Plugin::CoverageData& coverageData,
-			pb::CoverageData& coverageDataProtoBuff)
+			covpb::CoverageData& coverageDataProtoBuff)
 		{
 			coverageDataProtoBuff.set_name(Tools::ToUtf8String(coverageData.GetName()));
 			coverageDataProtoBuff.set_exitcode(coverageData.GetExitCode());
@@ -107,7 +112,7 @@ namespace Exporter
 		const Plugin::CoverageData& coverageData,
 		const std::filesystem::path& output) const
 	{		
-		pb::CoverageData coverageDataProtoBuff;
+		covpb::CoverageData coverageDataProtoBuff;
 		Tools::CreateParentFolderIfNeeded(output);
 
 		std::ofstream ofs(output.string(), std::ios::binary);
@@ -126,7 +131,7 @@ namespace Exporter
 		// See https://developers.google.com/protocol-buffers/docs/techniques#large-data
 		for (const auto& module : coverageData.GetModules())
 		{
-			pb::ModuleCoverage moduleProtoBuff;
+			covpb::ModuleCoverage moduleProtoBuff;
 			InitializeModuleProtoBuffFrom(*module, moduleProtoBuff);
 
 			WriteMessage(moduleProtoBuff, codedOutputStream);

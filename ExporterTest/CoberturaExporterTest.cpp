@@ -141,9 +141,9 @@ namespace ExporterTest
 		Exporter::CoberturaExporter().Export(coverageData, ostr);
 		auto result = ostr.str();
 
-		auto packageName = Tools::LocalToWString(u8"package name=\"יא\"");
-		auto name = Tools::LocalToWString(u8"class name=\"יא\"");
-		auto filename = Tools::LocalToWString(u8"filename=\"יא\"");
+		auto packageName = Tools::LocalToWString(reinterpret_cast<const char*>(u8"package name=\"יא\""));
+		auto name = Tools::LocalToWString(reinterpret_cast<const char*>(u8"class name=\"יא\""));
+		auto filename = Tools::LocalToWString(reinterpret_cast<const char*>(u8"filename=\"יא\""));
 
 		ASSERT_TRUE(boost::algorithm::contains(result, packageName));
 		ASSERT_TRUE(boost::algorithm::contains(result, name));
