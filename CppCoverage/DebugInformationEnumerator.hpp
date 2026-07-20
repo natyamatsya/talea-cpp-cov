@@ -24,6 +24,7 @@
 struct IDiaSession;
 struct IDiaLineNumber;
 struct IDiaSourceFile;
+struct IDiaEnumLineNumbers;
 
 namespace CppCoverage
 {
@@ -73,15 +74,13 @@ namespace CppCoverage
 		               IDebugInformationHandler&);
 
 	  private:
-		void
-		EnumLines(IDiaSession&, IDiaSourceFile&, IDebugInformationHandler&);
-		void
-		OnNewLine(IDiaSession&, IDiaLineNumber&, IDebugInformationHandler&);
+		void OnNewLine(IDiaSession&,
+		               IDiaLineNumber&,
+		               std::vector<IDebugInformationHandler::Line>&);
 
 		std::filesystem::path
 		GetSourceFileName(IDiaSourceFile&) const;
 
-		std::vector<IDebugInformationHandler::Line> lines_;
 		const std::vector<SubstitutePdbSourcePath> substitutePdbSourcePaths_;
 		const bool needSymbolIndex_;
 	};

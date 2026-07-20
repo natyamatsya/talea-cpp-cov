@@ -98,6 +98,11 @@ namespace CppCoverageTest
 		auto lineWithDebugInfo = GetLineNumbersWithTag(
 		    debugInformationHandler.selectedFullPath_, L"@DebugInfoExpected");
 
+		// The enumerator does not guarantee an order for the line records of
+		// a file (the single-pass enumeration groups by source file id), so
+		// compare the collected line numbers as an ordered set.
+		std::sort(debugInformationHandler.lines_.begin(),
+		          debugInformationHandler.lines_.end());
 		ASSERT_EQ(debugInformationHandler.lines_, lineWithDebugInfo);
 		ASSERT_NE(0, debugInformationHandler.lineWithLengthCount_);
 	}

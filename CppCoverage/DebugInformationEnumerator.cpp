@@ -23,6 +23,7 @@
 #include <atlbase.h>
 
 #include <filesystem>
+#include <unordered_map>
 #include <boost/algorithm/string.hpp>
 
 #include "tools/Log.hpp"
@@ -114,6 +115,22 @@ namespace CppCoverage
 			});
 
 			return sourceFiles;
+		}
+
+		//----------------------------------------------------------------------
+		CComPtr<IDiaEnumLineNumbers> GetAllLineNumbers(IDiaSession& session)
+		{
+			// A single query over the whole image returns every line record
+			// in one pass. The session load address defaults to 0, so line
+			// records report RVAs directly.
+			CComPtr<IDiaEnumLineNumbers> lineNumbers;
+			if (session.findLinesByRVA(0, 0xFFFFFFFF, &lineNumbers) != S_OK ||
+			    !lineNumbers)
+			{
+				THROW("DIA: Cannot find lines");
+			}
+
+			return lineNumbers;
 		}
 
 		//----------------------------------------------------------------------
@@ -235,6 +252,27 @@ namespace CppCoverage
 		if (sourcePtr->openSession(&sessionPtr) != S_OK || !sessionPtr)
 			THROW("DIA: Cannot open session.");
 
+		// Pass 1: enumerate the source files once, keyed by their (remapped)
+		// name, remembering the selection decision and delivery order.
+		// Previously the line data was re-queried once per source file via
+		// get_compilands + findLines, paying a fixed per-call cost for every
+		// header — O(files) findLines calls that dominate startup on large
+		// translation units where many headers share one compiland.
+		//
+		// The name is the key rather than IDiaSourceFile::get_uniqueId because
+		// DIA assigns different unique ids to the source-file objects reached
+		// through the source-files table (pass 1) and through a line record's
+		// get_sourceFile (pass 2); the remapped file name is stable across
+		// both paths.
+		struct FileEntry
+		{
+			std::filesystem::path path_;
+			bool selected_;
+			std::vector<IDebugInformationHandler::Line> lines_;
+		};
+		std::unordered_map<std::wstring, FileEntry> filesByName;
+		std::vector<std::wstring> orderedNames;
+
 		auto sourceFiles = GetEnumSourceFiles(*sessionPtr);
 		if (!sourceFiles)
 			THROW("DIA: cannot get SourceFiles");
@@ -242,47 +280,68 @@ namespace CppCoverage
 		EnumerateCollection<IDiaSourceFile>(
 		    *sourceFiles, [&](IDiaSourceFile& sourceFile) {
 			    auto filename = GetSourceFileName(sourceFile);
-			    if (handler.IsSourceFileSelected(filename))
-			    {
-				    lines_.clear();
-				    EnumLines(*sessionPtr, sourceFile, handler);
-				    handler.OnSourceFile(filename, lines_);
-			    }
+			    auto key = filename.wstring();
+			    if (filesByName.find(key) != filesByName.end())
+				    return;
+
+			    bool selected = handler.IsSourceFileSelected(filename);
+			    orderedNames.push_back(key);
+			    filesByName.emplace(
+			        key, FileEntry{std::move(filename), selected, {}});
 		    });
+
+		// Pass 2: enumerate every line record in the module in one query and
+		// bucket the records of selected files.
+		auto lineNumbers = GetAllLineNumbers(*sessionPtr);
+
+		// Records arrive in RVA order, so consecutive records usually share a
+		// source file: cache the last resolved file to avoid re-reading and
+		// re-mapping the source file name per record.
+		std::wstring lastName;
+		bool hasLastFile = false;
+		FileEntry* lastEntry = nullptr;
+
+		EnumerateCollection<IDiaLineNumber>(
+		    *lineNumbers, [&](IDiaLineNumber& lineNumber) {
+			    CComPtr<IDiaSourceFile> sourceFile;
+			    if (lineNumber.get_sourceFile(&sourceFile) != S_OK ||
+			        !sourceFile)
+			    {
+				    THROW("DIA: Cannot get line source file");
+			    }
+
+			    auto name = GetSourceFileName(*sourceFile).wstring();
+
+			    if (!hasLastFile || name != lastName)
+			    {
+				    auto it = filesByName.find(name);
+				    lastEntry = (it != filesByName.end()) ? &it->second
+				                                          : nullptr;
+				    lastName = std::move(name);
+				    hasLastFile = true;
+			    }
+
+			    if (lastEntry && lastEntry->selected_)
+				    OnNewLine(*sessionPtr, lineNumber, lastEntry->lines_);
+		    });
+
+		// Deliver each selected file (even when empty) in source-file
+		// enumeration order, matching the previous behavior.
+		for (const auto& name : orderedNames)
+		{
+			auto& entry = filesByName[name];
+			if (entry.selected_)
+				handler.OnSourceFile(entry.path_, entry.lines_);
+		}
+
 		return true;
 	}
 
 	//----------------------------------------------------------------------
-	void
-	DebugInformationEnumerator::EnumLines(IDiaSession& session,
-	                                      IDiaSourceFile& sourceFile,
-	                                      IDebugInformationHandler& handler)
-	{
-		CComPtr<IDiaEnumSymbols> symbols;
-		if (sourceFile.get_compilands(&symbols) != S_OK || !symbols)
-			THROW("DIA: Cannot get compilands");
-
-		EnumerateCollection<IDiaSymbol>(*symbols, [&](IDiaSymbol& symbol) {
-			CComPtr<IDiaEnumLineNumbers> lines;
-
-			if (session.findLines(&symbol, &sourceFile, &lines) != S_OK ||
-			    !lines)
-			{
-				THROW("DIA: Cannot find lines");
-			}
-
-			EnumerateCollection<IDiaLineNumber>(
-			    *lines, [&](IDiaLineNumber& lineNumber) {
-				    OnNewLine(session, lineNumber, handler);
-			    });
-		});
-	}
-
-	//----------------------------------------------------------------------
-	void
-	DebugInformationEnumerator::OnNewLine(IDiaSession& session,
-	                                      IDiaLineNumber& lineNumber,
-	                                      IDebugInformationHandler& handler)
+	void DebugInformationEnumerator::OnNewLine(
+	    IDiaSession& session,
+	    IDiaLineNumber& lineNumber,
+	    std::vector<IDebugInformationHandler::Line>& lines)
 	{
 		DWORD linenum = 0;
 		if (lineNumber.get_lineNumber(&linenum) != S_OK)
@@ -318,7 +377,7 @@ namespace CppCoverage
 			if (lineNumber.get_length(&length) != S_OK)
 				THROW("DIA: Cannot get line length");
 
-			lines_.emplace_back(linenum, virtualAddress, symIndex, length);
+			lines.emplace_back(linenum, virtualAddress, symIndex, length);
 		}
 	}
 
