@@ -25,7 +25,11 @@ namespace CppCoverage
 	public:
 		CoverageRate();
 		CoverageRate(int executedLinesCount, int unexecutedLinesCount);
-		
+		CoverageRate(int executedLinesCount,
+		             int unexecutedLinesCount,
+		             int coveredBranchCount,
+		             int totalBranchCount);
+
 		CoverageRate& operator=(const CoverageRate&) = delete;
 		CoverageRate(const CoverageRate&) = default;
 
@@ -35,11 +39,17 @@ namespace CppCoverage
 		int GetPercentRate() const;
 		double GetRate() const;
 
+		int GetCoveredBranchCount() const;
+		int GetTotalBranchCount() const;
+		double GetBranchRate() const;
+
 		CoverageRate& operator+=(const CoverageRate&);
-		
+
 	private:
 		int executedLinesCount_;
 		int unexecutedLinesCount_;
-	}; 	
+		int coveredBranchCount_;
+		int totalBranchCount_;
+	};
 }
 

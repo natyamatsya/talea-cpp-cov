@@ -47,6 +47,7 @@ namespace CppCoverage
 			unsigned char instruction);
 
 		boost::optional<unsigned char> MarkAddressAsExecuted(const Address&);
+		boost::optional<unsigned char> GetOriginalInstruction(const Address&) const;
 
 		Plugin::CoverageData CreateCoverageData(const std::wstring& name, int exitCode) const;
 		void OnExitProcess(HANDLE hProcess);

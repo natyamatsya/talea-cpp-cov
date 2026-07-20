@@ -33,6 +33,7 @@ namespace CppCoverage
 	      continueAfterCppException_{false},
 	      maxUnmatchPathsForWarning_{0},
 	      optimizedBuildSupport_{false},
+	      branchCoverage_{false},
 	      excludedLineRegexes_{excludedLineRegexes},
 	      substitutePdbSourcePath_{substitutePdbSourcePath}
 	{
@@ -66,6 +67,12 @@ namespace CppCoverage
 	void RunCoverageSettings::SetOptimizedBuildSupport(bool optimizedBuildSupport)
 	{
 		optimizedBuildSupport_ = optimizedBuildSupport;
+	}
+
+	//-------------------------------------------------------------------------
+	void RunCoverageSettings::SetBranchCoverage(bool branchCoverage)
+	{
+		branchCoverage_ = branchCoverage;
 	}
 
 	//-------------------------------------------------------------------------
@@ -114,6 +121,12 @@ namespace CppCoverage
 	bool RunCoverageSettings::GetOptimizedBuildSupport() const
 	{
 		return optimizedBuildSupport_;
+	}
+
+	//-------------------------------------------------------------------------
+	bool RunCoverageSettings::GetBranchCoverage() const
+	{
+		return branchCoverage_;
 	}
 
 	//-------------------------------------------------------------------------

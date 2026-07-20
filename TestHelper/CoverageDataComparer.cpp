@@ -38,12 +38,25 @@ namespace TestHelper
 		}
 
 		//---------------------------------------------------------------------
+		void AssertBranchesEquals(
+			const Plugin::BranchCoverage& branch1,
+			const Plugin::BranchCoverage& branch2)
+		{
+			AssertEqual(branch1.GetBranchIndex(), branch2.GetBranchIndex());
+			AssertEqual(branch1.HasBeenTaken(), branch2.HasBeenTaken());
+			AssertEqual(branch1.HasBeenFallenThrough(),
+			            branch2.HasBeenFallenThrough());
+		}
+
+		//---------------------------------------------------------------------
 		void AssertLinesEquals(
 			const Plugin::LineCoverage& line1,
 			const Plugin::LineCoverage& line2)
 		{
 			AssertEqual(line1.GetLineNumber(), line2.GetLineNumber());
 			AssertEqual(line1.HasBeenExecuted(), line2.HasBeenExecuted());
+			AssertContainerEqual(
+			    line1.GetBranches(), line2.GetBranches(), AssertBranchesEquals);
 		}
 
 		//---------------------------------------------------------------------

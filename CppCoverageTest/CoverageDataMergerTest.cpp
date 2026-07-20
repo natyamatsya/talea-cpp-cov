@@ -95,8 +95,50 @@ namespace CppCoverageTest
 	}
 
 	//-------------------------------------------------------------------------
+	TEST(CoverageDataMergerTest, MergeBranches)
+	{
+		auto coverageDatas = CreateCoverageDataCollection(2);
+		const int lineNumber = 42;
+
+		auto& file1 =
+		    coverageDatas[0].AddModule(modulePath).AddFile(filePath);
+		file1.AddLine(lineNumber, true);
+		file1.AddBranch(lineNumber, Plugin::BranchCoverage{0, true, false});
+		file1.AddBranch(lineNumber, Plugin::BranchCoverage{1, false, false});
+
+		auto& file2 =
+		    coverageDatas[1].AddModule(modulePath).AddFile(filePath);
+		file2.AddLine(lineNumber, true);
+		file2.AddBranch(lineNumber, Plugin::BranchCoverage{0, false, true});
+		file2.AddBranch(lineNumber, Plugin::BranchCoverage{2, true, true});
+
+		auto coverageDataMerged =
+		    cov::CoverageDataMerger{}.Merge(coverageDatas);
+
+		const auto& file =
+		    coverageDataMerged.GetModules().at(0)->GetFiles().at(0);
+		const auto* line = (*file)[lineNumber];
+		ASSERT_NE(nullptr, line);
+
+		const auto& branches = line->GetBranches();
+		ASSERT_EQ(3u, branches.size());
+
+		// Branch 0: outcomes are merged.
+		ASSERT_TRUE(branches.at(0).HasBeenTaken());
+		ASSERT_TRUE(branches.at(0).HasBeenFallenThrough());
+
+		// Branch 1: only in the first coverage data.
+		ASSERT_FALSE(branches.at(1).HasBeenTaken());
+		ASSERT_FALSE(branches.at(1).HasBeenFallenThrough());
+
+		// Branch 2: only in the second coverage data.
+		ASSERT_TRUE(branches.at(2).HasBeenTaken());
+		ASSERT_TRUE(branches.at(2).HasBeenFallenThrough());
+	}
+
+	//-------------------------------------------------------------------------
 	TEST(CoverageDataMergerTest, CoverageData)
-	{		 
+	{
 		auto coverageDatas = CreateCoverageDataCollection({ { L"1", 0 }, { L"1", 0 } });
 		auto coverageDataMerged = cov::CoverageDataMerger{}.Merge(coverageDatas);
 

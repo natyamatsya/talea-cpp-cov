@@ -2,10 +2,18 @@ syntax="proto2";
 
 package ProtoBuff;
 
+message BranchCoverage
+{
+	required uint32 branchIndex = 1;
+	required bool hasBeenTaken = 2;
+	required bool hasBeenFallenThrough = 3;
+}
+
 message LineCoverage
-{	
+{
 	required uint32 lineNumber = 1;
 	required bool hasBeenExecuted = 2;
+	repeated BranchCoverage branches = 3;
 }
 
 message FileCoverage

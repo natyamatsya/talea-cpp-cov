@@ -26,6 +26,7 @@
 #include "SpecialLineInfo.hpp"
 #include "TestCoverageConsole.hpp"
 #include "TestBasic.hpp"
+#include "TestBranch.hpp"
 #include "TestThread.hpp"
 #include "FileWithSpecialCharéàè.hpp"
 #include "TestDiff.hpp"
@@ -89,6 +90,8 @@ int _tmain(int argc, _TCHAR* argv[])
 			TestCoverageConsole::FilterByDiff();
 		else if (type == TestCoverageConsole::TestOptimizedBuild)
 			TestCoverageOptimizedBuild::TestOptimizedBuild();
+		else if (type == TestCoverageConsole::TestBranch)
+			TestCoverageConsole::RunTestBranch(argc > 2 && std::wstring(argv[2]) == L"1");
 		else
 			std::wcerr << L"Unsupported type:" << type << std::endl;
 	}

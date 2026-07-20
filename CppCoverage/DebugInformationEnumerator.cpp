@@ -305,7 +305,11 @@ namespace CppCoverage
 			if (symbol->get_symIndexId(&symIndex) != S_OK)
 				THROW("DIA: Cannot get symIndex");
 
-			lines_.emplace_back(linenum, virtualAddress, symIndex);
+			DWORD length = 0;
+			if (lineNumber.get_length(&length) != S_OK)
+				THROW("DIA: Cannot get line length");
+
+			lines_.emplace_back(linenum, virtualAddress, symIndex, length);
 		}
 	}
 

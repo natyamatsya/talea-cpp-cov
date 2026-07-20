@@ -57,6 +57,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Plugin", "Plugin\Plugin.vcx
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PluginTest", "PluginTest\PluginTest.vcxproj", "{69AA0B9B-DA99-4B28-B3FC-49AC3AD0A88A}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Zydis", "Zydis\Zydis.vcxproj", "{B5C7E9D2-3F41-4A8E-9C26-7D5A81B4E063}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -201,6 +203,14 @@ Global
 		{69AA0B9B-DA99-4B28-B3FC-49AC3AD0A88A}.Release|Win32.Build.0 = Release|Win32
 		{69AA0B9B-DA99-4B28-B3FC-49AC3AD0A88A}.Release|x64.ActiveCfg = Release|x64
 		{69AA0B9B-DA99-4B28-B3FC-49AC3AD0A88A}.Release|x64.Build.0 = Release|x64
+		{B5C7E9D2-3F41-4A8E-9C26-7D5A81B4E063}.Debug|Win32.ActiveCfg = Debug|Win32
+		{B5C7E9D2-3F41-4A8E-9C26-7D5A81B4E063}.Debug|Win32.Build.0 = Debug|Win32
+		{B5C7E9D2-3F41-4A8E-9C26-7D5A81B4E063}.Debug|x64.ActiveCfg = Debug|x64
+		{B5C7E9D2-3F41-4A8E-9C26-7D5A81B4E063}.Debug|x64.Build.0 = Debug|x64
+		{B5C7E9D2-3F41-4A8E-9C26-7D5A81B4E063}.Release|Win32.ActiveCfg = Release|Win32
+		{B5C7E9D2-3F41-4A8E-9C26-7D5A81B4E063}.Release|Win32.Build.0 = Release|Win32
+		{B5C7E9D2-3F41-4A8E-9C26-7D5A81B4E063}.Release|x64.ActiveCfg = Release|x64
+		{B5C7E9D2-3F41-4A8E-9C26-7D5A81B4E063}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

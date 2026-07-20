@@ -48,7 +48,9 @@ namespace CppCoverage
 		, isCoverChildrenModeEnabled_{false}
 		, isAggregateByFileModeEnabled_{true}
 		, isContinueAfterCppExceptionModeEnabled_{false}
+		, isStopOnAssertModeEnabled_{false}
 		, isOptimizedBuildSupportEnabled_{false}
+		, isBranchCoverageModeEnabled_{false}
 	{
 		if (startInfo)
 			optionalStartInfo_ = *startInfo;
@@ -196,6 +198,18 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
+	void Options::EnableBranchCoverageMode()
+	{
+		isBranchCoverageModeEnabled_ = true;
+	}
+
+	//-------------------------------------------------------------------------
+	bool Options::IsBranchCoverageModeEnabled() const
+	{
+		return isBranchCoverageModeEnabled_;
+	}
+
+	//-------------------------------------------------------------------------
 	void Options::AddExcludedLineRegex(const std::wstring& excludedRegex)
 	{
 		excludedLineRegexes_.push_back(excludedRegex);
@@ -231,6 +245,7 @@ namespace CppCoverage
 		ostr << L"Aggregate by file: " << options.isAggregateByFileModeEnabled_ << std::endl;
 		ostr << L"Continue after C++ exception: " << options.isContinueAfterCppExceptionModeEnabled_ << std::endl;
 		ostr << L"Optimized build support: " << options.isOptimizedBuildSupportEnabled_ << std::endl;
+		ostr << L"Branch coverage: " << options.isBranchCoverageModeEnabled_ << std::endl;
 
 		ostr << L"Export: ";
 		for (const auto& optionExport : options.exports_)

@@ -75,7 +75,19 @@ namespace Exporter
 					auto& file = module.AddFile(Tools::Utf8ToWString(fileProtoBuff.path()));
 
 					for (const auto& line : fileProtoBuff.lines())
+					{
 						file.AddLine(line.linenumber(), line.hasbeenexecuted());
+
+						for (const auto& branch : line.branches())
+						{
+							file.AddBranch(
+							    line.linenumber(),
+							    Plugin::BranchCoverage{
+							        branch.branchindex(),
+							        branch.hasbeentaken(),
+							        branch.hasbeenfallenthrough()});
+						}
+					}
 				}
 			}
 		}		

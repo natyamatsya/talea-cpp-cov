@@ -33,6 +33,7 @@ namespace CppCoverage
 	class RunCoverageSettings;
 	class DebugInformationEventHandler;
 	class ExecutedAddressManager;
+	class BranchCoverageManager;
 	class BreakPoint;
 	class CoverageFilterManager;
 	class ExceptionHandler;
@@ -65,6 +66,7 @@ namespace CppCoverage
 	private:
 		std::shared_ptr<BreakPoint> breakpoint_;
 		std::shared_ptr<ExecutedAddressManager> executedAddressManager_;
+		std::shared_ptr<BranchCoverageManager> branchCoverageManager_;
 		std::shared_ptr<CoverageFilterManager> coverageFilterManager_;
 		std::unique_ptr<MonitoredLineRegister> monitoredLineRegister_;
 		std::unique_ptr<ExceptionHandler> exceptionHandler_;

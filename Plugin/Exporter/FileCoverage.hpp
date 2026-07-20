@@ -31,6 +31,8 @@ namespace Plugin
 
 		void AddLine(unsigned int lineNumber, bool hasBeenExecuted);
 		void UpdateLine(unsigned int lineNumber, bool hasBeenExecuted);
+		void AddBranch(unsigned int lineNumber, const BranchCoverage&);
+		void MergeBranch(unsigned int lineNumber, const BranchCoverage&);
 
 		const std::filesystem::path& GetPath() const;
 		const LineCoverage* operator[](unsigned int line) const;

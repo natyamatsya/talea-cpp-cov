@@ -24,6 +24,9 @@
 #include "CppCoverage/ExportOptionParser.hpp"
 #include "CppCoverage/ProgramOptions.hpp"
 #include "Plugin/Exporter/CoverageData.hpp"
+#include "Plugin/Exporter/ModuleCoverage.hpp"
+#include "Plugin/Exporter/FileCoverage.hpp"
+#include "Plugin/Exporter/LineCoverage.hpp"
 #include "CppCoverage/OptionsParser.hpp"
 
 #include "Exporter/binary/CoverageDataDeserializer.hpp"
@@ -109,6 +112,62 @@ namespace OpenCppCoverageTest
 
 		coverageDataComparer.AssertEquals(initialCoverage, finalCoverage);
 	}	
+
+	//-------------------------------------------------------------------------
+	TEST(ImportExportTest, ExportImportBinaryWithBranches)
+	{
+		fs::path testCoverageConsole =
+		    TestCoverageConsole::GetOutputBinaryPath();
+		const std::vector<std::wstring> programArguments{
+		    TestCoverageConsole::TestBranch, L"1"};
+		TestHelper::TemporaryPath initialOutput;
+
+		std::vector<std::pair<std::string, std::string>> coverageArguments{
+		    BuildExportTypeString(
+		        cov::ExportOptionParser::ExportTypeBinaryValue, initialOutput),
+		    {cov::ProgramOptions::BranchCoverageOption, ""}};
+		AddDefaultFilters(coverageArguments, testCoverageConsole);
+		coverageArguments.emplace_back(cov::ProgramOptions::QuietOption, "");
+		ASSERT_EQ(0,
+		          RunCoverageFor(
+		              coverageArguments, testCoverageConsole, programArguments));
+
+		auto initialCoverage = ReadCoverageDataFromFile(initialOutput);
+
+		// The branch data must survive the import of the binary export.
+		// Run the same program again to have the same coverage.
+		TestHelper::TemporaryPath finalOutput;
+		std::vector<std::pair<std::string, std::string>> importArguments{
+		    {cov::ProgramOptions::InputCoverageValue,
+		     initialOutput.GetPath().string()},
+		    BuildExportTypeString(
+		        cov::ExportOptionParser::ExportTypeBinaryValue, finalOutput),
+		    {cov::ProgramOptions::BranchCoverageOption, ""}};
+		AddDefaultFilters(importArguments, testCoverageConsole);
+		importArguments.emplace_back(cov::ProgramOptions::QuietOption, "");
+		ASSERT_EQ(0,
+		          RunCoverageFor(
+		              importArguments, testCoverageConsole, programArguments));
+		auto finalCoverage = ReadCoverageDataFromFile(finalOutput);
+
+		TestHelper::CoverageDataComparer().AssertEquals(initialCoverage,
+		                                                finalCoverage);
+
+		// The initial coverage data must contain branches.
+		bool hasBranches = false;
+		for (const auto& module : initialCoverage.GetModules())
+		{
+			for (const auto& file : module->GetFiles())
+			{
+				for (const auto& line : file->GetLines())
+				{
+					if (!line.GetBranches().empty())
+						hasBranches = true;
+				}
+			}
+		}
+		ASSERT_TRUE(hasBranches);
+	}
 
 	//-------------------------------------------------------------------------
 	TEST(ImportExportTest, ExportPlugin)

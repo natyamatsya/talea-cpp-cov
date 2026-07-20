@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<coverage line-rate="0.5" branch-rate="0.5" complexity="0" branches-covered="3" branches-valid="6" timestamp="TIMESTAMP" lines-covered="2" lines-valid="4" version="0">
+  <sources>
+    <source/>
+  </sources>
+  <packages>
+    <package name="Module" line-rate="0.5" branch-rate="0.5" complexity="0">
+      <classes>
+        <class name="File" filename="File" line-rate="0.5" branch-rate="0.5" complexity="0">
+          <methods/>
+          <lines>
+            <line number="10" hits="1" branch="true" condition-coverage="75% (3/4)">
+              <conditions>
+                <condition number="0" type="jump" coverage="50%"/>
+                <condition number="1" type="jump" coverage="100%"/>
+              </conditions>
+            </line>
+            <line number="20" hits="0" branch="true" condition-coverage="0% (0/2)">
+              <conditions>
+                <condition number="0" type="jump" coverage="0%"/>
+              </conditions>
+            </line>
+            <line number="30" hits="1"/>
+            <line number="40" hits="0"/>
+          </lines>
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>

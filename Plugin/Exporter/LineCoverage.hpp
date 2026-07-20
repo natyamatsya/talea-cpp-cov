@@ -16,7 +16,10 @@
 
 #pragma once
 
+#include <vector>
+
 #include "../PluginExport.hpp"
+#include "BranchCoverage.hpp"
 
 namespace Plugin
 {
@@ -25,13 +28,20 @@ namespace Plugin
 	public:
 		LineCoverage(unsigned int lineNumber, bool hasBeenExecuted);
 		LineCoverage(const LineCoverage&) = default;
-		
+		LineCoverage& operator=(const LineCoverage&) = default;
+
 		unsigned int GetLineNumber() const;
 		bool HasBeenExecuted() const;
-		
+		void SetHasBeenExecuted(bool);
+
+		void AddBranch(const BranchCoverage&);
+		void MergeBranch(const BranchCoverage&);
+		const std::vector<BranchCoverage>& GetBranches() const;
+
 	private:
 		unsigned int lineNumber_;
 		bool hasBeenExecuted_;
+		std::vector<BranchCoverage> branches_;
 	};
 }
 

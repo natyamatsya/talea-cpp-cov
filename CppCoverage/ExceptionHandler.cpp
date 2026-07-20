@@ -30,6 +30,9 @@ namespace CppCoverage
 	const std::wstring ExceptionHandler::ExceptionAccesViolation = L"EXCEPTION_ACCESS_VIOLATION";
 	const std::wstring ExceptionHandler::ExceptionUnknown = L"Unknown";
 	const int ExceptionHandler::ExceptionEmulationX86ErrorCode = 0x4000001f;
+	// STATUS_WX86_SINGLE_STEP
+	const int ExceptionHandler::ExceptionEmulationX86SingleStepErrorCode =
+	    0x4000001e;
 	const int ExceptionHandler::CppExceptionErrorCode = 0xE06D7363;
 
 	//-------------------------------------------------------------------------
@@ -78,6 +81,13 @@ namespace CppCoverage
 
 		if (exceptionDebugInfo.dwFirstChance)
 		{
+			if (exceptionCode == EXCEPTION_SINGLE_STEP ||
+			    exceptionCode ==
+			        static_cast<DWORD>(ExceptionEmulationX86SingleStepErrorCode))
+			{
+				return ExceptionHandlerStatus::SingleStep;
+			}
+
 			auto it = breakPointExceptionCode_.find(exceptionCode);
 			
 			if (it != breakPointExceptionCode_.end())

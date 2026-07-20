@@ -27,8 +27,19 @@ namespace CppCoverage
 
 	//-------------------------------------------------------------------------
 	CoverageRate::CoverageRate(int executedLinesCount, int unexecutedLinesCount)
+		: CoverageRate{ executedLinesCount, unexecutedLinesCount, 0, 0 }
+	{
+	}
+
+	//-------------------------------------------------------------------------
+	CoverageRate::CoverageRate(int executedLinesCount,
+	                           int unexecutedLinesCount,
+	                           int coveredBranchCount,
+	                           int totalBranchCount)
 		: executedLinesCount_{ executedLinesCount }
 		, unexecutedLinesCount_{ unexecutedLinesCount }
+		, coveredBranchCount_{ coveredBranchCount }
+		, totalBranchCount_{ totalBranchCount }
 	{
 	}
 		
@@ -67,10 +78,34 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
+	int CoverageRate::GetCoveredBranchCount() const
+	{
+		return coveredBranchCount_;
+	}
+
+	//-------------------------------------------------------------------------
+	int CoverageRate::GetTotalBranchCount() const
+	{
+		return totalBranchCount_;
+	}
+
+	//-------------------------------------------------------------------------
+	double CoverageRate::GetBranchRate() const
+	{
+		// Returns 0 when there is no branch to keep the same value as
+		// before branch coverage was implemented.
+		if (totalBranchCount_ == 0)
+			return 0.0;
+		return static_cast<double>(coveredBranchCount_) / totalBranchCount_;
+	}
+
+	//-------------------------------------------------------------------------
 	CoverageRate& CoverageRate::operator+=(const CoverageRate& coverageRate)
 	{
 		executedLinesCount_ += coverageRate.executedLinesCount_;
 		unexecutedLinesCount_ += coverageRate.unexecutedLinesCount_;
+		coveredBranchCount_ += coverageRate.coveredBranchCount_;
+		totalBranchCount_ += coverageRate.totalBranchCount_;
 
 		return *this;
 	}

@@ -49,7 +49,23 @@ namespace ExporterTest
 					auto& file = module.AddFile(std::to_wstring(fileIndex));
 
 					for (int line = 0; line < 100; ++line)
+					{
 						file.AddLine(line, distribution(generator) != 0);
+
+						for (unsigned int branchIndex = 0; branchIndex < 2;
+						     ++branchIndex)
+						{
+							if (distribution(generator))
+							{
+								file.AddBranch(
+								    line,
+								    Plugin::BranchCoverage{
+								        branchIndex,
+								        distribution(generator) != 0,
+								        distribution(generator) != 0});
+							}
+						}
+					}
 				}
 			}
 		}

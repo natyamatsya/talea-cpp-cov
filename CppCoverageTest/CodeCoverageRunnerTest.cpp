@@ -44,6 +44,7 @@
 
 #include "TestCoverageConsole/TestCoverageConsole.hpp"
 #include "TestCoverageConsole/TestBasic.hpp"
+#include "TestCoverageConsole/TestBranch.hpp"
 #include "TestCoverageConsole/TestThread.hpp"
 #include "TestCoverageConsole/SpecialLineInfo.hpp"
 #include "TestCoverageConsole/FileWithSpecialCharéàè.hpp"
@@ -183,6 +184,96 @@ namespace CppCoverageTest
 		ASSERT_TRUE(file[line++] == nullptr);
 		TestLine(file, line++, false);
 		ASSERT_EQ(0, coverageData.GetExitCode());
+	}
+
+	//-------------------------------------------------------------------------
+	TEST_F(CodeCoverageRunnerTest, BranchCoverage)
+	{
+		CoverageArgs args{
+		    {TestCoverageConsole::TestBranch, L"1"},
+		    TestCoverageConsole::GetOutputBinaryPath().filename().wstring(),
+		    TestCoverageConsole::GetTestBranchFilename().wstring()};
+		args.coverChildren_ = false;
+		args.branchCoverage_ = true;
+
+		auto coverageData = ComputeCoverageDataPatterns(args);
+		auto& file = GetFirstFileCoverage(coverageData);
+		const auto* line =
+		    file[TestCoverageConsole::GetTestBranchConditionLine()];
+
+		ASSERT_NE(nullptr, line);
+		ASSERT_TRUE(line->HasBeenExecuted());
+		const auto& branches = line->GetBranches();
+		ASSERT_EQ(1u, branches.size());
+
+		// Only one side of the branch was executed.
+		ASSERT_NE(branches[0].HasBeenTaken(),
+		          branches[0].HasBeenFallenThrough());
+	}
+
+	//-------------------------------------------------------------------------
+	TEST_F(CodeCoverageRunnerTest, BranchCoverageMergeBothSides)
+	{
+		std::vector<Plugin::CoverageData> coverageDataCollection;
+
+		for (const auto* conditionValue : {L"1", L"0"})
+		{
+			CoverageArgs args{
+			    {TestCoverageConsole::TestBranch, conditionValue},
+			    TestCoverageConsole::GetOutputBinaryPath().filename().wstring(),
+			    TestCoverageConsole::GetTestBranchFilename().wstring()};
+			args.coverChildren_ = false;
+			args.branchCoverage_ = true;
+			coverageDataCollection.push_back(
+			    ComputeCoverageDataPatterns(args));
+		}
+
+		auto coverageData =
+		    cov::CoverageDataMerger().Merge(coverageDataCollection);
+		auto& file = GetFirstFileCoverage(coverageData);
+		const auto* line =
+		    file[TestCoverageConsole::GetTestBranchConditionLine()];
+
+		ASSERT_NE(nullptr, line);
+		const auto& branches = line->GetBranches();
+		ASSERT_EQ(1u, branches.size());
+		ASSERT_TRUE(branches[0].HasBeenTaken());
+		ASSERT_TRUE(branches[0].HasBeenFallenThrough());
+	}
+
+	//-------------------------------------------------------------------------
+	TEST_F(CodeCoverageRunnerTest, BranchCoverageDisabled)
+	{
+		CoverageArgs args{
+		    {TestCoverageConsole::TestBranch, L"1"},
+		    TestCoverageConsole::GetOutputBinaryPath().filename().wstring(),
+		    TestCoverageConsole::GetTestBranchFilename().wstring()};
+		args.coverChildren_ = false;
+
+		auto coverageData = ComputeCoverageDataPatterns(args);
+		auto& file = GetFirstFileCoverage(coverageData);
+		const auto* line =
+		    file[TestCoverageConsole::GetTestBranchConditionLine()];
+
+		ASSERT_NE(nullptr, line);
+		ASSERT_TRUE(line->GetBranches().empty());
+	}
+
+	//-------------------------------------------------------------------------
+	TEST_F(CodeCoverageRunnerTest, BranchCoverageThread)
+	{
+		CoverageArgs args{
+		    {TestCoverageConsole::TestThread},
+		    TestCoverageConsole::GetOutputBinaryPath().filename().wstring(),
+		    TestCoverageConsole::GetTestThreadFilename().wstring()};
+		args.coverChildren_ = false;
+		args.branchCoverage_ = true;
+
+		// Smoke test: the single step machinery must not
+		// crash or hang with several threads.
+		auto coverageData = ComputeCoverageDataPatterns(args);
+		auto& file = GetFirstFileCoverage(coverageData);
+		ASSERT_NE(0, CountExecutedLines(file));
 	}
 
 	//-------------------------------------------------------------------------

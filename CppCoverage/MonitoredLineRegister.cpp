@@ -22,6 +22,8 @@
 #include "Address.hpp"
 #include "BreakPoint.hpp"
 #include "ExecutedAddressManager.hpp"
+#include "BranchCoverageManager.hpp"
+#include "BranchDisassembler.hpp"
 #include "CppCoverageException.hpp"
 #include "FilterAssistant.hpp"
 
@@ -30,6 +32,7 @@
 #include "FileFilter/LineInfo.hpp"
 
 #include "Tools/PEFileHeader.hpp"
+#include "Tools/ProcessMemory.hpp"
 #include "Tools/Log.hpp"
 
 namespace CppCoverage
@@ -45,6 +48,12 @@ namespace CppCoverage
 
 				fileHeader.Load(hProcess, baseOfImage, *this);
 				return isNativeModule_;
+			}
+
+			//----------------------------------------------------------------------------
+			bool Is64BitModule() const
+			{
+				return is64BitModule_;
 			}
 
 		  private:
@@ -66,6 +75,7 @@ namespace CppCoverage
 			                  const IMAGE_NT_HEADERS32& ntHeader) override
 			{
 				OnNtHeader(ntHeader);
+				is64BitModule_ = false;
 			}
 
 			//-----------------------------------------------------------------
@@ -74,9 +84,11 @@ namespace CppCoverage
 			                  const IMAGE_NT_HEADERS64& ntHeader) override
 			{
 				OnNtHeader(ntHeader);
+				is64BitModule_ = true;
 			}
 
 			bool isNativeModule_ = true;
+			bool is64BitModule_ = false;
 		};
 	}
 
@@ -86,12 +98,14 @@ namespace CppCoverage
 	    std::shared_ptr<ExecutedAddressManager> executedAddressManager,
 	    std::shared_ptr<ICoverageFilterManager> coverageFilterManager,
 	    std::unique_ptr<DebugInformationEnumerator> debugInformationEnumerator,
-	    std::shared_ptr<FilterAssistant> filterAssistant)
+	    std::shared_ptr<FilterAssistant> filterAssistant,
+	    std::shared_ptr<BranchCoverageManager> branchCoverageManager)
 	    : breakPoint_{breakPoint},
 	      executedAddressManager_{executedAddressManager},
 	      coverageFilterManager_{coverageFilterManager},
 	      debugInformationEnumerator_{std::move(debugInformationEnumerator)},
-	      filterAssistant_{std::move(filterAssistant)}
+	      filterAssistant_{std::move(filterAssistant)},
+	      branchCoverageManager_{std::move(branchCoverageManager)}
 	{
 	}
 
@@ -104,7 +118,8 @@ namespace CppCoverage
 	    HANDLE hProcess,
 	    void* baseOfImage)
 	{
-		if (!ModuleKind{}.IsNativeModule(
+		ModuleKind moduleKind;
+		if (!moduleKind.IsNativeModule(
 		        hProcess, reinterpret_cast<DWORD64>(baseOfImage)))
 		{
 			LOG_INFO << modulePath.wstring()
@@ -113,6 +128,13 @@ namespace CppCoverage
 		}
 
 		executedAddressManager_->AddModule(modulePath.wstring(), baseOfImage);
+		if (branchCoverageManager_)
+		{
+			branchCoverageManager_->AddModule(modulePath.wstring(),
+			                                  baseOfImage);
+			branchDisassembler_ = std::make_unique<BranchDisassembler>(
+			    moduleKind.Is64BitModule());
+		}
 
 		moduleInfo_ = std::make_unique<FileFilter::ModuleInfo>(
 		    hProcess, modulePath, baseOfImage);
@@ -147,9 +169,12 @@ namespace CppCoverage
 
 		std::vector<DWORD64> addresses;
 		LineNumberByAddress lineNumberByAddress;
+		std::vector<SelectedLine> selectedLines;
 
-		for (const auto& lineInfo : fileInfo.lineInfoColllection_)
+		const auto& lineInfoCollection = fileInfo.lineInfoColllection_;
+		for (size_t index = 0; index < lineInfoCollection.size(); ++index)
 		{
+			const auto& lineInfo = lineInfoCollection[index];
 			auto lineNumber = lineInfo.lineNumber_;
 			if (coverageFilterManager_->IsLineSelected(
 			        moduleInfo, fileInfo, lineInfo))
@@ -160,12 +185,22 @@ namespace CppCoverage
 
 				lineNumberByAddress[addressValue].push_back(lineNumber);
 				addresses.push_back(addressValue);
+				if (branchCoverageManager_)
+				{
+					selectedLines.push_back(
+					    SelectedLine{static_cast<unsigned int>(lineNumber),
+					                 addressValue,
+					                 lines[index].length_});
+				}
 			}
 		}
 		SetBreakPoint(path,
 		              moduleInfo.hProcess_,
 		              std::move(addresses),
 		              lineNumberByAddress);
+
+		if (branchCoverageManager_)
+			RegisterBranches(path, moduleInfo.hProcess_, selectedLines);
 	}
 
 	//--------------------------------------------------------------------------
@@ -187,6 +222,20 @@ namespace CppCoverage
 			{
 				Address address{hProcess,
 				                reinterpret_cast<void*>(addressValue)};
+
+				// If the address is an armed branch breakpoint, the
+				// instruction read from memory is the breakpoint
+				// instruction itself: use the real original instruction.
+				auto registeredInstruction = oldInstruction;
+				if (branchCoverageManager_)
+				{
+					auto branchInstruction =
+					    branchCoverageManager_->GetOriginalInstruction(
+					        address);
+					if (branchInstruction)
+						registeredInstruction = *branchInstruction;
+				}
+
 				const auto& lineNumbers = it->second;
 				for (auto lineNumber : lineNumbers)
 				{
@@ -194,12 +243,117 @@ namespace CppCoverage
 					        address,
 					        path.wstring(),
 					        lineNumber,
-					        oldInstruction))
+					        registeredInstruction))
 					{
 						breakPoint_->RemoveBreakPoint(address, oldInstruction);
 					}
 				}
 			}
+		}
+	}
+
+	//--------------------------------------------------------------------------
+	void MonitoredLineRegister::RegisterBranches(
+	    const std::filesystem::path& path,
+	    HANDLE hProcess,
+	    const std::vector<SelectedLine>& selectedLines)
+	{
+		struct BranchToRegister
+		{
+			unsigned int lineNumber_;
+			BranchCondition condition_;
+		};
+
+		std::vector<DWORD64> addresses;
+		std::map<DWORD64, BranchToRegister> branchByAddress;
+
+		for (const auto& selectedLine : selectedLines)
+		{
+			if (selectedLine.length_ == 0)
+				continue;
+
+			auto buffer = Tools::ReadProcessMemory(
+			    hProcess,
+			    reinterpret_cast<void*>(selectedLine.startAddress_),
+			    selectedLine.length_);
+
+			// Restore the bytes already patched with breakpoints
+			// before disassembling.
+			for (size_t i = 0; i < buffer.size(); ++i)
+			{
+				Address address{
+				    hProcess,
+				    reinterpret_cast<void*>(selectedLine.startAddress_ + i)};
+				auto instruction =
+				    executedAddressManager_->GetOriginalInstruction(address);
+				if (!instruction)
+				{
+					instruction =
+					    branchCoverageManager_->GetOriginalInstruction(
+					        address);
+				}
+				if (instruction)
+					buffer[i] = *instruction;
+			}
+
+			auto branches = branchDisassembler_->FindConditionalBranches(
+			    buffer.data(), buffer.size(), selectedLine.startAddress_);
+
+			for (const auto& branch : branches)
+			{
+				Address address{
+				    hProcess,
+				    reinterpret_cast<void*>(branch.virtualAddress_)};
+
+				// Shared code (e.g. headers) can be reached from several
+				// source files: the first registration wins.
+				if (branchCoverageManager_->IsMonitoredBranch(address))
+					continue;
+
+				auto lineInstruction =
+				    executedAddressManager_->GetOriginalInstruction(address);
+				if (lineInstruction)
+				{
+					// The address already has a line breakpoint: reuse its
+					// original instruction and make sure the breakpoint is
+					// armed even if it has already fired.
+					branchCoverageManager_->RegisterBranch(
+					    address,
+					    path.wstring(),
+					    selectedLine.lineNumber_,
+					    branch.condition_,
+					    *lineInstruction);
+					breakPoint_->SetBreakPoint(address);
+				}
+				else if (branchByAddress
+				             .emplace(branch.virtualAddress_,
+				                      BranchToRegister{
+				                          selectedLine.lineNumber_,
+				                          branch.condition_})
+				             .second)
+				{
+					addresses.push_back(branch.virtualAddress_);
+				}
+			}
+		}
+
+		auto oldInstructions =
+		    breakPoint_->SetBreakPoints(hProcess, std::move(addresses));
+		for (const auto& value : oldInstructions)
+		{
+			auto oldInstruction = value.first;
+			const auto& addressValue = value.second;
+
+			auto it = branchByAddress.find(addressValue);
+			if (it == branchByAddress.end())
+				continue;
+
+			Address address{hProcess, reinterpret_cast<void*>(addressValue)};
+			branchCoverageManager_->RegisterBranch(address,
+			                                       path.wstring(),
+			                                       it->second.lineNumber_,
+			                                       it->second.condition_,
+			                                       oldInstruction);
 		}
 	}
 

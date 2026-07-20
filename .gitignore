@@ -17,6 +17,8 @@ CoverageReport-*
 NewRelease
 TestResults/
 packages/*
+nuget.exe
+ThirdParty.*.nupkg
 Build/Installer/VCRedist/*
 Build/Dependencies/Dependencies-vs*.zip
 Build/ThirdParty/vcpkg

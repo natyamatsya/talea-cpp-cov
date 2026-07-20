@@ -41,14 +41,49 @@ namespace Plugin
 	//-------------------------------------------------------------------------
 	void FileCoverage::UpdateLine(unsigned int lineNumber, bool hasBeenExecuted)
 	{
-		if (!lines_.erase(lineNumber))
+		auto it = lines_.find(lineNumber);
+
+		if (it == lines_.end())
 		{
 			throw std::runtime_error(
 			    "Line " + std::to_string(lineNumber) +
 			    " does not exists and cannot be updated for " + path_.string());
 		}
 
-		AddLine(lineNumber, hasBeenExecuted);
+		it->second.SetHasBeenExecuted(hasBeenExecuted);
+	}
+
+	//-------------------------------------------------------------------------
+	void FileCoverage::AddBranch(unsigned int lineNumber,
+	                             const BranchCoverage& branch)
+	{
+		auto it = lines_.find(lineNumber);
+
+		if (it == lines_.end())
+		{
+			throw std::runtime_error(
+			    "Line " + std::to_string(lineNumber) +
+			    " does not exist and cannot get a branch for " + path_.string());
+		}
+
+		it->second.AddBranch(branch);
+	}
+
+	//-------------------------------------------------------------------------
+	void FileCoverage::MergeBranch(unsigned int lineNumber,
+	                               const BranchCoverage& branch)
+	{
+		auto it = lines_.find(lineNumber);
+
+		if (it == lines_.end())
+		{
+			throw std::runtime_error(
+			    "Line " + std::to_string(lineNumber) +
+			    " does not exist and cannot merge a branch for " +
+			    path_.string());
+		}
+
+		it->second.MergeBranch(branch);
 	}
 
 	//-------------------------------------------------------------------------

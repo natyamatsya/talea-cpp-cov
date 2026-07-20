@@ -42,16 +42,17 @@ namespace TestCoverageConsole
 	//-------------------------------------------------------------------------
 	inline int GetTestCoverageConsoleCppMainStartLine()
 	{
-		return 56;
+		return 57;
 	}
 
 	//-------------------------------------------------------------------------
 	inline int GetTestCoverageConsoleCppMainReturnLine()
 	{
-		return GetTestCoverageConsoleCppMainStartLine() + 39;
+		return GetTestCoverageConsoleCppMainStartLine() + 41;
 	}
 
 	const std::wstring TestBasic = L"TestBasic";
+	const std::wstring TestBranch = L"TestBranch";
 	const std::wstring TestThread = L"TestThread";
 	const std::wstring TestSharedLib = L"TestSharedLib";
 	const std::wstring TestThrowHandledException = L"TestThrowHandledException";

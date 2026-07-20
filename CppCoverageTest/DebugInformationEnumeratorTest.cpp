@@ -49,12 +49,17 @@ namespace CppCoverageTest
 			{
 				selectedFullPath_ = path;
 				for (const auto& line : lines)
+				{
 					lines_.push_back(line.lineNumber_);
+					if (line.length_ > 0)
+						++lineWithLengthCount_;
+				}
 			}
 
 			const std::filesystem::path selectedFilename_;
 			std::filesystem::path selectedFullPath_;
 			std::vector<int> lines_;
+			int lineWithLengthCount_ = 0;
 		};
 
 		//---------------------------------------------------------------------------
@@ -94,5 +99,6 @@ namespace CppCoverageTest
 		    debugInformationHandler.selectedFullPath_, L"@DebugInfoExpected");
 
 		ASSERT_EQ(debugInformationHandler.lines_, lineWithDebugInfo);
+		ASSERT_NE(0, debugInformationHandler.lineWithLengthCount_);
 	}
 }

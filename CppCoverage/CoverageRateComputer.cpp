@@ -31,6 +31,8 @@ namespace CppCoverage
 		{
 			int executedLines = 0;
 			int unexecutedLines = 0;
+			int coveredBranches = 0;
+			int totalBranches = 0;
 
 			for (const auto& lineCoverage : file.GetLines())
 			{
@@ -38,9 +40,21 @@ namespace CppCoverage
 					++executedLines;
 				else
 					++unexecutedLines;
+
+				for (const auto& branch : lineCoverage.GetBranches())
+				{
+					// A conditional branch has two outcomes:
+					// branch taken and fall through.
+					totalBranches += 2;
+					if (branch.HasBeenTaken())
+						++coveredBranches;
+					if (branch.HasBeenFallenThrough())
+						++coveredBranches;
+				}
 			}
 
-			return CoverageRate{executedLines, unexecutedLines};
+			return CoverageRate{
+			    executedLines, unexecutedLines, coveredBranches, totalBranches};
 		}
 		
 		//---------------------------------------------------------------------

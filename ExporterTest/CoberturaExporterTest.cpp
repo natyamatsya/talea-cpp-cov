@@ -39,15 +39,31 @@ namespace ExporterTest
 	namespace
 	{
 		//-------------------------------------------------------------------------
-		std::wstring GetExpectedResult()
+		std::wstring GetExpectedResult(const std::string& filename)
 		{
-			fs::path expectedResult = fs::path(PROJECT_DIR) / "Data" / "CoberturaExporterExpectedResult.xml";
+			fs::path expectedResult = fs::path(PROJECT_DIR) / "Data" / filename;
 			std::wifstream ifs{ expectedResult.wstring().c_str() };
 			std::wostringstream ostr;
 
 			ostr << ifs.rdbuf();
 
 			return ostr.str();
+		}
+
+		//-------------------------------------------------------------------------
+		std::wstring GetExpectedResult()
+		{
+			return GetExpectedResult("CoberturaExporterExpectedResult.xml");
+		}
+
+		//-------------------------------------------------------------------------
+		std::wstring ExportToString(const Plugin::CoverageData& coverageData)
+		{
+			std::wostringstream ostr;
+			Exporter::CoberturaExporter().Export(coverageData, ostr);
+			auto result = ostr.str();
+			std::wregex regex(LR"(timestamp="\d*")");
+			return std::regex_replace(result, regex, L"timestamp=\"TIMESTAMP\"");
 		}
 	}
 	
@@ -77,6 +93,31 @@ namespace ExporterTest
 		
 		ASSERT_EQ(result, expectedResult);
 	}	
+
+	//-------------------------------------------------------------------------
+	TEST(CoberturaExporterTest, ExportWithBranches)
+	{
+		Plugin::CoverageData coverageData{L"", 0};
+
+		auto& module = coverageData.AddModule(L"Module");
+		auto& file = module.AddFile("File");
+
+		file.AddLine(10, true);
+		file.AddBranch(10, Plugin::BranchCoverage{0, true, false});
+		file.AddBranch(10, Plugin::BranchCoverage{1, true, true});
+
+		file.AddLine(20, false);
+		file.AddBranch(20, Plugin::BranchCoverage{0, false, false});
+
+		file.AddLine(30, true);
+		file.AddLine(40, false);
+
+		auto result = ExportToString(coverageData);
+		auto expectedResult =
+		    GetExpectedResult("CoberturaExporterBranchExpectedResult.xml");
+
+		ASSERT_EQ(result, expectedResult);
+	}
 
 	//-------------------------------------------------------------------------
 	TEST(CoberturaExporterTest, SubFolderDoesNotExist)

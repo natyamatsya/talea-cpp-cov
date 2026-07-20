@@ -83,8 +83,11 @@ namespace CppCoverage
               (ProgramOptions::UnifiedDiffOption.c_str(),
 					po::value<T_Strings>()->composing(), GetUnifiedDiffHelp().c_str())
 				(ProgramOptions::ContinueAfterCppExceptionOption.c_str(), "Try to continue after throwing a C++ exception.")
-				(ProgramOptions::OptimizedBuildOption.c_str(), 
+				(ProgramOptions::OptimizedBuildOption.c_str(),
 					"Enable heuristics to support optimized build. See documentation for restrictions.")
+				(ProgramOptions::BranchCoverageOption.c_str(),
+					"(Experimental) Also measure branch coverage (conditional jumps). "
+					"Exported in Cobertura and binary formats. The profiled program runs slower.")
 				(ProgramOptions::ExcludedLineRegexOption.c_str(), po::value<T_Strings>()->composing(),
 					"Exclude all lines match the regular expression. Regular expression must match the whole line.")
 				(ProgramOptions::SubstitutePdbSourcePathOption.c_str(), po::value<T_Strings>()->composing(),
@@ -129,6 +132,7 @@ namespace CppCoverage
 	const std::string ProgramOptions::ExcludedLineRegexOption = "excluded_line_regex";
 	const std::string ProgramOptions::SubstitutePdbSourcePathOption = "substitute_pdb_source_path";
     const std::string ProgramOptions::StopOnAssertOption = "stop_on_assert";
+	const std::string ProgramOptions::BranchCoverageOption = "branch_coverage";
 
 	//-------------------------------------------------------------------------
 	ProgramOptions::ProgramOptions(

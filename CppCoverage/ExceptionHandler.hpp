@@ -26,8 +26,9 @@
 namespace CppCoverage
 {	
 	enum class ExceptionHandlerStatus
-	{		
+	{
 		BreakPoint,
+		SingleStep,
 		FirstChanceException,
 		Error,
 		CppError
@@ -41,6 +42,7 @@ namespace CppCoverage
 		static const std::wstring ExceptionAccesViolation;
 		static const std::wstring ExceptionUnknown;
 		static const int ExceptionEmulationX86ErrorCode;
+		static const int ExceptionEmulationX86SingleStepErrorCode;
 		static const int CppExceptionErrorCode;
 
 		ExceptionHandler();

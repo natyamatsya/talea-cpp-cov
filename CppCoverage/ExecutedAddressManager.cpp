@@ -146,6 +146,17 @@ namespace CppCoverage
 	}
 	
 	//-------------------------------------------------------------------------
+	boost::optional<unsigned char>
+	ExecutedAddressManager::GetOriginalInstruction(const Address& address) const
+	{
+		auto it = addressLineMap_.find(address);
+
+		if (it == addressLineMap_.end())
+			return boost::none;
+		return it->second.instructionToRestore_;
+	}
+
+	//-------------------------------------------------------------------------
 	Plugin::CoverageData ExecutedAddressManager::CreateCoverageData(
 		const std::wstring& name,
 		int exitCode) const

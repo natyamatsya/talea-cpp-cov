@@ -151,6 +151,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Exporter\BranchCoverage.hpp" />
     <ClInclude Include="Exporter\CoverageData.hpp" />
     <ClInclude Include="Exporter\FileCoverage.hpp" />
     <ClInclude Include="Exporter\IExportPlugin.hpp" />
@@ -161,6 +162,7 @@
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Exporter\BranchCoverage.cpp" />
     <ClCompile Include="Exporter\CoverageData.cpp" />
     <ClCompile Include="Exporter\FileCoverage.cpp" />
     <ClCompile Include="Exporter\LineCoverage.cpp" />

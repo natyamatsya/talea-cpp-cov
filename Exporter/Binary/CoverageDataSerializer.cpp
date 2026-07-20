@@ -48,9 +48,19 @@ namespace Exporter
 			for (const auto& line : file.GetLines())
 			{
 				auto lineProtoBuff = fileProtoBuff.add_lines();
-				
+
 				lineProtoBuff->set_linenumber(line.GetLineNumber());
 				lineProtoBuff->set_hasbeenexecuted(line.HasBeenExecuted());
+
+				for (const auto& branch : line.GetBranches())
+				{
+					auto branchProtoBuff = lineProtoBuff->add_branches();
+
+					branchProtoBuff->set_branchindex(branch.GetBranchIndex());
+					branchProtoBuff->set_hasbeentaken(branch.HasBeenTaken());
+					branchProtoBuff->set_hasbeenfallenthrough(
+					    branch.HasBeenFallenThrough());
+				}
 			}
 		}
 

@@ -67,5 +67,6 @@ namespace Plugin
 	};
 
 	// The current version of IExportPlugin.
-	const int CurrentExportPluginVersion = 1;
+	// Version 2: LineCoverage was extended with branch coverage data.
+	const int CurrentExportPluginVersion = 2;
 }

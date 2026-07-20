@@ -85,6 +85,9 @@ namespace CppCoverage
 						destinationFile->AddLine(lineNumber, hasBeenExecuted);
 					else if (hasBeenExecuted)
 						destinationFile->UpdateLine(lineNumber, true);
+
+					for (const auto& branch : line.GetBranches())
+						destinationFile->MergeBranch(lineNumber, branch);
 				}
 			}
 		}

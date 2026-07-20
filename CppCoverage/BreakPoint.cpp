@@ -91,6 +91,16 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
+	void BreakPoint::SetBreakPoint(const Address& address) const
+	{
+		auto instruction = breakPointInstruction;
+		Tools::WriteProcessMemory(address.GetProcessHandle(),
+		                          address.GetValue(),
+		                          &instruction,
+		                          sizeof(instruction));
+	}
+
+	//-------------------------------------------------------------------------
 	void BreakPoint::AdjustEipAfterBreakPointRemoval(HANDLE hThread) const
 	{
 		CONTEXT lcContext;
@@ -103,6 +113,28 @@ namespace CppCoverage
 #else
 		--lcContext.Eip; // Move back one byte
 #endif
+		if (!SetThreadContext(hThread, &lcContext))
+			THROW_LAST_ERROR("Error in SetThreadContext", GetLastError());
+	}
+
+	//-------------------------------------------------------------------------
+	void BreakPoint::AdjustEipAndSetTrapFlag(HANDLE hThread) const
+	{
+		const DWORD trapFlag = 0x100;
+		CONTEXT lcContext;
+		lcContext.ContextFlags = CONTEXT_ALL;
+		if (!GetThreadContext(hThread, &lcContext))
+			THROW_LAST_ERROR("Error in GetThreadContext", GetLastError());
+
+#ifdef _WIN64
+		--lcContext.Rip; // Move back one byte
+#else
+		--lcContext.Eip; // Move back one byte
+#endif
+		// Single-step over the restored instruction to set
+		// the breakpoint again on the next single-step event.
+		lcContext.EFlags |= trapFlag;
+
 		if (!SetThreadContext(hThread, &lcContext))
 			THROW_LAST_ERROR("Error in SetThreadContext", GetLastError());
 	}

@@ -134,6 +134,17 @@ namespace CppCoverageTest
         { TestTools::GetOptionPrefix() + cov::ProgramOptions::StopOnAssertOption })
         ->IsStopOnAssertModeEnabled());
     }
+
+	//-------------------------------------------------------------------------
+	TEST(OptionsParserTest, BranchCoverage)
+	{
+		cov::OptionsParser parser;
+
+		ASSERT_TRUE(TestTools::Parse(parser,
+		{ TestTools::GetOptionPrefix() + cov::ProgramOptions::BranchCoverageOption })
+			->IsBranchCoverageModeEnabled());
+		ASSERT_FALSE(TestTools::Parse(parser, {})->IsBranchCoverageModeEnabled());
+	}
     
     //-------------------------------------------------------------------------
 	TEST(OptionsParserTest, WorkingDirectory)

@@ -33,6 +33,8 @@ namespace CppCoverage
 	class BreakPoint;
 	class ExecutedAddressManager;
 	class FilterAssistant;
+	class BranchCoverageManager;
+	class BranchDisassembler;
 
 	class MonitoredLineRegister : private IDebugInformationHandler
 	{
@@ -41,7 +43,8 @@ namespace CppCoverage
 		                      std::shared_ptr<ExecutedAddressManager>,
 		                      std::shared_ptr<ICoverageFilterManager>,
 		                      std::unique_ptr<DebugInformationEnumerator>,
-		                      std::shared_ptr<FilterAssistant>);
+		                      std::shared_ptr<FilterAssistant>,
+		                      std::shared_ptr<BranchCoverageManager> = nullptr);
 		~MonitoredLineRegister();
 
 		bool RegisterLineToMonitor(const std::filesystem::path& modulePath,
@@ -60,6 +63,16 @@ namespace CppCoverage
 		                   std::vector<DWORD64>&&,
 		                   const LineNumberByAddress&);
 
+		struct SelectedLine
+		{
+			unsigned int lineNumber_;
+			DWORD64 startAddress_;
+			unsigned long length_;
+		};
+		void RegisterBranches(const std::filesystem::path&,
+		                      HANDLE hProcess,
+		                      const std::vector<SelectedLine>&);
+
 		const FileFilter::ModuleInfo& GetModuleInfo() const;
 
 		std::unique_ptr<FileFilter::ModuleInfo> moduleInfo_;
@@ -69,5 +82,7 @@ namespace CppCoverage
 		const std::unique_ptr<DebugInformationEnumerator>
 		    debugInformationEnumerator_;
 		const std::shared_ptr<FilterAssistant> filterAssistant_;
+		const std::shared_ptr<BranchCoverageManager> branchCoverageManager_;
+		std::unique_ptr<BranchDisassembler> branchDisassembler_;
 	};
 }

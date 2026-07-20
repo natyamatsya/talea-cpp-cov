@@ -25,6 +25,7 @@
 #include "Plugin/Exporter/CoverageData.hpp"
 #include "Debugger.hpp"
 #include "ExecutedAddressManager.hpp"
+#include "BranchCoverageManager.hpp"
 #include "HandleInformation.hpp"
 #include "BreakPoint.hpp"
 #include "CoverageFilterManager.hpp"
@@ -67,16 +68,20 @@ namespace CppCoverage
 
 		coverageFilterManager_ = std::make_shared<CoverageFilterManager>(
 			settings.GetCoverageFilterSettings(),
-			settings.GetUnifiedDiffSettings(), 
+			settings.GetUnifiedDiffSettings(),
 			settings.GetExcludedLineRegexes(),
 			settings.GetOptimizedBuildSupport());
+
+		if (settings.GetBranchCoverage())
+			branchCoverageManager_ = std::make_shared<BranchCoverageManager>();
 
 		monitoredLineRegister_ = std::make_unique<MonitoredLineRegister>(
 		    breakpoint_,
 		    executedAddressManager_,
 		    coverageFilterManager_,
 		    std::make_unique<DebugInformationEnumerator>(settings.GetSubstitutePdbSourcePaths()),
-			filterAssistant_);
+			filterAssistant_,
+			branchCoverageManager_);
 
 		const auto& startInfo = settings.GetStartInfo();
 		int exitCode = debugger.Debug(startInfo, *this);
@@ -89,7 +94,11 @@ namespace CppCoverage
 		auto filterAdviceMessage = filterAssistant_->GetAdviceMessage();
 		if (filterAdviceMessage)
 			warningManager_->AddWarning(*filterAdviceMessage);
-		return executedAddressManager_->CreateCoverageData(path.filename().wstring(), exitCode);
+		auto coverageData = executedAddressManager_->CreateCoverageData(
+		    path.filename().wstring(), exitCode);
+		if (branchCoverageManager_)
+			branchCoverageManager_->DecorateCoverageData(coverageData);
+		return coverageData;
 	}
 
 	//-------------------------------------------------------------------------
@@ -106,6 +115,8 @@ namespace CppCoverage
 	{
 		exceptionHandler_->OnExitProcess(hProcess);
 		executedAddressManager_->OnExitProcess(hProcess);
+		if (branchCoverageManager_)
+			branchCoverageManager_->OnExitProcess(hProcess);
 	}
 
 	//-------------------------------------------------------------------------
@@ -124,6 +135,9 @@ namespace CppCoverage
 		const UNLOAD_DLL_DEBUG_INFO& unloadDllDebugInfo)
 	{
 		executedAddressManager_->OnUnloadModule(hProcess, unloadDllDebugInfo.lpBaseOfDll);
+		if (branchCoverageManager_)
+			branchCoverageManager_->OnUnloadModule(
+			    hProcess, unloadDllDebugInfo.lpBaseOfDll);
 	}
 
 	//-------------------------------------------------------------------------
@@ -143,6 +157,16 @@ namespace CppCoverage
 				if (OnBreakPoint(exceptionDebugInfo, hProcess, hThread))
 					return IDebugEventsHandler::ExceptionType::BreakPoint;
 				return IDebugEventsHandler::ExceptionType::InvalidBreakPoint;
+			}
+			case CppCoverage::ExceptionHandlerStatus::SingleStep:
+			{
+				if (branchCoverageManager_ &&
+				    branchCoverageManager_->OnSingleStep(
+				        hProcess, hThread, *breakpoint_))
+				{
+					return IDebugEventsHandler::ExceptionType::BreakPoint;
+				}
+				return IDebugEventsHandler::ExceptionType::NotHandled;
 			}
 			case CppCoverage::ExceptionHandlerStatus::FirstChanceException:
 			{
@@ -174,6 +198,19 @@ namespace CppCoverage
 		const auto& exceptionRecord = exceptionDebugInfo.ExceptionRecord;
 		auto addressValue = exceptionRecord.ExceptionAddress;
 		Address address{ hProcess, addressValue };
+
+		if (branchCoverageManager_ &&
+		    branchCoverageManager_->IsMonitoredBranch(address))
+		{
+			// The same address can also be the start of a line:
+			// mark it as executed but keep the branch breakpoint
+			// life cycle (restore, single-step and set again).
+			executedAddressManager_->MarkAddressAsExecuted(address);
+			branchCoverageManager_->OnBreakPointHit(
+			    address, hThread, *breakpoint_);
+			return true;
+		}
+
 		auto oldInstruction = executedAddressManager_->MarkAddressAsExecuted(address);
 
 		if (oldInstruction)

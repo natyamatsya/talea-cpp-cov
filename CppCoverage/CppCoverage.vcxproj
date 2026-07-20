@@ -164,6 +164,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Address.hpp" />
+    <ClInclude Include="BranchCondition.hpp" />
+    <ClInclude Include="BranchCoverageManager.hpp" />
+    <ClInclude Include="BranchDisassembler.hpp" />
+    <ClInclude Include="BranchInstruction.hpp" />
     <ClInclude Include="BreakPoint.hpp" />
     <ClInclude Include="CodeCoverageRunner.hpp" />
     <ClInclude Include="CoverageDataMerger.hpp" />
@@ -206,6 +210,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Address.cpp" />
+    <ClCompile Include="BranchCondition.cpp" />
+    <ClCompile Include="BranchCoverageManager.cpp" />
+    <ClCompile Include="BranchDisassembler.cpp" />
     <ClCompile Include="BreakPoint.cpp" />
     <ClCompile Include="CodeCoverageRunner.cpp" />
     <ClCompile Include="CoverageDataMerger.cpp" />
@@ -252,6 +259,9 @@
     </ProjectReference>
     <ProjectReference Include="..\Tools\Tools.vcxproj">
       <Project>{7f6d05ef-deb0-4c64-bd13-a85f46314b91}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\Zydis\Zydis.vcxproj">
+      <Project>{b5c7e9d2-3f41-4a8e-9c26-7d5a81b4e063}</Project>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
