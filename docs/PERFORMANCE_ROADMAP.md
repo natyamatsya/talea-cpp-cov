@@ -132,17 +132,24 @@ This is the foundation everything else hangs off.
 - ✅ **Hash the address indexes.** `std::map<Address, …>` (per-hit lookup:
   ~log₂(A) cache-missing tree-node comparisons) → `std::unordered_map` with an
   `Address` hash, for both line (`ExecutedAddressManager`) and branch
-  (`BranchCoverageManager`) hits. Dropped the per-probe `LOG_TRACE` from the
-  registration loops. MSVC's node-based `unordered_map` keeps the `bool*`
-  fan-out valid.
-- ✅ **Iterate lines without copying.** Added `FileCoverage::GetLineCollection()`
+  (`BranchCoverageManager`) hits. Dropped the per-probe `LOG_TRACE`.
+- ✅ **Iterate lines without copying.** `FileCoverage::GetLineCollection()`
   (const ref to the ordered map); the rate computer, Cobertura exporter, binary
-  serializer, and merger no longer copy every line (with its branch vector) per
-  file. Merge ~35% faster (4.6 → 3.0 ms).
+  serializer, and merger no longer copy every line per file. Merge ~35% faster.
+- ✅ **Columnar probe table.** `ExecutedAddressManager` rewritten to a
+  structure-of-arrays probe table (parallel `moduleId`/`fileId`/`lineNumber`/
+  `executed` columns indexed by a dense probe id), interned file paths, a
+  contiguous byte hit bitset, and an address fan-out of probe *ids* (indices,
+  stable across growth) instead of `bool*` aliasing container nodes. Behavior
+  and output unchanged. **This is a structural change, not a speedup** — the
+  runtime is bounded by the ~50 µs debug-event round trip per first-hit, which
+  dwarfs the data-model cost, so timings are unchanged within noise. The value
+  is the clean model (no aliasing pointers; a contiguous `executed` bitset a
+  future `.cov` merge / rate pass can OR + popcount; interned paths).
 
-**Still to do** (the bigger structural pieces below): the columnar SoA probe
-table, string interning, immutable per-module line tables, and arenas. These
-remain the plan; the two items above are the low-risk, high-value first cuts.
+**Still to do:** immutable per-module line tables shared across modules /
+processes (Tier 2 PDB cache), arenas for the remaining scratch, and a
+bitmap-based `.cov` merge that consumes the `executed` bitset directly.
 
 ### 4.1 The problem with today's model
 
