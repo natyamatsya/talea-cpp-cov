@@ -41,6 +41,19 @@ to those terms.
 - Windows Vista or higher.
 - Microsoft Visual Studio 2008 or higher all editions **including Express edition**. It should also work with previous version of Visual Studio.
 
+## Building from source
+- Visual Studio with the *Desktop development with C++* workload.
+- Run `InstallThirdPartyLibraries.ps1` once: it clones and bootstraps a pinned
+  [vcpkg](https://github.com/microsoft/vcpkg) into `Build\ThirdParty\vcpkg`.
+- Build `CppCoverage.slnx`. Dependencies are declared in `vcpkg.json` (manifest
+  mode) and are built automatically during the first build, which therefore
+  takes a while. To install them ahead of time run
+  `Build\ThirdParty\vcpkg\vcpkg.exe install --triplet x64-windows`.
+
+Note: this fork is x64 only — both the tool itself and the profiled programs
+must be 64-bit. Use the original releases if you need to profile 32-bit
+binaries.
+
 ## Download
 OpenCppCoverage can be downloaded from [here](../../releases).
 

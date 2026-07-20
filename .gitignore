@@ -4,28 +4,16 @@
 .vs
 Debug/
 Release/
-ipch/*
-*.sdf
-*.opensdf
 *.suo
 *.filters
 *.user
-*.ipch
 *.log
 *.opendb
 CoverageReport-*
-NewRelease
 TestResults/
-packages/*
 nuget.exe
-ThirdParty.*.nupkg
-Build/Installer/VCRedist/*
-Build/Dependencies/Dependencies-vs*.zip
+vcpkg_installed/
 Build/ThirdParty/vcpkg
-
-# Template file / unmanaged dll for the plugin
-VSPackage/OpenCppCoverage-x64
-VSPackage/OpenCppCoverage-x86
 
 # ProtoBuff files
 CoverageData.pb.h
