@@ -20,16 +20,16 @@
 
 #include <Windows.h>
 #include <map>
-#include <set>
+#include <unordered_map>
 #include <optional>
 
 #include "Plugin/Exporter/CoverageData.hpp"
+#include "Address.hpp"
 #include "CppCoverageExport.hpp"
 
 namespace CppCoverage
 {
 	class FileCoverage;
-	class Address;
 
 	class CPPCOVERAGE_DLL ExecutedAddressManager
 	{
@@ -71,7 +71,7 @@ namespace CppCoverage
 		void RemoveAddressLineIf(F fct);
 
 		std::map<std::wstring, Module> modules_;
-		std::map<Address, Line> addressLineMap_;
+		std::unordered_map<Address, Line, AddressHasher> addressLineMap_;
 		LastModule lastModule_;
 	};
 }

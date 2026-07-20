@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <Windows.h>
 #include "CppCoverageExport.hpp"
 
@@ -23,7 +24,7 @@ namespace CppCoverage
 {
 	class CPPCOVERAGE_DLL Address
 	{
-	public:				
+	public:
 		Address(HANDLE hProcess, void* value);
 		Address(const Address&) = default;
 
@@ -31,14 +32,21 @@ namespace CppCoverage
 		void* GetValue() const;
 
 		bool operator<(const Address& other) const;
+		bool operator==(const Address& other) const;
 		friend std::wostream& operator<<(std::wostream&, const Address&);
 
-	private:		
+	private:
 		Address& operator=(const Address&) = delete;
 
 	private:
 		HANDLE hProcess_;
 		void* value_;
+	};
+
+	// Hash functor so Address can key an unordered_map on the hot path.
+	struct CPPCOVERAGE_DLL AddressHasher
+	{
+		std::size_t operator()(const Address&) const noexcept;
 	};
 }
 

@@ -128,9 +128,6 @@ namespace CppCoverage
 		auto branchIndex = static_cast<unsigned int>(branches.size());
 		auto& outcome = branches[branchIndex];
 
-		LOG_TRACE << "RegisterBranch: " << address << " for " << filename
-		          << ":" << lineNumber << " index " << branchIndex;
-
 		branches_.emplace(address,
 		                  BranchState{originalInstruction,
 		                              lastModule_.baseOfImage_,

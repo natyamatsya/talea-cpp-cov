@@ -96,8 +96,6 @@ namespace CppCoverage
 		auto& module = GetLastAddedModule();
 		auto& file = module.files_[filename];
 
-		LOG_TRACE << "RegisterAddress: " << address << " for " << filename << ":" << lineNumber;
-
 		// Different {filename, line} can have the same address.
 		// Same {filename, line} can have several addresses.		
 		bool keepBreakpoint = false;

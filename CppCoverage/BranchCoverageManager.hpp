@@ -18,17 +18,18 @@
 
 #include <string>
 #include <map>
+#include <unordered_map>
 
 #include <Windows.h>
 #include <optional>
 
 #include "Plugin/Exporter/CoverageData.hpp"
 #include "BranchInstruction.hpp"
+#include "Address.hpp"
 #include "CppCoverageExport.hpp"
 
 namespace CppCoverage
 {
-	class Address;
 	class BreakPoint;
 
 	// Tracks conditional branch instructions (Jcc) and their outcomes.
@@ -80,8 +81,8 @@ namespace CppCoverage
 		Module& GetLastAddedModule();
 
 		std::map<std::wstring, Module> modules_;
-		std::map<Address, BranchState> branches_;
-		std::map<DWORD, std::pair<HANDLE, void*>> pendingReArms_;
+		std::unordered_map<Address, BranchState, AddressHasher> branches_;
+		std::unordered_map<DWORD, std::pair<HANDLE, void*>> pendingReArms_;
 		LastModule lastModule_;
 	};
 }
