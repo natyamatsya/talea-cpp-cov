@@ -96,20 +96,30 @@ the DIA enumeration itself, tackled next.
 
 ---
 
-## 3.5. The next startup win — single-pass DIA line-table enumeration
+## 3.5. Single-pass DIA line-table enumeration — SHIPPED
 
-The dominant startup cost is `IDiaSourceFile::get_compilands` +
-`IDiaSession::findLines(compiland, file)` issued **per selected source file**, so
-a compiland's line data is rescanned once per header that shares it — O(files ×
-compiland-line-data). The fix, without leaving DIA:
+The dominant startup cost was `IDiaSourceFile::get_compilands` +
+`IDiaSession::findLines(compiland, file)` issued **per selected source file** —
+DIA requires a file argument to `findLines`, so one findLines call (with a fixed
+per-call overhead) was paid per header, i.e. O(files) calls.
 
-- Enumerate the module's line table **once** (`IDiaEnumLineNumbers` over the
-  whole image, or `findLinesByRVA` per compiland once), batching `Next(1000, …)`
-  instead of one COM call per record, and **bucket records by source-file id**
-  ourselves — one O(L) pass per module instead of the F×C query pattern.
-- This is a self-contained change behind the existing `IDebugInformationHandler`
-  interface and is the highest-leverage remaining startup item. It also sets up
-  the Tier 2 PDB-parse cache and the eventual DIA-free raw reader.
+**Done:** query the whole image once with `findLinesByRVA(0, 0xFFFFFFFF)` and
+bucket every line record by source file, keyed by the remapped file *name* (DIA
+hands out inconsistent `get_uniqueId`s across the source-files table and a line
+record's `get_sourceFile`, so the name is the stable key). Records arrive in RVA
+order, so the source file is resolved once per contiguous run, not per record.
+
+**Measured (Release, 100k lines):** 5,000 headers **4,731 ms → 745 ms**; 1 file
+**471 → 317 ms**. Tradeoff: selecting a small subset of a large module now scans
+all line records (5,000-header binary, 1 file: 94 → 230 ms) — still fast, and the
+common "cover my whole project" case is what improves dramatically.
+
+This sets up the Tier 2 PDB-parse cache and the eventual DIA-free raw reader
+(which removes even the remaining per-record COM calls and supersedes the
+select-few tradeoff).
+
+Still open, complementary micro-op: batch `IDiaEnum*::Next(N)` instead of
+`Next(1)` to cut per-record COM dispatch in the single pass.
 
 ---
 
