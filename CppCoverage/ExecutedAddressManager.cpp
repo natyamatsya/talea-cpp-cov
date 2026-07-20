@@ -17,7 +17,6 @@
 #include "stdafx.h"
 #include "ExecutedAddressManager.hpp"
 
-#include <unordered_map>
 #include <boost/container/small_vector.hpp>
 
 #include "tools/Log.hpp"
@@ -30,126 +29,153 @@
 namespace CppCoverage
 {
 	//-------------------------------------------------------------------------
-	struct ExecutedAddressManager::Line
+	struct ExecutedAddressManager::AddressData
 	{
-		explicit Line(unsigned char instructionToRestore, void* dllBaseOfImage)
-			: instructionToRestore_{ instructionToRestore }
-			, dllBaseOfImage_{ dllBaseOfImage }
+		AddressData(unsigned char instructionToRestore, void* dllBaseOfImage)
+			: instructionToRestore_{instructionToRestore}
+			, dllBaseOfImage_{dllBaseOfImage}
 		{
 		}
 
-		const unsigned char instructionToRestore_;
-		void* const dllBaseOfImage_;
-		boost::container::small_vector<bool*, 1> hasBeenExecutedCollection_;
+		unsigned char instructionToRestore_;
+		void* dllBaseOfImage_;
+		// Probe ids reached by this address (indices, stable across growth).
+		boost::container::small_vector<std::uint32_t, 1> probes_;
 	};
 
 	//-------------------------------------------------------------------------
-	struct ExecutedAddressManager::File
-	{		
-		// Use map to have iterator always valid
-		std::map<unsigned int, bool> lines;
-	};
-
-	//-------------------------------------------------------------------------
-	struct ExecutedAddressManager::Module
+	std::size_t ExecutedAddressManager::ProbeKeyHasher::operator()(
+	    const ProbeKey& key) const noexcept
 	{
-		explicit Module(const std::wstring& name) : name_{ name }
-		{
-		}
-
-		const std::wstring name_;
-		std::unordered_map<std::wstring, File> files_;
-	};
-	
-	//-------------------------------------------------------------------------
-	ExecutedAddressManager::ExecutedAddressManager()
-	{
-		lastModule_.baseOfImage_ = nullptr;
-		lastModule_.module_ = nullptr;
+		std::size_t seed = key.moduleId;
+		seed ^= static_cast<std::size_t>(key.fileId) + 0x9E3779B97F4A7C15ULL +
+		        (seed << 6) + (seed >> 2);
+		seed ^= static_cast<std::size_t>(key.lineNumber) +
+		        0x9E3779B97F4A7C15ULL + (seed << 6) + (seed >> 2);
+		return seed;
 	}
 
 	//-------------------------------------------------------------------------
-	ExecutedAddressManager::~ExecutedAddressManager()
-	{
-	}
+	ExecutedAddressManager::ExecutedAddressManager() = default;
+
+	//-------------------------------------------------------------------------
+	ExecutedAddressManager::~ExecutedAddressManager() = default;
 
 	//-------------------------------------------------------------------------
 	void ExecutedAddressManager::AddModule(
 		const std::wstring& moduleName,
 		void* dllBaseOfImage)
 	{
-		auto it = modules_.find(moduleName);
+		auto it = moduleIdByName_.find(moduleName);
+		if (it == moduleIdByName_.end())
+		{
+			auto id = static_cast<std::uint32_t>(moduleIdByName_.size());
+			it = moduleIdByName_.emplace(moduleName, id).first;
+		}
 
-		if (it == modules_.end())
-			it = modules_.emplace(moduleName, Module{ moduleName }).first;
-		lastModule_.module_ = &it->second;
-		lastModule_.baseOfImage_ = dllBaseOfImage;
+		lastModuleId_ = it->second;
+		lastBaseOfImage_ = dllBaseOfImage;
+		hasLastModule_ = true;
 	}
-	
+
+	//-------------------------------------------------------------------------
+	std::uint32_t ExecutedAddressManager::InternFile(
+	    const std::wstring& filename)
+	{
+		// Registration delivers all of a file's addresses together, so the
+		// filename usually repeats: skip the hash lookup for a repeat.
+		if (hasLastFile_ && lastFilename_ == filename)
+			return lastFileId_;
+
+		auto it = filePathIds_.find(filename);
+		std::uint32_t id;
+		if (it == filePathIds_.end())
+		{
+			id = static_cast<std::uint32_t>(filePaths_.size());
+			filePaths_.push_back(filename);
+			filePathIds_.emplace(filename, id);
+		}
+		else
+		{
+			id = it->second;
+		}
+
+		hasLastFile_ = true;
+		lastFilename_ = filename;
+		lastFileId_ = id;
+		return id;
+	}
+
+	//-------------------------------------------------------------------------
+	std::uint32_t ExecutedAddressManager::GetOrCreateProbe(
+	    std::uint32_t moduleId,
+	    std::uint32_t fileId,
+	    unsigned int lineNumber)
+	{
+		ProbeKey key{moduleId, fileId, lineNumber};
+		auto it = probeIdByKey_.find(key);
+		if (it != probeIdByKey_.end())
+			return it->second;
+
+		auto id = static_cast<std::uint32_t>(probeExecuted_.size());
+		probeModuleId_.push_back(moduleId);
+		probeFileId_.push_back(fileId);
+		probeLineNumber_.push_back(lineNumber);
+		probeExecuted_.push_back(0);
+		probeIdByKey_.emplace(key, id);
+		return id;
+	}
+
 	//-------------------------------------------------------------------------
 	bool ExecutedAddressManager::RegisterAddress(
 		const Address& address,
 		const std::wstring& filename,
-		unsigned int lineNumber, 
+		unsigned int lineNumber,
 		unsigned char instructionValue)
 	{
-		auto& module = GetLastAddedModule();
-		auto& file = module.files_[filename];
-
-		// Different {filename, line} can have the same address.
-		// Same {filename, line} can have several addresses.		
-		bool keepBreakpoint = false;
-		auto itAddress = addressLineMap_.find(address);
-
-		if (itAddress == addressLineMap_.end())
-		{
-			itAddress = addressLineMap_.emplace(address, 
-				Line{ instructionValue, lastModule_.baseOfImage_ }).first;
-			keepBreakpoint = true;
-		}
-		
-		auto& line = itAddress->second;
-		line.hasBeenExecutedCollection_.push_back(&file.lines[lineNumber]);
-		
-		return keepBreakpoint;
-	}
-
-	//-------------------------------------------------------------------------
-	ExecutedAddressManager::Module& ExecutedAddressManager::GetLastAddedModule()
-	{
-		if (!lastModule_.module_)
+		if (!hasLastModule_)
 			THROW("Cannot get last module.");
 
-		return *lastModule_.module_;
+		// Different {filename, line} can have the same address.
+		// Same {filename, line} can have several addresses.
+		auto fileId = InternFile(filename);
+		auto probeId = GetOrCreateProbe(lastModuleId_, fileId, lineNumber);
+
+		bool keepBreakpoint = false;
+		auto itAddress = addressMap_.find(address);
+		if (itAddress == addressMap_.end())
+		{
+			itAddress = addressMap_
+			                .emplace(address,
+			                         AddressData{instructionValue,
+			                                     lastBaseOfImage_})
+			                .first;
+			keepBreakpoint = true;
+		}
+
+		itAddress->second.probes_.push_back(probeId);
+		return keepBreakpoint;
 	}
 
 	//-------------------------------------------------------------------------
 	std::optional<unsigned char> ExecutedAddressManager::MarkAddressAsExecuted(
 		const Address& address)
 	{
-		auto it = addressLineMap_.find(address);
-
-		if (it == addressLineMap_.end())
+		auto it = addressMap_.find(address);
+		if (it == addressMap_.end())
 			return std::nullopt;
 
-		auto& line = it->second;
-
-		for (bool* hasBeenExecuted : line.hasBeenExecutedCollection_)
-		{
-			if (!hasBeenExecuted)
-				THROW("Invalid pointer");
-			*hasBeenExecuted = true;
-		}
-		return line.instructionToRestore_;
+		for (auto probeId : it->second.probes_)
+			probeExecuted_[probeId] = 1;
+		return it->second.instructionToRestore_;
 	}
-	
+
 	//-------------------------------------------------------------------------
 	std::optional<unsigned char>
 	ExecutedAddressManager::GetOriginalInstruction(const Address& address) const
 	{
-		auto it = addressLineMap_.find(address);
-
-		if (it == addressLineMap_.end())
+		auto it = addressMap_.find(address);
+		if (it == addressMap_.end())
 			return std::nullopt;
 		return it->second.instructionToRestore_;
 	}
@@ -161,26 +187,39 @@ namespace CppCoverage
 	{
 		Plugin::CoverageData coverageData{ name, exitCode };
 
-		for (const auto& pair : modules_)
+		// Group the probe columns by module and file, with lines sorted, in a
+		// single pass. This runs once at the end of a coverage run, so the
+		// temporary grouping is not on any hot path.
+		//   moduleId -> fileId -> (lineNumber -> executed)
+		std::unordered_map<
+		    std::uint32_t,
+		    std::unordered_map<std::uint32_t, std::map<unsigned int, bool>>>
+		    linesByModuleFile;
+
+		for (std::size_t probe = 0; probe < probeExecuted_.size(); ++probe)
 		{
-			const auto& module = pair.second;
-			auto& moduleCoverage = coverageData.AddModule(module.name_);
+			linesByModuleFile[probeModuleId_[probe]][probeFileId_[probe]]
+			                 [probeLineNumber_[probe]] =
+			                     probeExecuted_[probe] != 0;
+		}
 
-			for (const auto& file : module.files_)
+		// Emit modules in name order (matching the previous std::map order),
+		// including modules that registered no lines.
+		for (const auto& [moduleName, moduleId] : moduleIdByName_)
+		{
+			auto& moduleCoverage = coverageData.AddModule(moduleName);
+
+			auto moduleIt = linesByModuleFile.find(moduleId);
+			if (moduleIt == linesByModuleFile.end())
+				continue;
+
+			for (const auto& [fileId, lines] : moduleIt->second)
 			{
-				const std::wstring& name = file.first;
-				const File& fileData = file.second;
-
-				auto& fileCoverage = moduleCoverage.AddFile(name);
-
-				for (const auto& pair : fileData.lines)
-				{
-					auto lineNumber = pair.first;
-					bool hasLineBeenExecuted = pair.second;
-					
-					fileCoverage.AddLine(lineNumber, hasLineBeenExecuted);
-				}
-			}			
+				auto& fileCoverage =
+				    moduleCoverage.AddFile(filePaths_[fileId]);
+				for (const auto& [lineNumber, executed] : lines)
+					fileCoverage.AddLine(lineNumber, executed);
+			}
 		}
 
 		return coverageData;
@@ -188,14 +227,13 @@ namespace CppCoverage
 
 	//-------------------------------------------------------------------------
 	template <typename Condition>
-	void ExecutedAddressManager::RemoveAddressLineIf(Condition condition)
+	void ExecutedAddressManager::RemoveAddressIf(Condition condition)
 	{
-		auto it = addressLineMap_.begin();
-
-		while (it != addressLineMap_.end())
+		auto it = addressMap_.begin();
+		while (it != addressMap_.end())
 		{
 			if (condition(*it))
-				it = addressLineMap_.erase(it);
+				it = addressMap_.erase(it);
 			else
 				++it;
 		}
@@ -204,8 +242,9 @@ namespace CppCoverage
 	//-------------------------------------------------------------------------
 	void ExecutedAddressManager::OnExitProcess(HANDLE hProcess)
 	{
-		RemoveAddressLineIf([=](const auto& pair)
-		{
+		// Only the per-process address fan-out is dropped; the probe table and
+		// its executed bits persist so coverage aggregates across processes.
+		RemoveAddressIf([=](const auto& pair) {
 			return pair.first.GetProcessHandle() == hProcess;
 		});
 	}
@@ -213,10 +252,9 @@ namespace CppCoverage
 	//-------------------------------------------------------------------------
 	void ExecutedAddressManager::OnUnloadModule(HANDLE hProcess, void* dllBaseOfImage)
 	{
-		RemoveAddressLineIf([=](const auto& pair)
-		{
-			return pair.first.GetProcessHandle() == hProcess
-				&& pair.second.dllBaseOfImage_ == dllBaseOfImage;
+		RemoveAddressIf([=](const auto& pair) {
+			return pair.first.GetProcessHandle() == hProcess &&
+			       pair.second.dllBaseOfImage_ == dllBaseOfImage;
 		});
 	}
 }

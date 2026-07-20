@@ -16,7 +16,9 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
+#include <vector>
 
 #include <Windows.h>
 #include <map>
@@ -29,8 +31,14 @@
 
 namespace CppCoverage
 {
-	class FileCoverage;
-
+	// Records which addresses cover which (module, file, line) probes and,
+	// at runtime, which probes have been executed.
+	//
+	// Data-oriented design: probes live in a structure-of-arrays "probe
+	// table" (parallel columns indexed by a dense probe id), the executed
+	// state is a single contiguous byte vector (a hit bitset), file paths are
+	// interned to ids, and an address fans out to probe ids (indices, stable
+	// across table growth) rather than raw pointers into container nodes.
 	class CPPCOVERAGE_DLL ExecutedAddressManager
 	{
 	public:
@@ -53,25 +61,61 @@ namespace CppCoverage
 		void OnExitProcess(HANDLE hProcess);
 
 	private:
-		struct Module;
-		struct File;
-		struct File;
-		struct Line;
-		struct LastModule
-		{
-			Module* module_;
-			void* baseOfImage_;
-		};
-
 		ExecutedAddressManager(const ExecutedAddressManager&) = delete;
 		ExecutedAddressManager& operator=(const ExecutedAddressManager&) = delete;
 
-		Module& GetLastAddedModule();
-		template <typename F>
-		void RemoveAddressLineIf(F fct);
+		// Identifies a probe = a unique (module, file, line) triple.
+		struct ProbeKey
+		{
+			std::uint32_t moduleId;
+			std::uint32_t fileId;
+			unsigned int lineNumber;
 
-		std::map<std::wstring, Module> modules_;
-		std::unordered_map<Address, Line, AddressHasher> addressLineMap_;
-		LastModule lastModule_;
+			bool operator==(const ProbeKey& other) const
+			{
+				return moduleId == other.moduleId && fileId == other.fileId &&
+				       lineNumber == other.lineNumber;
+			}
+		};
+		struct ProbeKeyHasher
+		{
+			std::size_t operator()(const ProbeKey&) const noexcept;
+		};
+
+		// The addresses (per process) that reach a set of probes. Defined in
+		// the .cpp so the boost small_vector stays out of the header.
+		struct AddressData;
+
+		std::uint32_t InternFile(const std::wstring& filename);
+		std::uint32_t GetOrCreateProbe(std::uint32_t moduleId,
+		                               std::uint32_t fileId,
+		                               unsigned int lineNumber);
+		template <typename Condition>
+		void RemoveAddressIf(Condition);
+
+		// Interned file paths.
+		std::vector<std::wstring> filePaths_;                       // id -> path
+		std::unordered_map<std::wstring, std::uint32_t> filePathIds_;
+
+		// Modules, kept sorted by name for deterministic output.
+		std::map<std::wstring, std::uint32_t> moduleIdByName_;
+
+		// Probe table (structure of arrays), indexed by probe id.
+		std::vector<std::uint32_t> probeModuleId_;
+		std::vector<std::uint32_t> probeFileId_;
+		std::vector<unsigned int> probeLineNumber_;
+		std::vector<std::uint8_t> probeExecuted_;   // the hit bitset
+		std::unordered_map<ProbeKey, std::uint32_t, ProbeKeyHasher> probeIdByKey_;
+
+		// Address fan-out (per process).
+		std::unordered_map<Address, AddressData, AddressHasher> addressMap_;
+
+		// Registration context (the last added module and file).
+		bool hasLastModule_ = false;
+		std::uint32_t lastModuleId_ = 0;
+		void* lastBaseOfImage_ = nullptr;
+		bool hasLastFile_ = false;
+		std::wstring lastFilename_;
+		std::uint32_t lastFileId_ = 0;
 	};
 }
