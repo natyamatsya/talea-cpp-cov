@@ -19,8 +19,7 @@
 
 #include <fstream>
 #include <filesystem>
-#include <boost/spirit/include/classic.hpp>
-#include <boost/spirit/include/classic_tree_to_xml.hpp>
+#include <string_view>
 
 #include "Plugin/Exporter/FileCoverage.hpp"
 
@@ -32,6 +31,32 @@ namespace Exporter
 {
 	namespace
 	{
+		//---------------------------------------------------------------------
+		void ReplaceAll(std::wstring& str,
+		                std::wstring_view from,
+		                std::wstring_view to)
+		{
+			size_t pos = 0;
+			while ((pos = str.find(from, pos)) != std::wstring::npos)
+			{
+				str.replace(pos, from.size(), to);
+				pos += to.size();
+			}
+		}
+
+		//---------------------------------------------------------------------
+		// Same behavior as the previously used
+		// boost::spirit::classic::xml::encode.
+		std::wstring EncodeHtml(std::wstring str)
+		{
+			ReplaceAll(str, L"&", L"&amp;");
+			ReplaceAll(str, L"<", L"&lt;");
+			ReplaceAll(str, L">", L"&gt;");
+			ReplaceAll(str, L"\r", L"\\r");
+			ReplaceAll(str, L"\n", L"\\n");
+			return str;
+		}
+
 		//---------------------------------------------------------------------
 		bool HaveSameCoverage(
 			const Plugin::LineCoverage* lineCoverage,
@@ -123,7 +148,7 @@ namespace Exporter
 		{			
 			auto lineCoverage = fileCoverage[i];
 			
-			line = boost::spirit::classic::xml::encode(line);				
+			line = EncodeHtml(std::move(line));
 			if (AddLineCoverageColor(output, line, lineCoverage, previousLineCoverage))
 				++styleChangesCount;
 			++lineCount;
