@@ -2,6 +2,7 @@
   <Configurations>
     <Platform Name="x64" />
   </Configurations>
+  <Project Path="Benchmarks/Benchmarks.vcxproj" />
   <Project Path="CppCoverage/CppCoverage.vcxproj" />
   <Project Path="CppCoverageTest/CppCoverageTest.vcxproj">
     <BuildDependency Project="CppCoverage/CppCoverage.vcxproj" />
