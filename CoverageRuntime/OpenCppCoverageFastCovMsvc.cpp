@@ -32,11 +32,19 @@
 // than by planting section-boundary markers: a marker section can end up with
 // different attributes than the compiler's counters (LNK4078) and thus not be
 // merged with them, so the header walk is the reliable way to find the counters.
+//
+// At exit the runtime enumerates every loaded module and dumps each one that
+// carries a `.sancov` section - the main executable plus any instrumented DLL -
+// so coverage spans the whole process, not just the exe. Instrumented DLLs must
+// link this runtime too (they need the `_Sancov8bitUsed` anchor); to keep a
+// single dump, only the copy living in the main executable registers the exit
+// handler (see IsMainExecutable).
 
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <windows.h>
+#include <tlhelp32.h>
 
 #include "FastCovFormat.hpp"
 
@@ -90,28 +98,32 @@ namespace
 		if (length == 0 || length >= FastCov::MaxModulePathChars)
 			return;
 
-		// v1 instruments the main executable, whose .sancov section holds the
-		// counters.
-		auto module = GetModuleHandleW(nullptr);
-		auto base = reinterpret_cast<std::uint8_t*>(module);
-
-		std::uint32_t regionRva = 0;
-		std::uint32_t regionSize = 0;
-		if (!FindSancovSection(base, regionRva, regionSize))
+		// Every loaded module with a .sancov section is instrumented: the main
+		// executable and any instrumented DLL. System and uninstrumented
+		// modules have no such section and are skipped.
+		auto snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, 0);
+		if (snapshot == INVALID_HANDLE_VALUE)
 			return;
-		auto* regionStart = base + regionRva;
 
-		FastCov::RawModuleHeader moduleHeader{};
-		GetModuleFileNameW(
-		    module, moduleHeader.path_, FastCov::MaxModulePathChars);
-		moduleHeader.regionRva_ = regionRva;
-		moduleHeader.regionSize_ = regionSize;
+		MODULEENTRY32W entry{};
+		entry.dwSize = sizeof(entry);
 
-		FastCov::RawDumpHeader header{};
-		header.magic_ = FastCov::RawDumpMagic;
-		header.version_ = FastCov::DumpVersion;
-		header.moduleCount_ = 1;
-		header.reserved_ = 0;
+		// First pass: count instrumented modules so moduleCount_ is known
+		// before any module data is written (and no file is created for none).
+		std::uint32_t moduleCount = 0;
+		for (BOOL more = Module32FirstW(snapshot, &entry); more;
+		     more = Module32NextW(snapshot, &entry))
+		{
+			std::uint32_t rva = 0;
+			std::uint32_t size = 0;
+			if (FindSancovSection(entry.modBaseAddr, rva, size))
+				++moduleCount;
+		}
+		if (moduleCount == 0)
+		{
+			CloseHandle(snapshot);
+			return;
+		}
 
 		auto file = CreateFileW(path,
 		                        GENERIC_WRITE,
@@ -121,12 +133,58 @@ namespace
 		                        FILE_ATTRIBUTE_NORMAL,
 		                        nullptr);
 		if (file == INVALID_HANDLE_VALUE)
+		{
+			CloseHandle(snapshot);
 			return;
+		}
 
+		FastCov::RawDumpHeader header{};
+		header.magic_ = FastCov::RawDumpMagic;
+		header.version_ = FastCov::DumpVersion;
+		header.moduleCount_ = moduleCount;
+		header.reserved_ = 0;
 		WriteAll(file, &header, sizeof(header));
-		WriteAll(file, &moduleHeader, sizeof(moduleHeader));
-		WriteAll(file, regionStart, regionSize);
+
+		// Second pass: write each instrumented module's header and .sancov
+		// region. The snapshot order is stable across the two passes.
+		entry.dwSize = sizeof(entry);
+		for (BOOL more = Module32FirstW(snapshot, &entry); more;
+		     more = Module32NextW(snapshot, &entry))
+		{
+			std::uint32_t regionRva = 0;
+			std::uint32_t regionSize = 0;
+			if (!FindSancovSection(entry.modBaseAddr, regionRva, regionSize))
+				continue;
+
+			FastCov::RawModuleHeader moduleHeader{};
+			GetModuleFileNameW(
+			    entry.hModule, moduleHeader.path_, FastCov::MaxModulePathChars);
+			moduleHeader.regionRva_ = regionRva;
+			moduleHeader.regionSize_ = regionSize;
+
+			WriteAll(file, &moduleHeader, sizeof(moduleHeader));
+			WriteAll(file, entry.modBaseAddr + regionRva, regionSize);
+		}
+
 		CloseHandle(file);
+		CloseHandle(snapshot);
+	}
+
+	//-------------------------------------------------------------------------
+	// True if this runtime copy lives in the main executable. Instrumented DLLs
+	// link this runtime for the _Sancov8bitUsed anchor and would each register
+	// their own exit dump; gating on the main module keeps exactly one dump,
+	// written by the executable's copy, which enumerates every module anyway.
+	bool IsMainExecutable()
+	{
+		HMODULE self = nullptr;
+		if (!GetModuleHandleExW(
+		        GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+		            GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+		        reinterpret_cast<LPCWSTR>(&OnExit),
+		        &self))
+			return true; // best effort: dump rather than lose coverage
+		return self == GetModuleHandleW(nullptr);
 	}
 
 	//-------------------------------------------------------------------------
@@ -135,6 +193,10 @@ namespace
 	// object is not touched by the compiler's coverage instrumentation).
 	struct Registrar
 	{
-		Registrar() { atexit(OnExit); }
+		Registrar()
+		{
+			if (IsMainExecutable())
+				atexit(OnExit);
+		}
 	} g_registrar;
 }

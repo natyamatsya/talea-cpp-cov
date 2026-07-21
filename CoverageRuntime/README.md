@@ -56,8 +56,32 @@ link /DEBUG your_code.obj OpenCppCoverageFastCovMsvc.obj /OUT:your_app.exe
 
 Because MSVC omits the PC table, the importer recovers each counter's block
 address by disassembling the module (`inc byte [rip+disp]` into `.sancov`) and
-reconstructing basic-block leaders from the PDB function ranges. v1 instruments
-the main executable only.
+reconstructing basic-block leaders from the PDB function ranges.
+
+### Covering instrumented DLLs
+
+At exit the MSVC runtime enumerates every loaded module and dumps each one that
+carries a `.sancov` section, so an instrumented DLL is covered alongside the
+executable. Two things to note when instrumenting a DLL:
+
+- Build the DLL's translation units with the coverage flag, **and link the
+  runtime into the DLL too** — an instrumented module needs the
+  `_Sancov8bitUsed` anchor the runtime defines, or it will not link.
+- Linking the runtime into both the DLL and the executable is fine: only the
+  copy in the main executable writes the dump (it enumerates every module), so
+  there is exactly one dump regardless of how many modules link the runtime.
+
+```
+REM instrumented DLL: link the runtime for the anchor
+cl /fsanitize-coverage=inline-8bit-counters /Zi /O2 /c your_lib.cpp
+link /DLL /DEBUG your_lib.obj OpenCppCoverageFastCovMsvc.obj /OUT:your_lib.dll
+
+REM the executable links the runtime as well; its copy writes the dump
+link /DEBUG your_app.obj OpenCppCoverageFastCovMsvc.obj your_lib.lib /OUT:your_app.exe
+```
+
+A module with a `.sancov` section but no PDB is skipped by the importer; system
+and uninstrumented DLLs have no such section and are ignored.
 
 ## Running and importing
 
