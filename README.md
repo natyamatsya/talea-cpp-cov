@@ -86,6 +86,17 @@ jump tables fall back to per-line breakpoints), so coverage results are
 identical to the unmerged mode. Use `--no_line_merging` to opt out; it is
 disabled automatically with `--optimized_build`.
 
+### In-process breakpoint servicing (experimental)
+
+`--experimental_veh` runs the target without a debugger: it is launched
+suspended, a small helper DLL is injected, and a Vectored Exception Handler
+services each breakpoint inside the process. This replaces the cross-process
+debug-event round trip (~50 µs per first hit) with an in-process exception
+dispatch, so hit-heavy runs speed up several-fold (measured ~5× on a
+fully-executed 100k-line program) while producing exactly the same coverage as
+the debugger. This v1 instruments only the main 64-bit executable — no DLLs, no
+child processes, and no branch coverage.
+
 ## Branch coverage (experimental)
 
 In addition to line coverage, OpenCppCoverage can measure branch coverage: for every

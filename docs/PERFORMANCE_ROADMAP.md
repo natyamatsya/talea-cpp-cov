@@ -331,19 +331,58 @@ Cobertura output):** 1 file **4,990 → 290 ms (17×)**; 5,000 headers
 (one per executed run + per call/branch boundary) — the next lever there is
 in-process VEH servicing (6.2).
 
-### 6.2 In-process VEH servicing (biggest per-hit win, novel)
+### 6.2 In-process VEH servicing — SHIPPED (v1, experimental)
 
-Move breakpoint servicing **into the target**: an injected DLL installs a Vectored
-Exception Handler that catches the `int3`, records the hit into the shared bitmap,
-restores the byte, and continues — a **usermode exception dispatch (µs-class)
-instead of the cross-process debug-port round trip (~100 µs)**. VEH is the
-standard in-process hooking substrate and TinyInst's fault-and-handle is the same
-idea, but a packaged VEH *coverage* tool appears to be open territory — genuine
-differentiation. Combined with 6.1, this is the ceiling of the
-breakpoint-based approach: fewer traps, each ~100× cheaper.
+Breakpoint servicing is moved **into the target**: instead of debugging it, the
+host launches it suspended, injects a tiny helper DLL, and lets a Vectored
+Exception Handler catch each `int3`, record the hit into a shared bitmap,
+restore the byte, and continue — a **usermode exception dispatch instead of the
+cross-process debug-port round trip**. A packaged VEH *coverage* tool appears to
+be open territory. Combined with 6.1 this is the ceiling of the breakpoint
+approach: fewer traps, each far cheaper.
 
-*Caveat: the µs figure is directionally well-supported but not isolated in a
-public benchmark; the ~100 µs cross-process anchor is solid.*
+**Done** (`--experimental_veh`; `VehCoverageEngine` host-side, a self-contained
+`VehCoverageHelper.dll`):
+
+- **All probe placement is computed offline**, from the PDB and the module file
+  — the same DIA enumeration, source/line filters, `LineRunScanner` run merging
+  and `ExecutedAddressManager` probe table as the debugger engine, driven in RVA
+  space with no live process. So the engine is a new *collection mechanism*,
+  not a new measurement: output is **byte-identical** to the debugger (asserted
+  by `VehCoverageEngineTest` for basic/thread/exception runs, merged and
+  unmerged).
+- **The helper is minimal and loader-safe:** it links only kernel32, does all
+  work in `DllMain` while the target's single thread is still suspended, arms
+  the VEH *before* planting any int3 (so a partial failure can never leave an
+  unserviced breakpoint), leaves patched pages writable so the hit-path byte
+  restore needs no syscall, and hands hits back through a pid-named shared
+  section. Concurrent hits are idempotent (same byte, same bit) — best-effort,
+  like the debugger engine.
+- **Correct disassembly without the process:** `PeImageFileReader` maps the
+  module file and serves a function's original bytes in RVA space; control-flow
+  opcodes are unaffected by load-time relocation, so the on-disk bytes are what
+  the run scanner needs.
+
+**Measured (Release, 100k lines, warm PDB cache, coverage byte-identical to the
+debugger):**
+
+| Workload | debugger | VEH | speedup |
+|---|--:|--:|--:|
+| 5,000 executed leaders (run-merged) | 900 ms | 520 ms | 1.7× |
+| 100k executed probes (`--no_line_merging`) — 1 file | 4,650 ms | 810 ms | **5.8×** |
+| 100k executed probes (`--no_line_merging`) — 5,000 files | 5,500 ms | 1,060 ms | **5.2×** |
+
+VEH's advantage scales with the number of *distinct executed probes*: run
+merging (6.1) shrinks that count, VEH makes each surviving hit ~µs instead of
+~50 µs, and the two compose. On the run-merged synthetic most hits are already
+gone so the marginal win is modest; the per-line rows isolate the per-hit
+lever, where the ~4–5 s of debug round trips collapse to the in-process residue
+(planting + patch + export).
+
+**v1 limitations (rejected or warned by the CLI):** instruments only the main
+executable (no DLLs, no child processes), 64-bit targets only, and no branch
+coverage. Extending to DLLs (dynamic module discovery + late-load patching via
+`LdrRegisterDllNotification`) is the natural next step.
 
 ### 6.3 Selective binary rewriting (data, ~15–20%, no recompile)
 
