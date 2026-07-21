@@ -78,6 +78,11 @@ namespace CppCoverageTest
 
 		//---------------------------------------------------------------------
 		Plugin::CoverageData ComputeCoverageDataPatterns(const CoverageArgs& args);
+
+		//---------------------------------------------------------------------
+		// Same settings as ComputeCoverageDataPatterns, run through the
+		// experimental in-process VEH engine instead of the debugger.
+		Plugin::CoverageData ComputeCoverageDataVeh(const CoverageArgs& args);
 	}
 }
 

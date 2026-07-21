@@ -455,6 +455,8 @@ namespace CppCoverage
 			options.EnableNoPdbCacheMode();
 		if (variablesMap.IsOptionSelected(ProgramOptions::NoLineMergingOption))
 			options.EnableNoLineMergingMode();
+		if (variablesMap.IsOptionSelected(ProgramOptions::ExperimentalVehOption))
+			options.EnableExperimentalVehMode();
 
 		AddInputCoverages(variablesMap, options);
 		AddUnifiedDiff(variablesMap, options);

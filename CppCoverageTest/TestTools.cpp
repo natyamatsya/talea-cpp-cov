@@ -24,8 +24,10 @@
 #include "CppCoverage/Debugger.hpp"
 #include "CppCoverage/IDebugEventsHandler.hpp"
 #include "CppCoverage/CodeCoverageRunner.hpp"
+#include "CppCoverage/VehCoverageEngine.hpp"
 #include "CppCoverage/CoverageFilterSettings.hpp"
 #include "CppCoverage/RunCoverageSettings.hpp"
+#include "CppCoverage/Patterns.hpp"
 
 #include "TestCoverageConsole/TestCoverageConsole.hpp"
 
@@ -154,6 +156,44 @@ namespace CppCoverageTest
 			auto coverageData = codeCoverageRunner.RunCoverage(settings);
 
 			return coverageData;
+		}
+
+		//---------------------------------------------------------------------
+		Plugin::CoverageData ComputeCoverageDataVeh(const CoverageArgs& args)
+		{
+			cov::VehCoverageEngine vehEngine{
+			    std::make_shared<Tools::WarningManager>()};
+			cov::Patterns modulePatterns{false};
+			cov::Patterns sourcePatterns{false};
+
+			for (auto modulePattern : args.modulePatternCollection_)
+			{
+				boost::to_lower(modulePattern);
+				modulePatterns.AddSelectedPatterns(modulePattern);
+			}
+
+			for (auto sourcePattern : args.sourcePatternCollection_)
+			{
+				boost::to_lower(sourcePattern);
+				sourcePatterns.AddSelectedPatterns(sourcePattern);
+			}
+
+			cov::CoverageFilterSettings coverageFilterSettings{
+			    modulePatterns, sourcePatterns};
+			cov::StartInfo startInfo{args.programToRun_};
+
+			for (const auto& argument : args.arguments_)
+				startInfo.AddArgument(argument);
+
+			cov::RunCoverageSettings settings(
+			    startInfo,
+			    coverageFilterSettings,
+			    args.unifiedDiffSettingsCollection_,
+			    args.excludedLineRegexes_,
+			    args.substitutePdbSourcePath_);
+			settings.SetLineMergingEnabled(args.lineMerging_);
+
+			return vehEngine.RunCoverage(settings);
 		}
 	}
 }

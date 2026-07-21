@@ -111,7 +111,9 @@
     <ClInclude Include="LineRunScanner.hpp" />
     <ClInclude Include="PdbLineTableCache.hpp" />
     <ClInclude Include="PdbSignature.hpp" />
+    <ClInclude Include="PeImageFileReader.hpp" />
     <ClInclude Include="ProgramOptionsVariablesMap.hpp" />
+    <ClInclude Include="VehCoverageEngine.hpp" />
     <ClInclude Include="RunCoverageSettings.hpp" />
     <ClInclude Include="SubstitutePdbSourcePath.hpp" />
     <ClInclude Include="UnifiedDiffCoverageFilterManager.hpp" />
@@ -155,7 +157,9 @@
     <ClCompile Include="MonitoredLineRegister.cpp" />
     <ClCompile Include="PdbLineTableCache.cpp" />
     <ClCompile Include="PdbSignature.cpp" />
+    <ClCompile Include="PeImageFileReader.cpp" />
     <ClCompile Include="RunCoverageSettings.cpp" />
+    <ClCompile Include="VehCoverageEngine.cpp" />
     <ClCompile Include="UnifiedDiffCoverageFilterManager.cpp" />
     <ClCompile Include="UnifiedDiffSettings.cpp" />
     <ClCompile Include="WildcardCoverageFilter.cpp" />

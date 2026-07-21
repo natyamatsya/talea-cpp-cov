@@ -91,6 +91,9 @@ namespace CppCoverage
 		void EnableNoLineMergingMode();
 		bool IsNoLineMergingModeEnabled() const;
 
+		void EnableExperimentalVehMode();
+		bool IsExperimentalVehModeEnabled() const;
+
 		void AddExcludedLineRegex(const std::wstring&);
 		const std::vector<std::wstring>& GetExcludedLineRegexes() const;
 
@@ -118,6 +121,7 @@ namespace CppCoverage
         bool isBranchCoverageModeEnabled_;
         bool isNoPdbCacheModeEnabled_;
         bool isNoLineMergingModeEnabled_;
+        bool isExperimentalVehModeEnabled_;
         std::vector<OptionsExport> exports_;
 		std::vector<std::filesystem::path> inputCoveragePaths_;
 		std::vector<UnifiedDiffSettings> unifiedDiffSettingsCollection_;

@@ -53,6 +53,7 @@ namespace CppCoverage
 		, isBranchCoverageModeEnabled_{false}
 		, isNoPdbCacheModeEnabled_{false}
 		, isNoLineMergingModeEnabled_{false}
+		, isExperimentalVehModeEnabled_{false}
 	{
 		if (startInfo)
 			optionalStartInfo_ = *startInfo;
@@ -236,6 +237,18 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
+	void Options::EnableExperimentalVehMode()
+	{
+		isExperimentalVehModeEnabled_ = true;
+	}
+
+	//-------------------------------------------------------------------------
+	bool Options::IsExperimentalVehModeEnabled() const
+	{
+		return isExperimentalVehModeEnabled_;
+	}
+
+	//-------------------------------------------------------------------------
 	void Options::AddExcludedLineRegex(const std::wstring& excludedRegex)
 	{
 		excludedLineRegexes_.push_back(excludedRegex);
@@ -274,6 +287,7 @@ namespace CppCoverage
 		ostr << L"Branch coverage: " << options.isBranchCoverageModeEnabled_ << std::endl;
 		ostr << L"No PDB cache: " << options.isNoPdbCacheModeEnabled_ << std::endl;
 		ostr << L"No line merging: " << options.isNoLineMergingModeEnabled_ << std::endl;
+		ostr << L"Experimental VEH: " << options.isExperimentalVehModeEnabled_ << std::endl;
 
 		ostr << L"Export: ";
 		for (const auto& optionExport : options.exports_)

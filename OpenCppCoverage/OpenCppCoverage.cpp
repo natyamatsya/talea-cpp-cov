@@ -18,8 +18,10 @@
 #include "OpenCppCoverage.hpp"
 
 #include <iostream>
+#include <optional>
 
 #include "CppCoverage/CodeCoverageRunner.hpp"
+#include "CppCoverage/VehCoverageEngine.hpp"
 #include "CppCoverage/CoverageFilterSettings.hpp"
 #include "CppCoverage/OptionsParser.hpp"
 #include "CppCoverage/Options.hpp"
@@ -185,9 +187,30 @@ namespace OpenCppCoverage
 				runCoverageSettings.SetBranchCoverage(options.IsBranchCoverageModeEnabled());
 				runCoverageSettings.SetPdbCacheEnabled(!options.IsNoPdbCacheModeEnabled());
 				runCoverageSettings.SetLineMergingEnabled(!options.IsNoLineMergingModeEnabled());
-				auto coverageData = codeCoverageRunner.RunCoverage(runCoverageSettings);
-				exitCode = coverageData.GetExitCode();
-				coveraDatas.push_back(std::move(coverageData));
+
+				std::optional<Plugin::CoverageData> coverageData;
+				if (options.IsExperimentalVehModeEnabled())
+				{
+					if (options.IsBranchCoverageModeEnabled())
+						throw std::runtime_error(
+						    "--experimental_veh does not support "
+						    "--branch_coverage.");
+					if (options.IsCoverChildrenModeEnabled())
+						LOG_WARNING << L"--experimental_veh does not cover "
+						               L"child processes; only the main "
+						               L"executable is instrumented.";
+
+					cov::VehCoverageEngine vehEngine{warningManager};
+					coverageData.emplace(
+					    vehEngine.RunCoverage(runCoverageSettings));
+				}
+				else
+				{
+					coverageData.emplace(
+					    codeCoverageRunner.RunCoverage(runCoverageSettings));
+				}
+				exitCode = coverageData->GetExitCode();
+				coveraDatas.push_back(std::move(*coverageData));
 			}
 			cov::CoverageDataMerger	coverageDataMerger;
 

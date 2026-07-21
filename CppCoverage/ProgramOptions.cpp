@@ -95,6 +95,11 @@ namespace CppCoverage
 					"Place one breakpoint per source line instead of one per straight-line "
 					"run of lines. Merging is a pure performance optimization; coverage "
 					"results are identical.")
+				(ProgramOptions::ExperimentalVehOption.c_str(),
+					"(Experimental) Service breakpoints in-process with a Vectored Exception "
+					"Handler instead of the debugger, for much lower per-hit overhead. "
+					"v1 instruments only the main executable (no DLLs, no child processes, "
+					"no branch coverage).")
 				(ProgramOptions::ExcludedLineRegexOption.c_str(), po::value<T_Strings>()->composing(),
 					"Exclude all lines match the regular expression. Regular expression must match the whole line.")
 				(ProgramOptions::SubstitutePdbSourcePathOption.c_str(), po::value<T_Strings>()->composing(),
@@ -142,6 +147,7 @@ namespace CppCoverage
 	const std::string ProgramOptions::BranchCoverageOption = "branch_coverage";
 	const std::string ProgramOptions::NoPdbCacheOption = "no_pdb_cache";
 	const std::string ProgramOptions::NoLineMergingOption = "no_line_merging";
+	const std::string ProgramOptions::ExperimentalVehOption = "experimental_veh";
 
 	//-------------------------------------------------------------------------
 	ProgramOptions::ProgramOptions(

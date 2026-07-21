@@ -167,6 +167,17 @@ namespace CppCoverageTest
 			->IsNoLineMergingModeEnabled());
 		ASSERT_FALSE(TestTools::Parse(parser, {})->IsNoLineMergingModeEnabled());
 	}
+
+	//-------------------------------------------------------------------------
+	TEST(OptionsParserTest, ExperimentalVeh)
+	{
+		cov::OptionsParser parser;
+
+		ASSERT_TRUE(TestTools::Parse(parser,
+		{ TestTools::GetOptionPrefix() + cov::ProgramOptions::ExperimentalVehOption })
+			->IsExperimentalVehModeEnabled());
+		ASSERT_FALSE(TestTools::Parse(parser, {})->IsExperimentalVehModeEnabled());
+	}
     
     //-------------------------------------------------------------------------
 	TEST(OptionsParserTest, WorkingDirectory)
