@@ -55,6 +55,7 @@ namespace CppCoverage
 		static const std::string NoPdbCacheOption;
 		static const std::string NoRawPdbOption;
 		static const std::string NoLineMergingOption;
+		static const std::string PreparseImportsOption;
 		static const std::string ExperimentalVehOption;
 		static const std::string InputFastCovValue;
 		static const std::string FastCovTemplateReportValue;

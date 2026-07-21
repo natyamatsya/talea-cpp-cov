@@ -248,6 +248,7 @@ namespace OpenCppCoverage
 				runCoverageSettings.SetPdbCacheEnabled(!options.IsNoPdbCacheModeEnabled());
 				runCoverageSettings.SetRawPdbEnabled(!options.IsNoRawPdbModeEnabled());
 				runCoverageSettings.SetLineMergingEnabled(!options.IsNoLineMergingModeEnabled());
+				runCoverageSettings.SetPreparseImports(options.IsPreparseImportsModeEnabled());
 
 				std::optional<Plugin::CoverageData> coverageData;
 				if (options.IsExperimentalVehModeEnabled())

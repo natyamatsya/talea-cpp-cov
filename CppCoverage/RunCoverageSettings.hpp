@@ -48,6 +48,7 @@ namespace CppCoverage
 		void SetPdbCacheEnabled(bool);
 		void SetRawPdbEnabled(bool);
 		void SetLineMergingEnabled(bool);
+		void SetPreparseImports(bool);
 
 		const StartInfo& GetStartInfo() const;
 		const CoverageFilterSettings& GetCoverageFilterSettings() const;
@@ -61,6 +62,7 @@ namespace CppCoverage
 		bool IsPdbCacheEnabled() const;
 		bool IsRawPdbEnabled() const;
 		bool IsLineMergingEnabled() const;
+		bool GetPreparseImports() const;
 		const std::vector<std::wstring>& GetExcludedLineRegexes() const;
 		const std::vector<SubstitutePdbSourcePath>& GetSubstitutePdbSourcePaths() const;
 
@@ -77,6 +79,7 @@ namespace CppCoverage
 		bool pdbCacheEnabled_;
 		bool rawPdbEnabled_;
 		bool lineMergingEnabled_;
+		bool preparseImports_;
 		std::vector<std::wstring> excludedLineRegexes_;
 		std::vector<SubstitutePdbSourcePath> substitutePdbSourcePath_;
 	};

@@ -66,6 +66,7 @@ namespace CppCoverageTest
 			bool optimizedBuildSupport_ = false;
 			bool branchCoverage_ = false;
 			bool lineMerging_ = true;
+			bool preparseImports_ = false;
 			std::vector<std::wstring> excludedLineRegexes_;
 			std::vector<CppCoverage::SubstitutePdbSourcePath> substitutePdbSourcePath_;
 		};

@@ -17,6 +17,8 @@
 #include "stdafx.h"
 #include "CodeCoverageRunner.hpp"
 
+#include <algorithm>
+#include <execution>
 #include <sstream>
 #include <optional>
 
@@ -24,6 +26,7 @@
 
 #include "Plugin/Exporter/CoverageData.hpp"
 #include "Debugger.hpp"
+#include "ImportClosure.hpp"
 #include "ExecutedAddressManager.hpp"
 #include "BranchCoverageManager.hpp"
 #include "HandleInformation.hpp"
@@ -44,6 +47,67 @@
 
 namespace CppCoverage
 {
+	namespace
+	{
+		// Warms the PDB line-table cache by parsing a module without replaying
+		// anything: the cached table is the full, pre-filter table, so any
+		// handler works.
+		class PreparseHandler : public IDebugInformationHandler
+		{
+		  public:
+			bool IsSourceFileSelected(const std::filesystem::path&) override
+			{
+				return true;
+			}
+			void OnSourceFile(const std::filesystem::path&,
+			                  const std::vector<Line>&) override
+			{
+			}
+		};
+
+		//---------------------------------------------------------------------
+		// Parses the executable and its import-closure DLLs in parallel to warm
+		// the PDB line-table cache before the program runs, so each module loads
+		// without a per-module parse stalling the debug loop. Best-effort: a
+		// module that fails to pre-parse is simply parsed on load as usual.
+		void PreparseImportClosure(const StartInfo& startInfo,
+		                           const RunCoverageSettings& settings,
+		                           CoverageFilterManager& filterManager,
+		                           std::shared_ptr<PdbLineTableCache> cache)
+		{
+			std::vector<std::filesystem::path> modules{startInfo.GetPath()};
+			for (const auto& module :
+			     ComputeImportClosure(startInfo.GetPath()))
+			{
+				if (filterManager.IsModuleSelected(module.wstring()))
+					modules.push_back(module);
+			}
+
+			const auto& substitutePaths = settings.GetSubstitutePdbSourcePaths();
+			std::for_each(
+			    std::execution::par,
+			    modules.begin(),
+			    modules.end(),
+			    [&](const std::filesystem::path& modulePath) {
+				    try
+				    {
+					    DebugInformationEnumerator enumerator{
+					        substitutePaths,
+					        /*needSymbolIndex*/ false,
+					        cache,
+					        /*needFunctionNames*/ false,
+					        /*useRawPdb*/ true};
+					    PreparseHandler handler;
+					    enumerator.Enumerate(modulePath, handler);
+				    }
+				    catch (...)
+				    {
+					    // Best-effort: the on-load parse handles this module.
+				    }
+			    });
+		}
+	}
+
 	//-------------------------------------------------------------------------
 	CodeCoverageRunner::CodeCoverageRunner(
 	    std::shared_ptr<Tools::WarningManager> warningManager)
@@ -104,6 +168,18 @@ namespace CppCoverage
 			enableLineMerging);
 
 		const auto& startInfo = settings.GetStartInfo();
+
+		// Optional: parse the import closure's PDBs in parallel up front so the
+		// module loads below hit the cache. Restricted to the raw_pdb path (the
+		// DIA path is COM-apartment-bound and hostile to parallelism, and the
+		// optimized-build filter needs symbol indexes the raw reader skips).
+		if (settings.GetPreparseImports() && pdbLineTableCache &&
+		    settings.IsRawPdbEnabled() && !settings.GetOptimizedBuildSupport())
+		{
+			PreparseImportClosure(
+			    startInfo, settings, *coverageFilterManager_, pdbLineTableCache);
+		}
+
 		int exitCode = debugger.Debug(startInfo, *this);
 		const auto& path = startInfo.GetPath();
 

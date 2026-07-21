@@ -98,6 +98,11 @@ namespace CppCoverage
 					"Place one breakpoint per source line instead of one per straight-line "
 					"run of lines. Merging is a pure performance optimization; coverage "
 					"results are identical.")
+				(ProgramOptions::PreparseImportsOption.c_str(),
+					"Parse the PDBs of the executable and its imported DLLs in parallel "
+					"before the program starts, warming the line-table cache so their "
+					"modules load without a per-module parse. A pure performance "
+					"optimization; coverage results are identical.")
 				(ProgramOptions::ExperimentalVehOption.c_str(),
 					"(Experimental) Service breakpoints in-process with a Vectored Exception "
 					"Handler instead of the debugger, for much lower per-hit overhead. "
@@ -159,6 +164,7 @@ namespace CppCoverage
 	const std::string ProgramOptions::NoPdbCacheOption = "no_pdb_cache";
 	const std::string ProgramOptions::NoRawPdbOption = "no_raw_pdb";
 	const std::string ProgramOptions::NoLineMergingOption = "no_line_merging";
+	const std::string ProgramOptions::PreparseImportsOption = "preparse_imports";
 	const std::string ProgramOptions::ExperimentalVehOption = "experimental_veh";
 	const std::string ProgramOptions::InputFastCovValue = "input_fastcov";
 	const std::string ProgramOptions::FastCovTemplateReportValue = "fastcov_template_report";

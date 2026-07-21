@@ -125,6 +125,7 @@ namespace CppCoverage
 	PdbLineTableCache::TryGet(const PdbSignature& signature,
 	                          bool needSymbolIndexes)
 	{
+		std::lock_guard<std::mutex> lock(mutex_);
 		auto key = signature.ToString();
 		auto it = tables_.find(key);
 		if (it != tables_.end() &&
@@ -160,6 +161,7 @@ namespace CppCoverage
 		if (!table)
 			return;
 
+		std::lock_guard<std::mutex> lock(mutex_);
 		auto key = signature.ToString();
 		auto it = tables_.find(key);
 
@@ -175,18 +177,21 @@ namespace CppCoverage
 	//-------------------------------------------------------------------------
 	int PdbLineTableCache::GetMemoryHitCount() const
 	{
+		std::lock_guard<std::mutex> lock(mutex_);
 		return memoryHitCount_;
 	}
 
 	//-------------------------------------------------------------------------
 	int PdbLineTableCache::GetDiskHitCount() const
 	{
+		std::lock_guard<std::mutex> lock(mutex_);
 		return diskHitCount_;
 	}
 
 	//-------------------------------------------------------------------------
 	int PdbLineTableCache::GetMissCount() const
 	{
+		std::lock_guard<std::mutex> lock(mutex_);
 		return missCount_;
 	}
 

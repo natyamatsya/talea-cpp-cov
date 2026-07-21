@@ -152,6 +152,7 @@ namespace CppCoverageTest
 			settings.SetOptimizedBuildSupport(args.optimizedBuildSupport_);
 			settings.SetBranchCoverage(args.branchCoverage_);
 			settings.SetLineMergingEnabled(args.lineMerging_);
+			settings.SetPreparseImports(args.preparseImports_);
 
 			auto coverageData = codeCoverageRunner.RunCoverage(settings);
 

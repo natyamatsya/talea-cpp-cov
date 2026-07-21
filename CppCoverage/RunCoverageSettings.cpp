@@ -38,6 +38,7 @@ namespace CppCoverage
 	      pdbCacheEnabled_{true},
 	      rawPdbEnabled_{true},
 	      lineMergingEnabled_{true},
+	      preparseImports_{false},
 	      excludedLineRegexes_{excludedLineRegexes},
 	      substitutePdbSourcePath_{substitutePdbSourcePath}
 	{
@@ -95,6 +96,12 @@ namespace CppCoverage
 	void RunCoverageSettings::SetLineMergingEnabled(bool lineMergingEnabled)
 	{
 		lineMergingEnabled_ = lineMergingEnabled;
+	}
+
+	//-------------------------------------------------------------------------
+	void RunCoverageSettings::SetPreparseImports(bool preparseImports)
+	{
+		preparseImports_ = preparseImports;
 	}
 
 	//-------------------------------------------------------------------------
@@ -167,6 +174,12 @@ namespace CppCoverage
 	bool RunCoverageSettings::IsLineMergingEnabled() const
 	{
 		return lineMergingEnabled_;
+	}
+
+	//-------------------------------------------------------------------------
+	bool RunCoverageSettings::GetPreparseImports() const
+	{
+		return preparseImports_;
 	}
 
 	//-------------------------------------------------------------------------

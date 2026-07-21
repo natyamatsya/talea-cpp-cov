@@ -100,6 +100,9 @@ namespace CppCoverage
 		void EnableNoLineMergingMode();
 		bool IsNoLineMergingModeEnabled() const;
 
+		void EnablePreparseImportsMode();
+		bool IsPreparseImportsModeEnabled() const;
+
 		void EnableExperimentalVehMode();
 		bool IsExperimentalVehModeEnabled() const;
 
@@ -131,6 +134,7 @@ namespace CppCoverage
         bool isNoPdbCacheModeEnabled_;
         bool isNoRawPdbModeEnabled_;
         bool isNoLineMergingModeEnabled_;
+        bool isPreparseImportsModeEnabled_;
         bool isExperimentalVehModeEnabled_;
         std::vector<OptionsExport> exports_;
 		std::vector<std::filesystem::path> inputCoveragePaths_;

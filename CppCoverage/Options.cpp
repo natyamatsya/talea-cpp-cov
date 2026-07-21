@@ -54,6 +54,7 @@ namespace CppCoverage
 		, isNoPdbCacheModeEnabled_{false}
 		, isNoRawPdbModeEnabled_{false}
 		, isNoLineMergingModeEnabled_{false}
+		, isPreparseImportsModeEnabled_{false}
 		, isExperimentalVehModeEnabled_{false}
 	{
 		if (startInfo)
@@ -275,6 +276,18 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
+	void Options::EnablePreparseImportsMode()
+	{
+		isPreparseImportsModeEnabled_ = true;
+	}
+
+	//-------------------------------------------------------------------------
+	bool Options::IsPreparseImportsModeEnabled() const
+	{
+		return isPreparseImportsModeEnabled_;
+	}
+
+	//-------------------------------------------------------------------------
 	void Options::EnableExperimentalVehMode()
 	{
 		isExperimentalVehModeEnabled_ = true;
@@ -326,6 +339,7 @@ namespace CppCoverage
 		ostr << L"No PDB cache: " << options.isNoPdbCacheModeEnabled_ << std::endl;
 		ostr << L"No raw PDB: " << options.isNoRawPdbModeEnabled_ << std::endl;
 		ostr << L"No line merging: " << options.isNoLineMergingModeEnabled_ << std::endl;
+		ostr << L"Preparse imports: " << options.isPreparseImportsModeEnabled_ << std::endl;
 		ostr << L"Experimental VEH: " << options.isExperimentalVehModeEnabled_ << std::endl;
 
 		ostr << L"Export: ";

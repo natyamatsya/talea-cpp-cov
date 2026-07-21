@@ -485,6 +485,8 @@ namespace CppCoverage
 			options.EnableNoRawPdbMode();
 		if (variablesMap.IsOptionSelected(ProgramOptions::NoLineMergingOption))
 			options.EnableNoLineMergingMode();
+		if (variablesMap.IsOptionSelected(ProgramOptions::PreparseImportsOption))
+			options.EnablePreparseImportsMode();
 		if (variablesMap.IsOptionSelected(ProgramOptions::ExperimentalVehOption))
 			options.EnableExperimentalVehMode();
 

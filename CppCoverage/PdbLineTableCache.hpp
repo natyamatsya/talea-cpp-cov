@@ -19,6 +19,7 @@
 #include <filesystem>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -63,7 +64,9 @@ namespace CppCoverage
 		static std::filesystem::path GetDefaultDiskCacheDirectory();
 
 		// A cached table qualifies when it carries symbol indexes or the
-		// caller does not need them.
+		// caller does not need them. Thread-safe: the import-closure pre-parse
+		// warms the cache from several threads at once, concurrently with the
+		// module loads that read it.
 		std::shared_ptr<const ModuleLineTable> TryGet(const PdbSignature&,
 		                                              bool needSymbolIndexes);
 
@@ -86,6 +89,7 @@ namespace CppCoverage
 		void PruneDiskCache() const;
 
 		const std::filesystem::path diskCacheDirectory_;
+		mutable std::mutex mutex_; // guards tables_ and the hit counters
 		std::map<std::wstring, std::shared_ptr<const ModuleLineTable>>
 		    tables_;
 		int memoryHitCount_ = 0;

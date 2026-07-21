@@ -180,6 +180,17 @@ namespace CppCoverageTest
 	}
 
 	//-------------------------------------------------------------------------
+	TEST(OptionsParserTest, PreparseImports)
+	{
+		cov::OptionsParser parser;
+
+		ASSERT_TRUE(TestTools::Parse(parser,
+		{ TestTools::GetOptionPrefix() + cov::ProgramOptions::PreparseImportsOption })
+			->IsPreparseImportsModeEnabled());
+		ASSERT_FALSE(TestTools::Parse(parser, {})->IsPreparseImportsModeEnabled());
+	}
+
+	//-------------------------------------------------------------------------
 	TEST(OptionsParserTest, ExperimentalVeh)
 	{
 		cov::OptionsParser parser;
