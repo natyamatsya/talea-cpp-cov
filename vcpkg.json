@@ -7,11 +7,11 @@
     "boost-container",
     "boost-log",
     "boost-range",
-    "boost-regex",
     "ctemplate",
     "fmt",
     "glaze",
     "gtest",
-    "mio"
+    "mio",
+    "pcre2"
   ]
 }

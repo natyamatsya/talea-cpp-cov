@@ -20,7 +20,8 @@
 #include <filesystem>
 #include <vector>
 #include <string>
-#include <regex>
+
+#include "Tools/Regex.hpp"
 
 namespace Tools
 {
@@ -53,7 +54,7 @@ namespace FileFilter
 		const std::vector<std::string>* GetLines(const std::filesystem::path&);
 		bool IsLineSelected(const std::string& line) const;
 
-		std::vector<std::regex> excludedLineRegexes_;
+		std::vector<Tools::Regex> excludedLineRegexes_;
 		std::filesystem::path filePath_;
 		std::unique_ptr<Tools::MappedFile> mappedFileForFilePath_;
 		int fileReadCount_;

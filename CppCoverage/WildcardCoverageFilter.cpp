@@ -18,7 +18,6 @@
 #include "WildcardCoverageFilter.hpp"
 
 #include <sstream>
-#include <boost/regex.hpp>
 
 #include "Tools/Log.hpp"
 

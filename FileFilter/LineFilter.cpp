@@ -32,8 +32,14 @@ namespace FileFilter
 		: fileReadCount_{0}
 		, enableLog_{ enableLog }
 	{
+		// The source lines are matched as raw bytes (their encoding is
+		// unknown), so keep the pattern in the same local encoding and match in
+		// byte mode. fullMatch reproduces the previous std::regex_match, i.e. the
+		// whole line must match the exclusion pattern.
 		for (const auto& regex : excludedLineRegexes)
-			excludedLineRegexes_.emplace_back(Tools::ToLocalString(regex));
+			excludedLineRegexes_.emplace_back(
+			    Tools::ToLocalString(regex),
+			    Tools::Regex::Options{.utf = false, .fullMatch = true});
 	}
 
 	//-------------------------------------------------------------------------
@@ -78,7 +84,7 @@ namespace FileFilter
 	{
 		for (const auto& excludedRegex : excludedLineRegexes_)
 		{
-			if (std::regex_match(line, excludedRegex))
+			if (excludedRegex.Matches(line))
 				return false;
 		}
 

@@ -92,6 +92,7 @@
     <ClInclude Include="MiniDump.hpp" />
     <ClInclude Include="PEFileHeader.hpp" />
     <ClInclude Include="ProcessMemory.hpp" />
+    <ClInclude Include="Regex.hpp" />
     <ClInclude Include="ScopedAction.hpp" />
     <ClInclude Include="ToolsExport.hpp" />
     <ClInclude Include="stdafx.h" />
@@ -115,6 +116,7 @@
     <ClCompile Include="MiniDump.cpp" />
     <ClCompile Include="PEFileHeader.cpp" />
     <ClCompile Include="ProcessMemory.cpp" />
+    <ClCompile Include="Regex.cpp" />
     <ClCompile Include="ScopedAction.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

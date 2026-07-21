@@ -16,8 +16,9 @@
 
 #pragma once
 
-#include <regex>
 #include <string>
+
+#include "Tools/Regex.hpp"
 
 #include "CppCoverageExport.hpp"
 
@@ -41,7 +42,7 @@ namespace CppCoverage
 		Wildcards& operator=(const Wildcards&) = delete;
 
 	private:
-		std::wregex wildcars_;
+		Tools::Regex wildcards_;
 		std::wstring originalStr_;
 	};
 }

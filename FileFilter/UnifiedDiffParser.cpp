@@ -18,9 +18,10 @@
 #include "UnifiedDiffParser.hpp"
 
 #include <sstream>
-#include <regex>
 #include <filesystem>
+#include "Tools/Regex.hpp"
 #include "Tools/StringUtils.hpp"
+#include "Tools/Tool.hpp"
 
 #include "File.hpp"
 #include "UnifiedDiffParserException.hpp"
@@ -202,22 +203,23 @@ namespace FileFilter
 			const Stream& stream, 
 			const std::wstring& hunksDifferencesLine) const
 	{
-		std::wstring range = L"(\\d+)(?:,(\\d+))?";
-		std::wregex hunkRegex{ L"^@@\\s*-" + range + L"\\s*\\+" + range + L"\\s*@@" };
-		std::wcmatch match;
+		// Groups: 1 = startFrom, 2 = countFrom (optional), 3 = startTo,
+		// 4 = countTo (optional). The pattern is pure ASCII so it doubles as its
+		// own UTF-8 form; only the subject needs converting.
+		static const Tools::Regex hunkRegex{
+		    R"(^@@\s*-(\d+)(?:,(\d+))?\s*\+(\d+)(?:,(\d+))?\s*@@)"};
+		const auto match =
+		    hunkRegex.Capture(Tools::ToUtf8String(hunksDifferencesLine));
 
-		if (std::regex_search(hunksDifferencesLine.c_str(), match, hunkRegex))
+		if (match.size() == 5 && match[1] && match[3])
 		{
-			if (match.size() == 5 && match[1].matched && match[3].matched)
-			{
-				HunksDifferences hunksDifferences;
-				hunksDifferences.startFrom = std::stoi(match[1]);
-				hunksDifferences.countFrom = match[2].matched ? std::stoi(match[2]) : 1;
-				hunksDifferences.startTo = std::stoi(match[3]);
-				hunksDifferences.countTo = match[4].matched ? std::stoi(match[4]) : 1;
+			HunksDifferences hunksDifferences;
+			hunksDifferences.startFrom = std::stoi(*match[1]);
+			hunksDifferences.countFrom = match[2] ? std::stoi(*match[2]) : 1;
+			hunksDifferences.startTo = std::stoi(*match[3]);
+			hunksDifferences.countTo = match[4] ? std::stoi(*match[4]) : 1;
 
-				return hunksDifferences;
-			}
+			return hunksDifferences;
 		}
 
 		ThrowError(stream, UnifiedDiffParserException::ErrorInvalidHunks);
