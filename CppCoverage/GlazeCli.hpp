@@ -29,6 +29,7 @@
 // std::optional<bool> = value option (--x true/false). Both `--opt value` and
 // `--opt=value` (and `-s value` / `-s=value`) are accepted.
 
+#include <algorithm>
 #include <array>
 #include <charconv>
 #include <optional>
@@ -230,10 +231,16 @@ ParseResult parse(Spec& spec, std::span<const std::string> args, bool allow_extr
 			}
 		}
 
+		// Accept both kebab-case and snake_case: the reflected keys are
+		// snake_case, so normalize '-' to '_' in the given name before matching
+		// (a no-op for short aliases, which already resolve to a long key).
+		std::string lookupName{name};
+		std::replace(lookupName.begin(), lookupName.end(), '-', '_');
+
 		bool matched = false;
 		std::optional<std::string> error;
 		glz::for_each<N>([&]<auto I>() {
-			if (matched || glz::reflect<Spec>::keys[I] != name)
+			if (matched || glz::reflect<Spec>::keys[I] != lookupName)
 			{
 				return;
 			}

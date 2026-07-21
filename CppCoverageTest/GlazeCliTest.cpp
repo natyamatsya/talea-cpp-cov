@@ -170,6 +170,29 @@ namespace CppCoverage
 		EXPECT_EQ("C:\\work", *spec.working_dir);
 	}
 
+	TEST(OptionsSpecTest, AcceptsKebabAndSnakeCase)
+	{
+		OptionsSpec kebab;
+		auto k = glzcli::parse(
+		    kebab,
+		    std::span<const std::string>{std::vector<std::string>{
+		        "--cover-children", "--no-pdb-cache", "--working-dir", "d"}});
+		ASSERT_FALSE(k.error.has_value());
+		EXPECT_TRUE(kebab.cover_children);
+		EXPECT_TRUE(kebab.no_pdb_cache);
+		ASSERT_TRUE(kebab.working_dir.has_value());
+		EXPECT_EQ("d", *kebab.working_dir);
+
+		OptionsSpec snake;
+		auto s = glzcli::parse(
+		    snake,
+		    std::span<const std::string>{std::vector<std::string>{
+		        "--cover_children", "--no_pdb_cache"}});
+		ASSERT_FALSE(s.error.has_value());
+		EXPECT_TRUE(snake.cover_children);
+		EXPECT_TRUE(snake.no_pdb_cache);
+	}
+
 	TEST(OptionsSpecTest, JsonConfigRoundTrips)
 	{
 		OptionsSpec written;
