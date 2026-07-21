@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Repo-wide MSBuild defaults, imported automatically by every project.
+
+  Point the vcpkg manifest install at our overlay triplet so a few leaf
+  libraries (pcre2, fmt, ctemplate, benchmark) link statically instead of
+  shipping their own DLLs. See custom-triplets/x64-windows.cmake.
+-->
+<Project>
+  <PropertyGroup>
+    <VcpkgAdditionalInstallOptions>--overlay-triplets=$(MSBuildThisFileDirectory)custom-triplets $(VcpkgAdditionalInstallOptions)</VcpkgAdditionalInstallOptions>
+  </PropertyGroup>
+</Project>

@@ -11,7 +11,7 @@
   <ItemDefinitionGroup>
     <ClCompile>
       <AdditionalIncludeDirectories>$(SolutionDir);$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>OPENCPPCOVERAGE_VERSION="0.9.9.0";_CRT_SECURE_NO_WARNINGS;PROJECT_DIR=R"|($(ProjectDir))|";SOLUTION_DIR=R"|($(SolutionDir))|";TARGET_FILE_NAME=R"|($(TargetFileName))|";OUT_DIR=R"|($(OutDir))|";NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>OPENCPPCOVERAGE_VERSION="0.9.9.0";_CRT_SECURE_NO_WARNINGS;PROJECT_DIR=R"|($(ProjectDir))|";SOLUTION_DIR=R"|($(SolutionDir))|";TARGET_FILE_NAME=R"|($(TargetFileName))|";OUT_DIR=R"|($(OutDir))|";NOMINMAX;CTEMPLATE_DLL_DECL=;BENCHMARK_STATIC_DEFINE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <TreatWarningAsError>true</TreatWarningAsError>
       <UseFullPaths>true</UseFullPaths>
       <ConformanceMode>true</ConformanceMode>
