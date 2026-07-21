@@ -8,7 +8,6 @@
     "boost-log",
     "boost-range",
     "boost-regex",
-    "boost-uuid",
     "ctemplate",
     "fmt",
     "glaze",

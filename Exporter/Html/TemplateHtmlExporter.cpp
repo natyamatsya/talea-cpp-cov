@@ -17,11 +17,12 @@
 #include "stdafx.h"
 #include "TemplateHtmlExporter.hpp"
 
+#include <cstdint>
+#include <format>
 #include <fstream>
 #include <filesystem>
 #include <unordered_map>
 #include "Tools/StringUtils.hpp"
-#include <boost/uuid/uuid_io.hpp>
 
 #include "CTemplate.hpp"
 #include "Tools/Tool.hpp"
@@ -230,9 +231,17 @@ namespace Exporter
 	//-------------------------------------------------------------------------
 	std::string TemplateHtmlExporter::GetUuid()
 	{
-		boost::uuids::uuid id(uuidGenerator_());
-
-		return boost::uuids::to_string(id);
+		// A UUID-shaped hex id, unique within the report. Two 64-bit draws give
+		// the 128 bits; the exact layout is irrelevant (it is only an HTML id).
+		const std::uint64_t high = uuidGenerator_();
+		const std::uint64_t low = uuidGenerator_();
+		return std::format(
+		    "{:08x}-{:04x}-{:04x}-{:04x}-{:012x}",
+		    static_cast<std::uint32_t>(high >> 32),
+		    static_cast<std::uint16_t>(high >> 16),
+		    static_cast<std::uint16_t>(high),
+		    static_cast<std::uint16_t>(low >> 48),
+		    low & 0xFFFFFFFFFFFFULL);
 	}
 
 	//-------------------------------------------------------------------------

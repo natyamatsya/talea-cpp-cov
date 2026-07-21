@@ -19,10 +19,8 @@
 #include <memory>
 
 #include <filesystem>
+#include <random>
 
-// Disable: This header is deprecated. Use <boost/integer/integer_log2.hpp> instead.
-#define BOOST_ALLOW_DEPRECATED_HEADERS
-#include <boost/uuid/uuid_generators.hpp>
 #include "../ExporterExport.hpp"
 
 namespace CppCoverage
@@ -116,9 +114,12 @@ namespace Exporter
 			const fs::path& originalFilename);
 
 	private:
-		fs::path mainTemplatePath_;		
+		fs::path mainTemplatePath_;
 		fs::path fileTemplatePath_;
-		boost::uuids::random_generator uuidGenerator_;
+		// Generates the unique id used for each HTML section; the value only
+		// needs to be unique within a report, so a seeded PRNG replaces the
+		// former boost::uuids dependency.
+		std::mt19937_64 uuidGenerator_{std::random_device{}()};
 	};
 }
 
