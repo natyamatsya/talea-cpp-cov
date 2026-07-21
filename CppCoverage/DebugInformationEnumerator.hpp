@@ -58,11 +58,15 @@ namespace CppCoverage
 		};
 
 		// A function's code range, from the PDB function symbols. Straight
-		// -line run analysis never crosses these boundaries.
+		// -line run analysis never crosses these boundaries. name_ is the
+		// demangled symbol (e.g. "foo<int>"), populated only when the
+		// enumerator is asked for function names (the template/instantiation
+		// axis); it is empty otherwise and never cached.
 		struct FunctionRange
 		{
 			int64_t virtualAddress_;
 			unsigned long length_;
+			std::wstring name_;
 		};
 
 		virtual ~IDebugInformationHandler() = default;
@@ -94,7 +98,8 @@ namespace CppCoverage
 		explicit DebugInformationEnumerator(
 		    const std::vector<SubstitutePdbSourcePath>&,
 		    bool needSymbolIndex = false,
-		    std::shared_ptr<PdbLineTableCache> lineTableCache = nullptr);
+		    std::shared_ptr<PdbLineTableCache> lineTableCache = nullptr,
+		    bool needFunctionNames = false);
 		bool Enumerate(const std::filesystem::path&,
 		               IDebugInformationHandler&);
 
@@ -112,5 +117,6 @@ namespace CppCoverage
 		const std::vector<SubstitutePdbSourcePath> substitutePdbSourcePaths_;
 		const bool needSymbolIndex_;
 		const std::shared_ptr<PdbLineTableCache> lineTableCache_;
+		const bool needFunctionNames_;
 	};
 }

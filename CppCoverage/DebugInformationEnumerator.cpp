@@ -247,10 +247,12 @@ namespace CppCoverage
 	DebugInformationEnumerator::DebugInformationEnumerator(
 	    const std::vector<SubstitutePdbSourcePath>& substitutePdbSourcePaths,
 	    bool needSymbolIndex,
-	    std::shared_ptr<PdbLineTableCache> lineTableCache)
+	    std::shared_ptr<PdbLineTableCache> lineTableCache,
+	    bool needFunctionNames)
 		: substitutePdbSourcePaths_{ substitutePdbSourcePaths }
 		, needSymbolIndex_{ needSymbolIndex }
 		, lineTableCache_{ std::move(lineTableCache) }
+		, needFunctionNames_{ needFunctionNames }
 	{
 	}
 
@@ -404,9 +406,22 @@ namespace CppCoverage
 					    {
 						    return;
 					    }
+
+					    // The demangled name (e.g. "foo<int>") is the
+					    // template-instantiation identity, resolved only
+					    // when a caller asks for it.
+					    std::wstring name;
+					    if (needFunctionNames_)
+					    {
+						    DiaString symbolName;
+						    if (symbol.get_name(&symbolName) == S_OK)
+							    name = symbolName;
+					    }
+
 					    lineTable->functions_.push_back(
 					        {static_cast<int64_t>(virtualAddress),
-					         static_cast<unsigned long>(length)});
+					         static_cast<unsigned long>(length),
+					         std::move(name)});
 				    });
 			}
 		}
