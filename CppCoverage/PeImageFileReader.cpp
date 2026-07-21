@@ -1,0 +1,153 @@
+// OpenCppCoverage is an open source code coverage for C++.
+// Copyright (C) 2026 OpenCppCoverage
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+#include "stdafx.h"
+#include "PeImageFileReader.hpp"
+
+#include <Windows.h>
+
+#include <mio/mmap.hpp>
+
+namespace CppCoverage
+{
+	namespace
+	{
+		// One PE section, in RVA space with its backing file range.
+		struct Section
+		{
+			std::uint32_t virtualAddress_;
+			std::uint32_t virtualSize_;
+			std::uint32_t rawOffset_;
+			std::uint32_t rawSize_;
+		};
+
+		//---------------------------------------------------------------------
+		template <typename T>
+		const T* At(const mio::mmap_source& file, std::size_t offset)
+		{
+			if (offset > file.size() || file.size() - offset < sizeof(T))
+				return nullptr;
+			return reinterpret_cast<const T*>(file.data() + offset);
+		}
+	}
+
+	//-------------------------------------------------------------------------
+	class PeImageFileReader::Impl
+	{
+	  public:
+		mio::mmap_source file_;
+		std::vector<Section> sections_;
+	};
+
+	//-------------------------------------------------------------------------
+	PeImageFileReader::PeImageFileReader(std::unique_ptr<Impl> impl)
+	    : impl_{std::move(impl)}
+	{
+	}
+
+	//-------------------------------------------------------------------------
+	PeImageFileReader::~PeImageFileReader() = default;
+
+	//-------------------------------------------------------------------------
+	std::unique_ptr<PeImageFileReader>
+	PeImageFileReader::TryCreate(const std::filesystem::path& path)
+	{
+		auto impl = std::make_unique<Impl>();
+
+		std::error_code error;
+		impl->file_ = mio::make_mmap_source(path.wstring(), error);
+		if (error || impl->file_.empty())
+			return nullptr;
+
+		const auto& file = impl->file_;
+		auto dosHeader = At<IMAGE_DOS_HEADER>(file, 0);
+		if (!dosHeader || dosHeader->e_magic != IMAGE_DOS_SIGNATURE ||
+		    dosHeader->e_lfanew < 0)
+			return nullptr;
+
+		auto ntOffset = static_cast<std::size_t>(dosHeader->e_lfanew);
+		auto ntSignature = At<DWORD>(file, ntOffset);
+		if (!ntSignature || *ntSignature != IMAGE_NT_SIGNATURE)
+			return nullptr;
+
+		auto fileHeader =
+		    At<IMAGE_FILE_HEADER>(file, ntOffset + sizeof(DWORD));
+		if (!fileHeader)
+			return nullptr;
+
+		auto sectionTableOffset = ntOffset + sizeof(DWORD) +
+		                          sizeof(IMAGE_FILE_HEADER) +
+		                          fileHeader->SizeOfOptionalHeader;
+
+		impl->sections_.reserve(fileHeader->NumberOfSections);
+		for (WORD i = 0; i < fileHeader->NumberOfSections; ++i)
+		{
+			auto section = At<IMAGE_SECTION_HEADER>(
+			    file,
+			    sectionTableOffset + i * sizeof(IMAGE_SECTION_HEADER));
+			if (!section)
+				return nullptr;
+
+			impl->sections_.push_back(
+			    Section{section->VirtualAddress,
+			            section->Misc.VirtualSize,
+			            section->PointerToRawData,
+			            section->SizeOfRawData});
+		}
+
+		return std::unique_ptr<PeImageFileReader>(
+		    new PeImageFileReader{std::move(impl)});
+	}
+
+	//-------------------------------------------------------------------------
+	std::vector<unsigned char>
+	PeImageFileReader::ReadCode(std::uint32_t rva, std::uint32_t size) const
+	{
+		if (size == 0)
+			return {};
+
+		for (const auto& section : impl_->sections_)
+		{
+			if (rva < section.virtualAddress_)
+				continue;
+			auto offsetInSection = rva - section.virtualAddress_;
+
+			// The range must lie within both the virtual extent and the bytes
+			// actually present in the file for this section.
+			if (offsetInSection >= section.virtualSize_ ||
+			    section.virtualSize_ - offsetInSection < size ||
+			    offsetInSection >= section.rawSize_ ||
+			    section.rawSize_ - offsetInSection < size)
+			{
+				continue;
+			}
+
+			auto fileOffset = static_cast<std::size_t>(section.rawOffset_) +
+			                  offsetInSection;
+			if (fileOffset > impl_->file_.size() ||
+			    impl_->file_.size() - fileOffset < size)
+			{
+				return {};
+			}
+
+			auto* begin = reinterpret_cast<const unsigned char*>(
+			    impl_->file_.data() + fileOffset);
+			return std::vector<unsigned char>(begin, begin + size);
+		}
+
+		return {};
+	}
+}
