@@ -73,7 +73,7 @@ toward DATA.
 | VEH: child processes | 3 | ✅ shipped | CreateProcess A/W hook, recursive tree; matches debugger |
 | Fast mode: instrumented-DLL discovery | 2+3 | ✅ shipped | runtime enumerates modules; exe + DLLs |
 | Fast mode: ARM64 validation | 2+3 | ⬜ open | needs ARM64 Windows hardware |
-| TinyInst-style binary rewriting | 3 | ⬜ open | binary-only "data" mode (~15–20%) |
+| Binary / RE-tool consumers (drcov, TinyInst) | 3 | ↗ split out | see RE_TOOLS_ROADMAP.md; parked |
 | Intel PT | 4 | ❌ dropped | Intel-only; portability lock-in |
 
 **Cumulative effect on the 100k-line worst cases** (Release, warm cache):
@@ -246,8 +246,9 @@ an accumulator: same-build shards share an identical line array, so the merge is
 a word-wise OR of the bitmaps; different builds fall back to a sorted line union.
 Output stays sorted by module/file/line, so exports are unchanged. Measured on 30
 shards of 5,000 files: merge **1360 → 655 ms (~2×)**, `.cov` **1436 → 934 KB
-(−35%)**. Remaining option: emit the **drcov v2** format so BB output is
-consumable by Lighthouse (IDA / Binary Ninja / Ghidra).
+(−35%)**. A drcov v2 exporter (consumable by Lighthouse / Ghidra / Binary Ninja)
+would ride on this same block data — see
+[docs/RE_TOOLS_ROADMAP.md](RE_TOOLS_ROADMAP.md).
 
 ### C. Feature extensions to the shipped engines
 
@@ -290,14 +291,19 @@ consumable by Lighthouse (IDA / Binary Ninja / Ghidra).
   a fixed-width decoder (much simpler than x86) and the ARM64 counter-increment
   form. Cannot be validated without ARM64 Windows hardware.
 
-### D. TinyInst-style selective binary rewriting — the binary-only "data" mode
+### D. Binary / RE-tool consumers (drcov, fuzzer feedback, TinyInst) — split out
 
-Mark the target module non-executable, fault on first entry, JIT-rewrite basic
-blocks into a nearby region with inline coverage-recording instructions; only
-target modules are instrumented. Coverage becomes a **bitmap** (DATA, not
-CONTROL), ~15–20% overhead, pure usermode. This is the "fast mode" that stays
-*binary-only* (no recompile) — the one gap fast mode (§3.4) leaves. Biggest
-engineering lift here; consider wrapping TinyInst rather than writing a rewriter.
+Moved to its own parked document: **[docs/RE_TOOLS_ROADMAP.md](RE_TOOLS_ROADMAP.md)**.
+It is a different *product* direction (coverage consumed by binary tooling and
+fuzzers, not rendered against source), so it lives separately.
+
+Key finding recorded there: TinyInst-style binary rewriting is **not** a faster
+line-coverage mode — the VEH engine already reaches zero steady-state overhead by
+retiring each probe after its first hit, whereas a rewriter adds a per-execution
+counter increment. Its only real payoff is *binary-only per-block hit counts*
+(fuzzer feedback). The renderable RE-tool value (Lighthouse / Ghidra / Binary
+Ninja, via the **drcov** format) needs only an **exporter over data the engines
+already collect**, not a rewriter.
 
 ---
 
