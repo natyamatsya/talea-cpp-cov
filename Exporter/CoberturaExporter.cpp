@@ -128,8 +128,11 @@ namespace Exporter
 			// format straight into the stream and skip both the std::to_wstring
 			// and the Escape allocation. fmt is locale-independent, so the output
 			// matches std::to_wstring byte-for-byte. Constrained to integral
-			// types so string-literal values still pick the overload above.
+			// types so string-literal values still pick the overload above;
+			// bool is excluded so it can never format as true/false instead
+			// of 1/0.
 			template <std::integral T>
+			    requires(!std::same_as<T, bool>)
 			void Attr(const std::wstring& name, T value)
 			{
 				fmt::format_to(std::ostreambuf_iterator<wchar_t>{ostr_},

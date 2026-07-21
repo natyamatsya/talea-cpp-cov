@@ -18,6 +18,7 @@
 #include "RawPdbReader.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cstring>
 #include <execution>
 #include <unordered_map>
@@ -187,7 +188,7 @@ namespace CppCoverage
 								                ? blockLines[i + 1].offset
 								                : blockCodeSize;
 								        std::uint32_t length =
-								            next - line.offset;
+								            next > line.offset ? next - line.offset : 0; // guard u32 underflow
 								        pending.lines_.emplace_back(
 								            lineNumber,
 								            static_cast<std::int64_t>(rva),
@@ -324,15 +325,27 @@ namespace CppCoverage
 		for (std::size_t i = 0; i < indices.size(); ++i)
 			indices[i] = i;
 
+		// An exception escaping a parallel lambda calls std::terminate, so
+		// contain per-compiland failures and let TryRead fall back to DIA.
+		std::atomic<bool> anyFailed{false};
 		std::for_each(
 		    std::execution::par,
 		    indices.begin(),
 		    indices.end(),
 		    [&](std::size_t i) {
-			    contributions[i] =
-			        ReadModule(rawFile, sectionStream, namesStream,
-			                   modules[i]);
+			    try
+			    {
+				    contributions[i] =
+				        ReadModule(rawFile, sectionStream, namesStream,
+				                   modules[i]);
+			    }
+			    catch (...)
+			    {
+				    anyFailed = true;
+			    }
 		    });
+		if (anyFailed)
+			return false;
 
 		// Merge the per-compiland contributions into the module table,
 		// coalescing files by name across compilands.

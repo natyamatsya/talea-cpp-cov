@@ -43,9 +43,9 @@ namespace CppCoverage
 	// reuses the same machinery as the debugger engine and produces the same
 	// coverage data.
 	//
-	// v1 limitations (falls back to / rejected by the caller otherwise):
-	// only the main executable is instrumented (no DLLs, no child processes),
-	// and branch coverage is not supported.
+	// Covers the main executable, filter-matching DLLs, branch coverage, and
+	// child processes (recursively, via an in-process CreateProcess IAT hook).
+	// 64-bit only; the caller uses the debugger engine for 32-bit targets.
 	class CPPCOVERAGE_DLL VehCoverageEngine
 	{
 	  public:

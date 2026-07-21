@@ -62,9 +62,9 @@ namespace Exporter
 		HtmlExporter& operator=(const HtmlExporter&) = delete;
 
 		// Reads a source file, syntax-highlights it, and writes its HTML page
-		// to htmlFile's (already unique) output path. Thread-safe: it touches
-		// only immutable state and a distinct output file, so the per-file
-		// pages of a module are generated in parallel.
+		// to htmlFile's (already unique) output path. It touches only immutable
+		// state and a distinct output file, so it is safe to parallelize;
+		// generation is currently run serially (see ExportFiles).
 		std::optional<std::filesystem::path> GenerateFileHtml(
 			const Plugin::FileCoverage& fileCoverage,
 			const HtmlFile& htmlFile) const;

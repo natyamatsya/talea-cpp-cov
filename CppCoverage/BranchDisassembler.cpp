@@ -67,6 +67,7 @@ namespace CppCoverage
 	{
 	  public:
 		ZydisDecoder decoder_;
+		bool valid_ = false;
 	};
 
 	//-------------------------------------------------------------------------
@@ -81,7 +82,8 @@ namespace CppCoverage
 		        : ZydisDecoderInit(&impl_->decoder_,
 		                           ZYDIS_MACHINE_MODE_LEGACY_32,
 		                           ZYDIS_STACK_WIDTH_32);
-		if (!ZYAN_SUCCESS(status))
+		impl_->valid_ = ZYAN_SUCCESS(status);
+		if (!impl_->valid_)
 			LOG_ERROR << "Cannot initialize Zydis decoder.";
 	}
 
@@ -95,6 +97,8 @@ namespace CppCoverage
 	    DWORD64 startVirtualAddress) const
 	{
 		std::vector<BranchInstruction> branches;
+		if (!impl_->valid_)
+			return branches;
 		size_t offset = 0;
 
 		while (offset < size)

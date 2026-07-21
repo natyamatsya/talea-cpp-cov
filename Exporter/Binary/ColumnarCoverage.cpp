@@ -17,6 +17,7 @@
 #include "stdafx.h"
 #include "ColumnarCoverage.hpp"
 
+#include <algorithm>
 #include <cstring>
 #include <fstream>
 
@@ -130,6 +131,14 @@ namespace Exporter
 				return s;
 			}
 
+			// Bytes left in the buffer; used to cap reserves against a
+			// corrupt count field so a truncated file cannot request a
+			// multi-gigabyte allocation.
+			size_t Remaining() const
+			{
+				return static_cast<size_t>(end_ - p_);
+			}
+
 			void ReadBitmap(std::vector<std::uint8_t>& executed, size_t lineCount)
 			{
 				size_t byteCount = (lineCount + 7) / 8;
@@ -178,7 +187,10 @@ namespace Exporter
 					auto lineCount = reader.U32();
 
 					ColumnarBinary::FileData data;
-					data.lines.reserve(lineCount);
+					// Cap against the bytes left: each line needs at least one
+					// varint byte, so a corrupt count cannot over-reserve.
+					data.lines.reserve(
+					    std::min<size_t>(lineCount, reader.Remaining()));
 					unsigned int line = 0;
 					for (std::uint32_t i = 0; i < lineCount; ++i)
 					{
@@ -310,13 +322,15 @@ namespace Exporter
 			Reader reader(buffer.data(), buffer.size());
 			if (reader.U32() != Magic)
 				THROW(L"Not a columnar coverage file: " + path.wstring());
-			reader.U32(); // version
+			if (reader.U32() > Version)
+				THROW(L"Unsupported columnar coverage file version: " +
+				      path.wstring());
 			auto name = Tools::Utf8ToWString(reader.Str());
 			auto exitCode = reader.I32();
 
 			auto stringCount = reader.U32();
 			std::vector<std::string> strings;
-			strings.reserve(stringCount);
+			strings.reserve(std::min<size_t>(stringCount, reader.Remaining()));
 			for (std::uint32_t i = 0; i < stringCount; ++i)
 				strings.push_back(reader.Str());
 
@@ -502,7 +516,8 @@ namespace Exporter
 		Reader reader(buffer.data(), buffer.size());
 		if (reader.U32() != ColumnarBinary::Magic)
 			return false;
-		reader.U32(); // version
+		if (reader.U32() > ColumnarBinary::Version)
+			return false;
 		auto name = reader.Str();
 		auto exitCode = reader.I32();
 
@@ -512,7 +527,7 @@ namespace Exporter
 
 		auto stringCount = reader.U32();
 		std::vector<std::string> strings;
-		strings.reserve(stringCount);
+		strings.reserve(std::min<size_t>(stringCount, reader.Remaining()));
 		for (std::uint32_t i = 0; i < stringCount; ++i)
 			strings.push_back(reader.Str());
 

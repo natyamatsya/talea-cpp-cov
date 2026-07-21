@@ -106,8 +106,9 @@ namespace CppCoverage
 				(ProgramOptions::ExperimentalVehOption.c_str(),
 					"(Experimental) Service breakpoints in-process with a Vectored Exception "
 					"Handler instead of the debugger, for much lower per-hit overhead. "
-					"v1 instruments only the main executable (no DLLs, no child processes, "
-					"no branch coverage).")
+					"Covers the main executable, filter-matching DLLs, branch coverage "
+					"and child processes, producing the same coverage as the debugger. "
+					"64-bit only.")
 				(ProgramOptions::InputFastCovValue.c_str(), po::value<T_Strings>()->composing(),
 					"(Experimental) Import a compiler-instrumentation (SanitizerCoverage) "
 					"coverage dump produced by a target built with clang-cl "

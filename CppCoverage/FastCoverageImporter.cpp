@@ -174,7 +174,12 @@ namespace CppCoverage
 			auto pos = name.find(L'<');
 			if (pos == std::wstring::npos)
 				return {};
-			return name.substr(0, pos);
+			auto stem = name.substr(0, pos);
+		// operator< / operator<< / operator<= / operator<=> are not templates;
+		// their '<' would otherwise yield a bogus "...operator" stem.
+		if (stem.ends_with(L"operator"))
+			return {};
+		return stem;
 		}
 
 		//---------------------------------------------------------------------
@@ -281,7 +286,13 @@ namespace CppCoverage
 					    category == ZYDIS_CATEGORY_RET ||
 					    category == ZYDIS_CATEGORY_INTERRUPT)
 					{
-						leaders.push_back(nextRva);
+						// The fall-through after a terminator is a leader only
+						// while it is still inside this function; a terminator at
+						// the very end (e.g. a trailing ret) would otherwise plant
+						// a phantom zero-count block at functionEnd that collides
+						// with the next abutting function's first block.
+						if (nextRva < functionEnd)
+							leaders.push_back(nextRva);
 						Terminator terminator{instructionRva, category, false,
 						                      0};
 						if (category == ZYDIS_CATEGORY_COND_BR ||
@@ -489,6 +500,9 @@ namespace CppCoverage
 		                        const std::filesystem::path& dumpPath,
 		                        ProcessFn&& processModule)
 		{
+			if (bytes.size() < sizeof(FastCov::DumpHeader))
+				THROW(L"Fast coverage dump is truncated: " +
+				      dumpPath.wstring());
 			const auto* header =
 			    reinterpret_cast<const FastCov::DumpHeader*>(bytes.data());
 			auto expected =

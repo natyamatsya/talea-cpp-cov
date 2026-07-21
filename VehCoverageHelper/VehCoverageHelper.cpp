@@ -155,7 +155,9 @@ namespace
 
 	//-------------------------------------------------------------------------
 	// Remembers that this thread must re-plant address on its next single step.
-	void RememberPendingRearm(LONG threadId, std::uint8_t* address) noexcept
+	// Returns false if the table is full (the caller must then NOT set the trap
+	// flag, or the target would receive an unhandled single-step and fault).
+	bool RememberPendingRearm(LONG threadId, std::uint8_t* address) noexcept
 	{
 		for (int i = 0; i < MaxPendingRearms; ++i)
 		{
@@ -163,11 +165,12 @@ namespace
 			        &g_pending[i].threadId_, threadId, 0) == 0)
 			{
 				g_pending[i].address_ = address;
-				return;
+				return true;
 			}
 		}
 		// Table full: skip the re-arm. The int3 stays removed, so this branch
 		// simply stops reporting further outcomes (best-effort).
+		return false;
 	}
 
 	//-------------------------------------------------------------------------
@@ -230,9 +233,13 @@ namespace
 		     (VehCoverage::BranchTaken | VehCoverage::BranchFallThrough)) !=
 		    (VehCoverage::BranchTaken | VehCoverage::BranchFallThrough))
 		{
-			RememberPendingRearm(
-			    static_cast<LONG>(GetCurrentThreadId()), address);
-			context->EFlags |= 0x100; // trap flag: fault after the next insn
+			// Only arm the single-step trap if the re-arm was recorded. If the
+			// pending table is full the Jcc stays restored and we skip the trap
+			// entirely - setting it with no pending record would deliver an
+			// unhandled single-step to the target and crash it.
+			if (RememberPendingRearm(
+			        static_cast<LONG>(GetCurrentThreadId()), address))
+				context->EFlags |= 0x100; // trap: fault after the next insn
 		}
 		return true;
 	}

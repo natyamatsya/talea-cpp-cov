@@ -60,7 +60,7 @@ namespace FastCov
 	{
 		std::uint32_t moduleIndex_;
 		std::uint32_t rva_;
-		std::uint8_t count_;      // saturating 8-bit execution count
+		std::uint8_t count_;      // 8-bit execution count; wraps at 256
 		std::uint8_t isEntry_;    // 1 if a function entry block
 		std::uint16_t reserved_;
 	};
