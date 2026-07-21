@@ -47,7 +47,7 @@
 #include "TestCoverageConsole/TestBranch.hpp"
 #include "TestCoverageConsole/TestThread.hpp"
 #include "TestCoverageConsole/SpecialLineInfo.hpp"
-#include "TestCoverageConsole/FileWithSpecialCharÈ‡Ë.hpp"
+#include "TestCoverageConsole/FileWithSpecialChar√©√†√®.hpp"
 #include "TestCoverageConsole/TestDiff.hpp"
 
 #include "TestCoverageSharedLib/TestCoverageSharedLib.hpp"

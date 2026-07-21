@@ -100,12 +100,7 @@
   <ItemGroup>
     <ClCompile Include="TestBasic.cpp" />
     <ClCompile Include="TestBranch.cpp" />
-    <ClCompile Include="TestCoverageConsole.cpp">
-      <!-- Deliberately Windows-1252 encoded: #includes a header whose filename
-           contains non-ASCII characters, resolved by ANSI bytes. Override the
-           tree-wide /utf-8 (see PropertySheets/Default.props). -->
-      <AdditionalOptions>/source-charset:.1252 /execution-charset:.1252</AdditionalOptions>
-    </ClCompile>
+    <ClCompile Include="TestCoverageConsole.cpp" />
     <ClCompile Include="SpecialLineInfo.cpp" />
     <ClCompile Include="TestDebugInformationEnumerator.cpp" />
     <ClCompile Include="TestDiff.cpp" />

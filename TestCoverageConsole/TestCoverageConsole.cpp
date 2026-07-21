@@ -28,7 +28,7 @@
 #include "TestBasic.hpp"
 #include "TestBranch.hpp"
 #include "TestThread.hpp"
-#include "FileWithSpecialCharÈ‡Ë.hpp"
+#include "FileWithSpecialChar√©√†√®.hpp"
 #include "TestDiff.hpp"
 
 namespace

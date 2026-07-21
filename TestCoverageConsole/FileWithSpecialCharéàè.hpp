@@ -23,6 +23,9 @@ namespace TestCoverageConsole
 	//-------------------------------------------------------------------------
 	inline std::filesystem::path GetFileWithSpecialChars()
 	{
-		return std::filesystem::path(__FILE__).filename();
+		// __FILE__ is UTF-8 under the tree-wide /utf-8 build; decode it as UTF-8
+		// (char8_t overload) rather than letting path() assume the ANSI code page.
+		return std::filesystem::path(
+		    reinterpret_cast<const char8_t*>(__FILE__)).filename();
 	}
 }

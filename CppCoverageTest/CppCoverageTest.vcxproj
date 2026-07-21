@@ -99,15 +99,7 @@
     <ClCompile Include="BranchConditionTest.cpp" />
     <ClCompile Include="BranchDisassemblerTest.cpp" />
     <ClCompile Include="BreakPointTest.cpp" />
-    <ClCompile Include="CodeCoverageRunnerTest.cpp">
-      <!-- Deliberately Windows-1252 encoded: #includes a header whose filename
-           contains non-ASCII characters, resolved by ANSI bytes. Override the
-           tree-wide /utf-8 (see PropertySheets/Default.props). -->
-      <AdditionalOptions>/source-charset:.1252 /execution-charset:.1252</AdditionalOptions>
-      <!-- A charset different from the PCH's is rejected (C2855), so this file
-           compiles without the precompiled header. -->
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
+    <ClCompile Include="CodeCoverageRunnerTest.cpp" />
     <ClCompile Include="CoverageDataMergerRandomTest.cpp" />
     <ClCompile Include="CoverageDataMergerTest.cpp" />
     <ClCompile Include="CppCliTest.cpp" />

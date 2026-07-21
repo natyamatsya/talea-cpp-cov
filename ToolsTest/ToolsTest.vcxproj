@@ -97,16 +97,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="ToolsTest.cpp" />
-    <ClCompile Include="ToolTest.cpp">
-      <!-- Deliberately Windows-1252 encoded: it tests the local-code-page
-           conversion helpers (ToLocalString/LocalToWString), so its narrow
-           literals must compile as ANSI bytes, not UTF-8. Override the
-           tree-wide /utf-8 (see PropertySheets/Default.props). -->
-      <AdditionalOptions>/source-charset:.1252 /execution-charset:.1252</AdditionalOptions>
-      <!-- A charset different from the PCH's is rejected (C2855), so this file
-           compiles without the precompiled header. -->
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
+    <ClCompile Include="ToolTest.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\TestHelper\TestHelper.vcxproj">

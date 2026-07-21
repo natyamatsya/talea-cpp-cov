@@ -135,15 +135,15 @@ namespace ExporterTest
 	TEST(CoberturaExporterTest, SpecialChars)
 	{
 		Plugin::CoverageData coverageData{ L"", 0 };
-		coverageData.AddModule(L"יא").AddFile(L"יא").AddLine(0, true);
+		coverageData.AddModule(L"\u00E9\u00E0").AddFile(L"\u00E9\u00E0").AddLine(0, true);
 		
 		std::wostringstream ostr;
 		Exporter::CoberturaExporter().Export(coverageData, ostr);
 		auto result = ostr.str();
 
-		auto packageName = Tools::LocalToWString(reinterpret_cast<const char*>(u8"package name=\"יא\""));
-		auto name = Tools::LocalToWString(reinterpret_cast<const char*>(u8"class name=\"יא\""));
-		auto filename = Tools::LocalToWString(reinterpret_cast<const char*>(u8"filename=\"יא\""));
+		auto packageName = Tools::LocalToWString(reinterpret_cast<const char*>(u8"package name=\"\u00E9\u00E0\""));
+		auto name = Tools::LocalToWString(reinterpret_cast<const char*>(u8"class name=\"\u00E9\u00E0\""));
+		auto filename = Tools::LocalToWString(reinterpret_cast<const char*>(u8"filename=\"\u00E9\u00E0\""));
 
 		ASSERT_TRUE(boost::algorithm::contains(result, packageName));
 		ASSERT_TRUE(boost::algorithm::contains(result, name));
