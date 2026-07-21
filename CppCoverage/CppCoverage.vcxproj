@@ -126,6 +126,7 @@
     <ClInclude Include="Debugger.hpp" />
     <ClInclude Include="ExceptionHandler.hpp" />
     <ClInclude Include="ExecutedAddressManager.hpp" />
+    <ClInclude Include="FastCoverageImporter.hpp" />
     <ClInclude Include="CppCoverageExport.hpp" />
     <ClInclude Include="Handle.hpp" />
     <ClInclude Include="HandleInformation.hpp" />
@@ -170,6 +171,7 @@
     <ClCompile Include="Debugger.cpp" />
     <ClCompile Include="ExceptionHandler.cpp" />
     <ClCompile Include="ExecutedAddressManager.cpp" />
+    <ClCompile Include="FastCoverageImporter.cpp" />
     <ClCompile Include="HandleInformation.cpp" />
     <ClCompile Include="IDebugEventsHandler.cpp" />
     <ClCompile Include="Options.cpp" />

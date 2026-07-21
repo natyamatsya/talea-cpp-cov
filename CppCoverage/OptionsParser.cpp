@@ -182,6 +182,34 @@ namespace CppCoverage
 			}
 		}
 
+		//---------------------------------------------------------------------
+		void AddInputFastCov(const ProgramOptionsVariablesMap& variablesMap,
+		                     Options& options)
+		{
+			auto paths =
+			    variablesMap.GetOptionalValue<std::vector<std::string>>(
+			        ProgramOptions::InputFastCovValue);
+			if (paths)
+			{
+				for (const auto& path : *paths)
+				{
+					if (!Tools::FileExists(path))
+					{
+						throw Plugin::OptionsParserException(
+						    "Argument of " +
+						    ProgramOptions::InputFastCovValue + " <" + path +
+						    "> does not exist.");
+					}
+					options.AddInputFastCovPath(path);
+				}
+			}
+
+			auto reportPath = variablesMap.GetOptionalValue<std::string>(
+			    ProgramOptions::FastCovTemplateReportValue);
+			if (reportPath)
+				options.SetFastCovTemplateReportPath(*reportPath);
+		}
+
 		//----------------------------------------------------------------------------
 		std::pair<fs::path, std::optional<fs::path>>
 		ExtractUnifiedDiffOption(const std::string& option)
@@ -459,14 +487,17 @@ namespace CppCoverage
 			options.EnableExperimentalVehMode();
 
 		AddInputCoverages(variablesMap, options);
+		AddInputFastCov(variablesMap, options);
 		AddUnifiedDiff(variablesMap, options);
 		AddExcludedLineRegexes(variablesMap, options);
 		AddSubstitutePdbSourcePaths(variablesMap, options);
 
-		if (!options.GetStartInfo() && options.GetInputCoveragePaths().empty())
+		if (!options.GetStartInfo() && options.GetInputCoveragePaths().empty() &&
+		    options.GetInputFastCovPaths().empty())
 			throw Plugin::OptionsParserException(
 			    "You must specify a program to execute or use --" +
-			    ProgramOptions::InputCoverageValue);
+			    ProgramOptions::InputCoverageValue + " or --" +
+			    ProgramOptions::InputFastCovValue);
 
 		for (const auto& optionParser : optionParsers_)
 			optionParser->ParseOption(variablesMap, options);

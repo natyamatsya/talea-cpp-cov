@@ -18,10 +18,12 @@
 #include "OpenCppCoverage.hpp"
 
 #include <iostream>
+#include <fstream>
 #include <optional>
 
 #include "CppCoverage/CodeCoverageRunner.hpp"
 #include "CppCoverage/VehCoverageEngine.hpp"
+#include "CppCoverage/FastCoverageImporter.hpp"
 #include "CppCoverage/CoverageFilterSettings.hpp"
 #include "CppCoverage/OptionsParser.hpp"
 #include "CppCoverage/Options.hpp"
@@ -125,13 +127,55 @@ namespace OpenCppCoverage
 			Exporter::CoverageDataDeserializer coverageDataDeserializer;
 
 			for (const auto& path : options.GetInputCoveragePaths())
-			{				
+			{
 				auto errorMsg = "Cannot extract coverage data from " + path.string();
 
 				LOG_INFO << L"Load coverage file: " << path.wstring();
 				coverageDatas.push_back(coverageDataDeserializer.Deserialize(path, errorMsg));
 			}
 			return coverageDatas;
+		}
+
+		//-----------------------------------------------------------------------------
+		// Imports every --input_fastcov dump, appends its coverage to
+		// coverageDatas, and writes the combined per-template report when asked.
+		void LoadFastCovCoverageDatas(
+		    const cov::Options& options,
+		    std::vector<Plugin::CoverageData>& coverageDatas)
+		{
+			const auto& fastCovPaths = options.GetInputFastCovPaths();
+			if (fastCovPaths.empty())
+				return;
+
+			cov::CoverageFilterSettings coverageFilterSettings{
+			    options.GetModulePatterns(), options.GetSourcePatterns()};
+
+			std::vector<cov::FastCoverageImporter::TemplateReport> templates;
+			cov::FastCoverageImporter importer{
+			    coverageFilterSettings,
+			    options.GetUnifiedDiffSettingsCollection(),
+			    options.GetExcludedLineRegexes(),
+			    options.GetSubstitutePdbSourcePaths()};
+
+			for (const auto& path : fastCovPaths)
+			{
+				LOG_INFO << L"Import fast coverage dump: " << path.wstring();
+				auto result = importer.Import(path);
+				coverageDatas.push_back(std::move(result.coverageData_));
+				for (auto& report : result.templates_)
+					templates.push_back(std::move(report));
+			}
+
+			const auto& reportPath = options.GetFastCovTemplateReportPath();
+			if (reportPath)
+			{
+				auto markdown =
+				    cov::FastCoverageImporter::FormatTemplateReport(templates);
+				std::ofstream ofs{*reportPath, std::ios::binary};
+				ofs << Tools::ToUtf8String(markdown);
+				LOG_INFO << L"Wrote template coverage report: "
+				         << reportPath->wstring();
+			}
 		}
 
 		//-----------------------------------------------------------------------------
@@ -157,6 +201,7 @@ namespace OpenCppCoverage
 			InitLogger(options);
 
 			auto coveraDatas = LoadInputCoverageDatas(options);
+			LoadFastCovCoverageDatas(options, coveraDatas);
 			const auto* startInfo = options.GetStartInfo();
 			
 			std::wostringstream ostr;

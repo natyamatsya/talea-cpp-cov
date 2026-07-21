@@ -177,6 +177,31 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
+	void Options::AddInputFastCovPath(const std::filesystem::path& path)
+	{
+		inputFastCovPaths_.push_back(path);
+	}
+
+	//-------------------------------------------------------------------------
+	const std::vector<std::filesystem::path>& Options::GetInputFastCovPaths() const
+	{
+		return inputFastCovPaths_;
+	}
+
+	//-------------------------------------------------------------------------
+	void Options::SetFastCovTemplateReportPath(const std::filesystem::path& path)
+	{
+		fastCovTemplateReportPath_ = path;
+	}
+
+	//-------------------------------------------------------------------------
+	const std::optional<std::filesystem::path>&
+	Options::GetFastCovTemplateReportPath() const
+	{
+		return fastCovTemplateReportPath_;
+	}
+
+	//-------------------------------------------------------------------------
 	void Options::AddUnifiedDiffSettings(UnifiedDiffSettings&& unifiedDiffSettings)
 	{
 		unifiedDiffSettingsCollection_.push_back(std::move(unifiedDiffSettings));

@@ -76,6 +76,12 @@ namespace CppCoverage
 		void AddInputCoveragePath(const std::filesystem::path&);
 		const std::vector<std::filesystem::path>& GetInputCoveragePaths() const;
 
+		void AddInputFastCovPath(const std::filesystem::path&);
+		const std::vector<std::filesystem::path>& GetInputFastCovPaths() const;
+
+		void SetFastCovTemplateReportPath(const std::filesystem::path&);
+		const std::optional<std::filesystem::path>& GetFastCovTemplateReportPath() const;
+
 		void AddUnifiedDiffSettings(UnifiedDiffSettings&&);
 		const std::vector<UnifiedDiffSettings>& GetUnifiedDiffSettingsCollection() const;
 
@@ -124,6 +130,8 @@ namespace CppCoverage
         bool isExperimentalVehModeEnabled_;
         std::vector<OptionsExport> exports_;
 		std::vector<std::filesystem::path> inputCoveragePaths_;
+		std::vector<std::filesystem::path> inputFastCovPaths_;
+		std::optional<std::filesystem::path> fastCovTemplateReportPath_;
 		std::vector<UnifiedDiffSettings> unifiedDiffSettingsCollection_;
 		std::vector<std::wstring> excludedLineRegexes_;
 		std::vector<SubstitutePdbSourcePath> substitutePdbSourcePaths_;

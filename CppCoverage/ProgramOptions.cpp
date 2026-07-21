@@ -100,6 +100,14 @@ namespace CppCoverage
 					"Handler instead of the debugger, for much lower per-hit overhead. "
 					"v1 instruments only the main executable (no DLLs, no child processes, "
 					"no branch coverage).")
+				(ProgramOptions::InputFastCovValue.c_str(), po::value<T_Strings>()->composing(),
+					"(Experimental) Import a compiler-instrumentation (SanitizerCoverage) "
+					"coverage dump produced by a target built with clang-cl "
+					"-fsanitize-coverage=inline-8bit-counters,pc-table and the OpenCppCoverage "
+					"fast-mode runtime. Can have multiple occurrences.")
+				(ProgramOptions::FastCovTemplateReportValue.c_str(), po::value<std::string>(),
+					("Write the per-template instantiation coverage report (from --" +
+					ProgramOptions::InputFastCovValue + ") as Markdown to this path.").c_str())
 				(ProgramOptions::ExcludedLineRegexOption.c_str(), po::value<T_Strings>()->composing(),
 					"Exclude all lines match the regular expression. Regular expression must match the whole line.")
 				(ProgramOptions::SubstitutePdbSourcePathOption.c_str(), po::value<T_Strings>()->composing(),
@@ -148,6 +156,8 @@ namespace CppCoverage
 	const std::string ProgramOptions::NoPdbCacheOption = "no_pdb_cache";
 	const std::string ProgramOptions::NoLineMergingOption = "no_line_merging";
 	const std::string ProgramOptions::ExperimentalVehOption = "experimental_veh";
+	const std::string ProgramOptions::InputFastCovValue = "input_fastcov";
+	const std::string ProgramOptions::FastCovTemplateReportValue = "fastcov_template_report";
 
 	//-------------------------------------------------------------------------
 	ProgramOptions::ProgramOptions(
