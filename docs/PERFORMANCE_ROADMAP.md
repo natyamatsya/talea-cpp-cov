@@ -71,7 +71,8 @@ toward DATA.
 | Parallelism (shard parse/merge) | — | ⏳ tried | alloc-bound — no win; serial columnar kept |
 | VEH: branch coverage | 3 | ✅ shipped | in-process trap-flag re-arm; matches debugger |
 | VEH: child processes | 3 | ⬜ open | in-process CreateProcess hook or host registrar |
-| Fast mode: multi-module / ARM64 validation | 2+3 | ⬜ open | breadth + portability proof |
+| Fast mode: instrumented-DLL discovery | 2+3 | ✅ shipped | runtime enumerates modules; exe + DLLs |
+| Fast mode: ARM64 validation | 2+3 | ⬜ open | needs ARM64 Windows hardware |
 | TinyInst-style binary rewriting | 3 | ⬜ open | binary-only "data" mode (~15–20%) |
 | Intel PT | 4 | ❌ dropped | Intel-only; portability lock-in |
 
@@ -262,12 +263,14 @@ consumable by Lighthouse (IDA / Binary Ninja / Ghidra).
   lock-free per-thread pending table. `VehCoverageEngineTest.BranchMatchesDebugger`
   asserts byte-for-byte parity with the debugger. 64-bit only (the engine
   already injects only into 64-bit targets).
-- **Fast mode: broader module discovery** — the importer and the clang runtime
-  are already multi-module; only the **MSVC runtime** hardcodes the main
-  executable (`GetModuleHandleW(nullptr)`). Adding a module enumeration
-  (`EnumProcessModules` / PEB walk) that emits a raw region per module with a
-  `.sancov` section is the remaining work — the dump format and importer need no
-  change.
+- **Fast mode: broader module discovery** — ✅ shipped. The MSVC runtime now
+  enumerates every loaded module (`CreateToolhelp32Snapshot`) and dumps each one
+  with a `.sancov` section (two passes so `moduleCount_` precedes the data); the
+  dump format and importer were already multi-module. Instrumented DLLs link the
+  runtime for the `_Sancov8bitUsed` anchor, and a main-executable guard keeps a
+  single dump. Verified end to end (exe + instrumented DLL both reported). The
+  clang runtime was already multi-module (driven by the SanitizerCoverage init
+  callbacks); its only residual gap is DLL load/unload timing vs `atexit`.
 - **Fast mode: ARM64 validation** — the flags and the CFG reconstruction are
   arch-agnostic by construction, but the disassembly (Zydis, x86-only) and the
   MSVC `inc byte [rip+disp]` recognition are x64-specific. An ARM64 backend needs
