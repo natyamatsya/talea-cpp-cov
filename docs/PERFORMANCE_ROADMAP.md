@@ -467,28 +467,31 @@ same flags target x64 and ARM64, so nothing is tied to one CPU vendor.
   sancov callbacks fire before `main`) that the user compiles *without* the
   flag and links; at exit it writes every block's module-relative address,
   count, and entry flag to `OPENCPPCOVERAGE_FASTCOV_OUTPUT`.
-- **Import.** `FastCoverageImporter` reads the dump and maps each block back to
-  source lines through the PDB — a block is a straight-line run, so the same
-  "leader covers its run's lines" model as 6.1. SanitizerCoverage uses *minimal*
-  block instrumentation (a function's entry/return/merge blocks may carry no
-  counter — their execution is implied), so coverage is basic-block granular and
-  matches the debugger's line coverage on typical code; it never over-reports.
-  Full byte-identical accuracy needs control-flow (dominator/post-dominator)
-  reconstruction to recover the un-instrumented blocks — a defined follow-on.
+- **Import + control-flow reconstruction.** `FastCoverageImporter` reads the
+  dump and maps each block back to source lines through the PDB. SanitizerCoverage
+  uses *minimal* block instrumentation — a block whose execution is implied by
+  another (a function entry, a merge, a return) carries no counter — so the
+  importer rebuilds each function's CFG from the disassembly and propagates
+  coverage from the instrumented subset: the entry dominates every block (covered
+  if any block ran), a covered block's single successor ran (unconditional flow
+  to it), and a covered block's single predecessor ran (its only way in). All
+  three are sound for normal flow and never over-report; only a path that threw
+  mid-run before a single-successor edge can differ (the same limit as the
+  debugger engine's own run merging). **Verified line-identical to the debugger**
+  on simple and complex control flow (loops, switch, nested branches, early
+  returns, templates on different paths) at both `/Od` and `/O2`.
 
 - **MSVC as well as clang-cl.** clang-cl emits a PC table
   (`-fsanitize-coverage=inline-8bit-counters,pc-table`, linked with lld) that
-  resolves each counter to a block address directly. MSVC (`cl.exe`) accepts
+  gives each counter's block address directly. MSVC (`cl.exe`) accepts
   `inline-8bit-counters` but not `pc-table` and uses its own `.sancov` scheme
   with no init callback (it needs a `_Sancov8bitUsed` anchor the runtime
   defines, and links with the ordinary MSVC linker). For MSVC the importer
   recovers block addresses by disassembling the module for the `inc byte
-  [rip+disp]` counter increments and reconstructing branch-delimited block
-  leaders, with sound entry-region propagation for MSVC's uninstrumented entry
-  blocks. Two runtime source files (`OpenCppCoverageFastCov.cpp`,
-  `OpenCppCoverageFastCovMsvc.cpp`) cover the two toolchains; both feed the same
-  importer, line mapping, and template axis. Verified against the debugger on a
-  template test at `/Od` and `/O2` (MSVC: line-identical via entry propagation).
+  [rip+disp]` counter increments. Both toolchains then feed the **same** CFG
+  reconstruction, line mapping, and template axis; two runtime source files
+  (`OpenCppCoverageFastCov.cpp`, `OpenCppCoverageFastCovMsvc.cpp`) are the only
+  toolchain-specific part.
 - **Instantiation axis (folded in from the start).** The compiler emits a
   distinct function per template instantiation, so every block is attributed to
   its containing function (the instantiation) via the demangled PDB symbol

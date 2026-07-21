@@ -85,10 +85,13 @@ exercised for `foo<int>` but never for `foo<double>`).
   lines each block spans. SanitizerCoverage uses *minimal* instrumentation — not
   every block carries a counter; some (a function's entry, its return, control
   -flow merges) are left out because their execution is implied by others. The
-  importer infers the entry region soundly (a function whose any block ran was
-  entered), so it matches the debugger's line coverage on typical code; deeply
-  nested control flow can still differ on an inferred block until full flow
-  reconstruction lands. It never over-reports an unexecuted branch.
+  importer rebuilds each function's control-flow graph and propagates coverage
+  from the instrumented blocks (entry dominates all; a covered block's single
+  successor and single predecessor also ran), so it matches the debugger's line
+  coverage — verified line-identical on simple and complex control flow at `/Od`
+  and `/O2`. It never over-reports an unexecuted branch; only a path that threw
+  before a single-successor edge can differ (the same limit as the debugger
+  engine's run merging).
 - Counters are saturating 8-bit (0–255).
 - Instantiations folded together by `/OPT:ICF` (identical code) cannot be
   distinguished; fully inlined instantiations have no standalone function symbol

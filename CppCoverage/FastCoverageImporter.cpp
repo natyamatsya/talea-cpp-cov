@@ -188,25 +188,38 @@ namespace CppCoverage
 		}
 
 		//---------------------------------------------------------------------
-		// MSVC's SanitizerCoverage has no PC table: it increments each basic
-		// block's 8-bit counter in place with `inc byte [rip+disp]`, and the
-		// increment is not necessarily at the block's leader. Recover per-block
-		// coverage by disassembling each function to reconstruct its
-		// branch-delimited basic-block leaders, attaching each counter to the
-		// block that contains its increment. A block starts at a `BasicBlock`
-		// whose count is the counter targeted from within it; lines then map to
-		// blocks by leader address exactly as in the resolved (clang) path.
-		std::vector<BasicBlock> RecoverBasicBlocksFromSancov(
-		    const std::filesystem::path& modulePath,
+		// Reconstructs coverage of every basic block of a module from the
+		// counters of the subset SanitizerCoverage actually instrumented.
+		//
+		// Both toolchains use minimal instrumentation: a block whose execution
+		// is implied by another (a function entry, a merge, a return) carries
+		// no counter. This rebuilds each function's control-flow graph and
+		// propagates coverage so line mapping matches the debugger:
+		//   - a function's entry dominates every block, so it ran if any block
+		//     ran;
+		//   - a covered block with a single successor implies that successor
+		//     ran (it flows there unconditionally);
+		//   - a covered block with a single predecessor implies that
+		//     predecessor ran (its only way in).
+		// All three are sound for normal control flow; only a path that threw
+		// mid-run before a single-successor edge can differ from the debugger
+		// (the same limit as the debugger engine's own run merging), and it
+		// never over-reports an unexecuted branch.
+		//
+		// The instrumented counts come from the clang PC table (clangCounts,
+		// keyed by block rva) or, for MSVC, from the `inc byte [rip+disp]`
+		// increments found while disassembling (region non-null). Functions
+		// with an indirect branch (unknown targets) skip propagation and keep
+		// only the directly instrumented blocks plus the sound entry cover.
+		std::vector<BasicBlock> ReconstructCoverage(
+		    PeImageFileReader& reader,
 		    const std::vector<IDebugInformationHandler::FunctionRange>&
 		        functions,
+		    const std::map<std::uint32_t, unsigned int>* clangCounts,
 		    std::uint32_t regionRva,
-		    const std::vector<std::uint8_t>& region)
+		    const std::vector<std::uint8_t>* region)
 		{
 			std::vector<BasicBlock> blocks;
-			auto reader = PeImageFileReader::TryCreate(modulePath);
-			if (!reader)
-				return blocks;
 
 			ZydisDecoder decoder;
 			if (!ZYAN_SUCCESS(ZydisDecoderInit(&decoder,
@@ -214,23 +227,33 @@ namespace CppCoverage
 			                                   ZYDIS_STACK_WIDTH_64)))
 				return blocks;
 
-			auto regionEnd = regionRva + region.size();
+			std::uint64_t regionEnd =
+			    region ? std::uint64_t{regionRva} + region->size() : 0;
 
 			for (const auto& function : functions)
 			{
 				auto functionRva =
 				    static_cast<std::uint32_t>(function.virtualAddress_);
-				auto buffer = reader->ReadCode(functionRva, function.length_);
+				auto functionEnd = functionRva + function.length_;
+				auto buffer = reader.ReadCode(functionRva, function.length_);
 				if (buffer.empty())
 					continue;
 
-				// Pass over the function once, collecting branch-delimited
-				// block leaders and each block's counter increment.
+				// One decode pass: instruction terminators (for the CFG),
+				// block leaders, and MSVC counter increments.
+				struct Terminator
+				{
+					std::uint32_t rva_;
+					ZydisInstructionCategory category_;
+					bool hasTarget_;
+					std::uint32_t target_;
+				};
+				std::vector<Terminator> terminators;
 				std::vector<std::uint32_t> leaders;
 				leaders.push_back(functionRva);
-				// increment rva -> counter offset in the region.
-				std::vector<std::pair<std::uint32_t, std::uint32_t>>
+				std::vector<std::pair<std::uint32_t, unsigned int>>
 				    increments;
+				bool indirect = false;
 
 				std::size_t offset = 0;
 				while (offset < buffer.size())
@@ -251,16 +274,16 @@ namespace CppCoverage
 					auto instructionRva = functionRva +
 					                      static_cast<std::uint32_t>(offset);
 					auto nextRva = instructionRva + instruction.length;
-
 					auto category = instruction.meta.category;
+
 					if (category == ZYDIS_CATEGORY_COND_BR ||
 					    category == ZYDIS_CATEGORY_UNCOND_BR ||
 					    category == ZYDIS_CATEGORY_RET ||
 					    category == ZYDIS_CATEGORY_INTERRUPT)
 					{
-						// The instruction after a control transfer starts a
-						// new block, and a direct branch target does too.
 						leaders.push_back(nextRva);
+						Terminator terminator{instructionRva, category, false,
+						                      0};
 						if (category == ZYDIS_CATEGORY_COND_BR ||
 						    category == ZYDIS_CATEGORY_UNCOND_BR)
 						{
@@ -269,32 +292,48 @@ namespace CppCoverage
 							        ZYDIS_OPERAND_TYPE_IMMEDIATE &&
 							    ZYAN_SUCCESS(ZydisCalcAbsoluteAddress(
 							        &instruction, &operands[0],
-							        instructionRva, &target)) &&
-							    target >= functionRva &&
-							    target < functionRva + function.length_)
+							        instructionRva, &target)))
 							{
-								leaders.push_back(
-								    static_cast<std::uint32_t>(target));
+								if (target >= functionRva &&
+								    target < functionEnd)
+								{
+									terminator.hasTarget_ = true;
+									terminator.target_ =
+									    static_cast<std::uint32_t>(target);
+									leaders.push_back(terminator.target_);
+								}
+								// A direct target outside the function is a
+								// tail call: no in-function successor.
+							}
+							else
+							{
+								// jmp reg / jmp [mem]: unknown targets.
+								indirect = true;
 							}
 						}
+						terminators.push_back(terminator);
 					}
 
-					for (int i = 0; i < instruction.operand_count; ++i)
+					if (region)
 					{
-						const auto& operand = operands[i];
-						if (operand.type != ZYDIS_OPERAND_TYPE_MEMORY ||
-						    operand.mem.base != ZYDIS_REGISTER_RIP)
-							continue;
-						ZyanU64 target = 0;
-						if (!ZYAN_SUCCESS(ZydisCalcAbsoluteAddress(
-						        &instruction, &operand, instructionRva,
-						        &target)))
-							continue;
-						if (target < regionRva || target >= regionEnd)
-							continue;
-						increments.emplace_back(
-						    instructionRva,
-						    static_cast<std::uint32_t>(target - regionRva));
+						for (int i = 0; i < instruction.operand_count; ++i)
+						{
+							const auto& operand = operands[i];
+							if (operand.type != ZYDIS_OPERAND_TYPE_MEMORY ||
+							    operand.mem.base != ZYDIS_REGISTER_RIP)
+								continue;
+							ZyanU64 target = 0;
+							if (!ZYAN_SUCCESS(ZydisCalcAbsoluteAddress(
+							        &instruction, &operand, instructionRva,
+							        &target)))
+								continue;
+							if (target < regionRva || target >= regionEnd)
+								continue;
+							increments.emplace_back(
+							    instructionRva,
+							    (*region)[static_cast<std::size_t>(
+							        target - regionRva)]);
+						}
 					}
 
 					offset += instruction.length;
@@ -303,29 +342,140 @@ namespace CppCoverage
 				std::sort(leaders.begin(), leaders.end());
 				leaders.erase(std::unique(leaders.begin(), leaders.end()),
 				              leaders.end());
+				auto blockCount = leaders.size();
 
-				// Attach each counter to the block (leader) that contains its
-				// increment.
-				unsigned int maxCount = 0;
-				for (const auto& [incRva, counterOffset] : increments)
-				{
+				auto leaderIndex = [&](std::uint32_t rva) -> int {
 					auto it = std::upper_bound(
-					    leaders.begin(), leaders.end(), incRva);
+					    leaders.begin(), leaders.end(), rva);
 					if (it == leaders.begin())
+						return -1;
+					return static_cast<int>((it - 1) - leaders.begin());
+				};
+
+				// Successors of each block, from its terminating instruction.
+				std::vector<std::vector<int>> successors(blockCount);
+				std::vector<std::vector<int>> predecessors(blockCount);
+				std::size_t nextTerminator = 0;
+				for (std::size_t b = 0; b < blockCount; ++b)
+				{
+					auto blockEnd = (b + 1 < blockCount) ? leaders[b + 1]
+					                                     : functionEnd;
+					// The terminator of block b is the last control-transfer
+					// instruction inside it, if any.
+					const Terminator* terminator = nullptr;
+					while (nextTerminator < terminators.size() &&
+					       terminators[nextTerminator].rva_ < blockEnd)
+						terminator = &terminators[nextTerminator++];
+
+					if (!terminator)
+					{
+						// Falls straight into the next block.
+						if (b + 1 < blockCount)
+							successors[b].push_back(
+							    static_cast<int>(b + 1));
 						continue;
-					auto leader = *(it - 1);
-					auto count = region[counterOffset];
-					maxCount = std::max<unsigned int>(maxCount, count);
-					blocks.push_back(BasicBlock{leader, count});
+					}
+					switch (terminator->category_)
+					{
+						case ZYDIS_CATEGORY_RET:
+						case ZYDIS_CATEGORY_INTERRUPT:
+							break; // exit
+						case ZYDIS_CATEGORY_UNCOND_BR:
+							if (terminator->hasTarget_)
+							{
+								auto t = leaderIndex(terminator->target_);
+								if (t >= 0)
+									successors[b].push_back(t);
+							}
+							break;
+						case ZYDIS_CATEGORY_COND_BR:
+							if (terminator->hasTarget_)
+							{
+								auto t = leaderIndex(terminator->target_);
+								if (t >= 0)
+									successors[b].push_back(t);
+							}
+							if (b + 1 < blockCount)
+								successors[b].push_back(
+								    static_cast<int>(b + 1));
+							break;
+						default:
+							if (b + 1 < blockCount)
+								successors[b].push_back(
+								    static_cast<int>(b + 1));
+							break;
+					}
+				}
+				for (std::size_t b = 0; b < blockCount; ++b)
+					for (auto s : successors[b])
+						predecessors[s].push_back(static_cast<int>(b));
+
+				// Known counts per block (-1 = not instrumented).
+				std::vector<int> count(blockCount, -1);
+				auto setCount = [&](std::uint32_t rva, unsigned int value) {
+					auto index = leaderIndex(rva);
+					if (index < 0)
+						return;
+					count[index] = std::max<int>(
+					    count[index], static_cast<int>(value));
+				};
+				for (const auto& [incRva, value] : increments)
+					setCount(incRva, value);
+				if (clangCounts)
+				{
+					for (auto it = clangCounts->lower_bound(functionRva);
+					     it != clangCounts->end() &&
+					     it->first < functionEnd;
+					     ++it)
+						setCount(it->first, it->second);
 				}
 
-				// MSVC uses minimal instrumentation: the function's entry block
-				// carries no counter (its execution is implied by any block
-				// running). Cover the entry region soundly - if any block ran,
-				// the function was entered - so the prologue and lines before
-				// the first instrumented block are not lost.
-				if (maxCount > 0)
-					blocks.push_back(BasicBlock{functionRva, maxCount});
+				std::vector<char> covered(blockCount, 0);
+				bool anyCovered = false;
+				for (std::size_t b = 0; b < blockCount; ++b)
+				{
+					if (count[b] > 0)
+					{
+						covered[b] = 1;
+						anyCovered = true;
+					}
+				}
+
+				if (anyCovered)
+					covered[0] = 1; // the entry dominates every block
+
+				if (!indirect)
+				{
+					bool changed = true;
+					while (changed)
+					{
+						changed = false;
+						for (std::size_t b = 0; b < blockCount; ++b)
+						{
+							if (covered[b] && successors[b].size() == 1 &&
+							    !covered[successors[b][0]])
+							{
+								covered[successors[b][0]] = 1;
+								changed = true;
+							}
+							if (covered[b] &&
+							    predecessors[b].size() == 1 &&
+							    !covered[predecessors[b][0]])
+							{
+								covered[predecessors[b][0]] = 1;
+								changed = true;
+							}
+						}
+					}
+				}
+
+				for (std::size_t b = 0; b < blockCount; ++b)
+				{
+					unsigned int value =
+					    count[b] > 0 ? static_cast<unsigned int>(count[b])
+					                 : (covered[b] ? 1u : 0u);
+					blocks.push_back(BasicBlock{leaders[b], value});
+				}
 			}
 
 			return blocks;
@@ -361,22 +511,28 @@ namespace CppCoverage
 			        static_cast<std::size_t>(header->moduleCount_) *
 			            sizeof(FastCov::ModuleEntry));
 
-			std::vector<std::vector<BasicBlock>> blocksByModule(
+			// The clang PC table already gives each instrumented block's
+			// address; collect the counts per module so the shared
+			// reconstruction can rebuild the CFG and fill the pruned blocks.
+			std::vector<std::map<std::uint32_t, unsigned int>> countsByModule(
 			    header->moduleCount_);
 			for (std::uint32_t i = 0; i < header->basicBlockCount_; ++i)
 			{
 				const auto& record = records[i];
 				if (record.moduleIndex_ < header->moduleCount_)
-					blocksByModule[record.moduleIndex_].push_back(
-					    BasicBlock{record.rva_, record.count_});
+				{
+					auto& counts = countsByModule[record.moduleIndex_];
+					auto& value = counts[record.rva_];
+					value = std::max<unsigned int>(value, record.count_);
+				}
 			}
 
 			for (std::uint32_t m = 0; m < header->moduleCount_; ++m)
 			{
-				if (blocksByModule[m].empty())
+				if (countsByModule[m].empty())
 					continue;
 				processModule(std::filesystem::path{modules[m].path_},
-				              &blocksByModule[m],
+				              &countsByModule[m],
 				              std::uint32_t{0},
 				              nullptr);
 			}
@@ -469,12 +625,13 @@ namespace CppCoverage
 		                            std::map<unsigned int, unsigned int>>>>
 		    templates;
 
-		// Maps one module's basic blocks (from the resolved dump, or recovered
-		// by disassembly for the MSVC raw dump) to line and instantiation
-		// coverage. rawRegion is non-null only for the MSVC path.
+		// Maps one module's coverage to line and instantiation coverage. The
+		// instrumented block counts come from the clang PC table (clangCounts)
+		// or, for MSVC, from the .sancov region (rawRegion); either way the
+		// shared reconstruction rebuilds the CFG and fills the pruned blocks.
 		auto processModule =
 		    [&](const std::filesystem::path& modulePath,
-		        const std::vector<BasicBlock>* resolvedBlocks,
+		        const std::map<std::uint32_t, unsigned int>* clangCounts,
 		        std::uint32_t regionRva,
 		        const std::vector<std::uint8_t>* rawRegion) {
 			    if (!filterManager.IsModuleSelected(modulePath.wstring()))
@@ -494,18 +651,20 @@ namespace CppCoverage
 				    return;
 			    }
 
-			    std::vector<BasicBlock> recovered;
-			    if (!resolvedBlocks)
+			    auto reader = PeImageFileReader::TryCreate(modulePath);
+			    if (!reader)
 			    {
-				    recovered = RecoverBasicBlocksFromSancov(
-				        modulePath, collector.GetFunctions(), regionRva,
-				        *rawRegion);
-				    resolvedBlocks = &recovered;
-			    }
-			    if (resolvedBlocks->empty())
+				    LOG_WARNING << L"Fast coverage: cannot read module "
+				                << modulePath.wstring();
 				    return;
-
-			    std::vector<BasicBlock> blocks = *resolvedBlocks;
+			    }
+			    auto blocks = ReconstructCoverage(*reader,
+			                                      collector.GetFunctions(),
+			                                      clangCounts,
+			                                      regionRva,
+			                                      rawRegion);
+			    if (blocks.empty())
+				    return;
 			    std::sort(blocks.begin(),
 			              blocks.end(),
 			              [](const auto& lhs, const auto& rhs) {
