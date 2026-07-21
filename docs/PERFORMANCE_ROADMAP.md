@@ -412,7 +412,14 @@ writing a rewriter from scratch.
 
 ## 7. Tier 4 — Coverage as data: the strategic bets
 
-### 7.1 Intel Processor Trace (the headline data-driven path)
+### 7.1 Intel Processor Trace — DROPPED (hardware lock-in)
+
+**Not pursued.** Intel PT is Intel-only (AMD has no equivalent), so building on
+it would tie the tool to one CPU vendor. This fork deliberately stays
+architecture-agnostic (ARM64 is a plausible future target), and the portable
+"coverage as data" path — compiler instrumentation, 7.2 — delivers most of the
+same win without the lock-in. The design notes below are kept only for
+reference; the collector was never built.
 
 Let the program run at near-native speed while the CPU records control flow into a
 compact trace buffer; decode offline into a coverage bitmap, mapped to lines via
@@ -441,21 +448,43 @@ This is the "what's possible with data-driven design" answer at the hardware
 level: **collect a buffer at near-native speed, transform it into a coverage
 bitmap in a batch pass.** The whole engine becomes a data pipeline.
 
-### 7.2 Optional compiler-instrumentation "fast mode" (the throughput ceiling)
+### 7.2 Compiler-instrumentation "fast mode" — SHIPPED (the portable data path)
 
-If a project can recompile, nothing beats linker-gathered counter arrays: a probe
-is one `inc byte ptr [rip+disp]` against a flat array — **O(1), no trap, no
-kernel** — the limiting case of DOD (frozen index, flat array, no lookup).
+If a project can recompile, nothing beats compiler-gathered counter arrays: a
+probe is one `inc byte [counter]` — **no trap, no kernel, no per-hit round
+trip** — the limiting case of DOD (frozen index, flat array, no lookup). This is
+the portable answer to what Intel PT (7.1, dropped) would have given us: the
+same flags target x64 and ARM64, so nothing is tied to one CPU vendor.
 
-- **MSVC** `/fsanitize-coverage=inline-8bit-counters` (VS2022 17.0+) or
-  **clang-cl** `-fprofile-instr-generate -fcoverage-mapping` (Chromium ships this
-  on Windows at scale). We implement the tiny
-  `__sanitizer_cov_8bit_counters_init(start,end)` runtime and read the array.
-- Measured overhead ~tens of percent (AFL-Clang edge ~36% vs QEMU 612%).
-- Merge is element-wise array addition — trivially parallel.
+**Done** (`--input_fastcov`; a freestanding runtime + `FastCoverageImporter`):
 
-Trade-off: needs recompilation, so it is a *mode*, not the default. But it gives a
-near-zero-overhead option for CI where the build is ours.
+- **Mechanism.** The target is built with clang-cl
+  `-fsanitize-coverage=inline-8bit-counters,pc-table` and linked with **lld**
+  (the MSVC linker mis-resolves the sancov section-boundary symbols — a
+  validated gotcha). Each basic block gets a saturating 8-bit counter and a
+  parallel PC-table entry (address + function-entry flag). `CoverageRuntime/`
+  ships a single freestanding source file (Win32 only, POD storage because the
+  sancov callbacks fire before `main`) that the user compiles *without* the
+  flag and links; at exit it writes every block's module-relative address,
+  count, and entry flag to `OPENCPPCOVERAGE_FASTCOV_OUTPUT`.
+- **Import.** `FastCoverageImporter` reads the dump and maps each block back to
+  source lines through the PDB — a block is a straight-line run, so the same
+  "leader covers its run's lines" model as 6.1, except the compiler hands us the
+  real block boundaries (no disassembly). **Verified byte-identical to the
+  debugger** on the same binary at `/O2` and `/Od`.
+- **Instantiation axis (folded in from the start).** The compiler emits a
+  distinct function per template instantiation, so every block is attributed to
+  its containing function (the instantiation) via the demangled PDB symbol
+  name. `--fastcov_template_report` emits, per template, each instantiation's
+  line coverage **and the lines covered in some but not all instantiations** —
+  the gaps a single boolean per line hides (a line run for `foo<int>` but never
+  for `foo<double>`). This is the counter model's payoff: per-instantiation
+  execution *counts*, not just a merged bit.
+
+Overhead is tens of percent (vs the debugger's per-hit round trip), merge is
+element-wise, and it is a *mode*, not the default — it needs the recompile, so
+it is aimed at CI where the build is ours. Limits: needs clang-cl + lld;
+`/OPT:ICF`-folded and fully-inlined instantiations can't be told apart (inherent).
 
 ### 7.3 Columnar `.cov` v2 + merge-as-bitmap-OR
 

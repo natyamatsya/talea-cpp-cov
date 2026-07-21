@@ -97,6 +97,20 @@ fully-executed 100k-line program) while producing exactly the same coverage as
 the debugger. It instruments the main 64-bit executable and DLLs found under
 its directory; child processes and branch coverage are not supported.
 
+### Compiler-instrumentation fast mode (experimental)
+
+For the lowest possible overhead, build the target with SanitizerCoverage so
+each basic block increments an inline counter — no debugger, no per-hit kernel
+round trip — and import the resulting dump with `--input_fastcov`. Coverage is
+byte-identical to the debugger. Because the compiler emits a distinct function
+per template instantiation, `--fastcov_template_report` additionally writes a
+per-template report showing, for every instantiation, which lines it covered —
+and the lines covered in some but not all instantiations (a line exercised for
+`foo<int>` but never for `foo<double>`), which plain line coverage hides. It is
+a *mode*, not the default (it needs the recompile), and is architecture-agnostic
+(x64 and ARM64). See [CoverageRuntime/README.md](CoverageRuntime/README.md) for
+the build and run steps.
+
 ## Branch coverage (experimental)
 
 In addition to line coverage, OpenCppCoverage can measure branch coverage: for every
