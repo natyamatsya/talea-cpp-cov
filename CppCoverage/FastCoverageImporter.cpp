@@ -24,6 +24,9 @@
 #include <sstream>
 #include <unordered_map>
 
+#define ZYDIS_STATIC_BUILD
+#include <Zydis/Zydis.h>
+
 #include "tools/Log.hpp"
 
 #include "Address.hpp"
@@ -32,6 +35,7 @@
 #include "CoverageFilterSettings.hpp"
 #include "DebugInformationEnumerator.hpp"
 #include "ExecutedAddressManager.hpp"
+#include "PeImageFileReader.hpp"
 
 #include "FileFilter/ModuleInfo.hpp"
 #include "FileFilter/FileInfo.hpp"
@@ -182,6 +186,246 @@ namespace CppCoverage
 			return std::vector<char>{std::istreambuf_iterator<char>{ifs},
 			                         std::istreambuf_iterator<char>{}};
 		}
+
+		//---------------------------------------------------------------------
+		// MSVC's SanitizerCoverage has no PC table: it increments each basic
+		// block's 8-bit counter in place with `inc byte [rip+disp]`, and the
+		// increment is not necessarily at the block's leader. Recover per-block
+		// coverage by disassembling each function to reconstruct its
+		// branch-delimited basic-block leaders, attaching each counter to the
+		// block that contains its increment. A block starts at a `BasicBlock`
+		// whose count is the counter targeted from within it; lines then map to
+		// blocks by leader address exactly as in the resolved (clang) path.
+		std::vector<BasicBlock> RecoverBasicBlocksFromSancov(
+		    const std::filesystem::path& modulePath,
+		    const std::vector<IDebugInformationHandler::FunctionRange>&
+		        functions,
+		    std::uint32_t regionRva,
+		    const std::vector<std::uint8_t>& region)
+		{
+			std::vector<BasicBlock> blocks;
+			auto reader = PeImageFileReader::TryCreate(modulePath);
+			if (!reader)
+				return blocks;
+
+			ZydisDecoder decoder;
+			if (!ZYAN_SUCCESS(ZydisDecoderInit(&decoder,
+			                                   ZYDIS_MACHINE_MODE_LONG_64,
+			                                   ZYDIS_STACK_WIDTH_64)))
+				return blocks;
+
+			auto regionEnd = regionRva + region.size();
+
+			for (const auto& function : functions)
+			{
+				auto functionRva =
+				    static_cast<std::uint32_t>(function.virtualAddress_);
+				auto buffer = reader->ReadCode(functionRva, function.length_);
+				if (buffer.empty())
+					continue;
+
+				// Pass over the function once, collecting branch-delimited
+				// block leaders and each block's counter increment.
+				std::vector<std::uint32_t> leaders;
+				leaders.push_back(functionRva);
+				// increment rva -> counter offset in the region.
+				std::vector<std::pair<std::uint32_t, std::uint32_t>>
+				    increments;
+
+				std::size_t offset = 0;
+				while (offset < buffer.size())
+				{
+					ZydisDecodedInstruction instruction;
+					ZydisDecodedOperand operands[ZYDIS_MAX_OPERAND_COUNT];
+					if (!ZYAN_SUCCESS(ZydisDecoderDecodeFull(
+					        &decoder,
+					        buffer.data() + offset,
+					        buffer.size() - offset,
+					        &instruction,
+					        operands)))
+					{
+						++offset;
+						continue;
+					}
+
+					auto instructionRva = functionRva +
+					                      static_cast<std::uint32_t>(offset);
+					auto nextRva = instructionRva + instruction.length;
+
+					auto category = instruction.meta.category;
+					if (category == ZYDIS_CATEGORY_COND_BR ||
+					    category == ZYDIS_CATEGORY_UNCOND_BR ||
+					    category == ZYDIS_CATEGORY_RET ||
+					    category == ZYDIS_CATEGORY_INTERRUPT)
+					{
+						// The instruction after a control transfer starts a
+						// new block, and a direct branch target does too.
+						leaders.push_back(nextRva);
+						if (category == ZYDIS_CATEGORY_COND_BR ||
+						    category == ZYDIS_CATEGORY_UNCOND_BR)
+						{
+							ZyanU64 target = 0;
+							if (operands[0].type ==
+							        ZYDIS_OPERAND_TYPE_IMMEDIATE &&
+							    ZYAN_SUCCESS(ZydisCalcAbsoluteAddress(
+							        &instruction, &operands[0],
+							        instructionRva, &target)) &&
+							    target >= functionRva &&
+							    target < functionRva + function.length_)
+							{
+								leaders.push_back(
+								    static_cast<std::uint32_t>(target));
+							}
+						}
+					}
+
+					for (int i = 0; i < instruction.operand_count; ++i)
+					{
+						const auto& operand = operands[i];
+						if (operand.type != ZYDIS_OPERAND_TYPE_MEMORY ||
+						    operand.mem.base != ZYDIS_REGISTER_RIP)
+							continue;
+						ZyanU64 target = 0;
+						if (!ZYAN_SUCCESS(ZydisCalcAbsoluteAddress(
+						        &instruction, &operand, instructionRva,
+						        &target)))
+							continue;
+						if (target < regionRva || target >= regionEnd)
+							continue;
+						increments.emplace_back(
+						    instructionRva,
+						    static_cast<std::uint32_t>(target - regionRva));
+					}
+
+					offset += instruction.length;
+				}
+
+				std::sort(leaders.begin(), leaders.end());
+				leaders.erase(std::unique(leaders.begin(), leaders.end()),
+				              leaders.end());
+
+				// Attach each counter to the block (leader) that contains its
+				// increment.
+				unsigned int maxCount = 0;
+				for (const auto& [incRva, counterOffset] : increments)
+				{
+					auto it = std::upper_bound(
+					    leaders.begin(), leaders.end(), incRva);
+					if (it == leaders.begin())
+						continue;
+					auto leader = *(it - 1);
+					auto count = region[counterOffset];
+					maxCount = std::max<unsigned int>(maxCount, count);
+					blocks.push_back(BasicBlock{leader, count});
+				}
+
+				// MSVC uses minimal instrumentation: the function's entry block
+				// carries no counter (its execution is implied by any block
+				// running). Cover the entry region soundly - if any block ran,
+				// the function was entered - so the prologue and lines before
+				// the first instrumented block are not lost.
+				if (maxCount > 0)
+					blocks.push_back(BasicBlock{functionRva, maxCount});
+			}
+
+			return blocks;
+		}
+
+		//---------------------------------------------------------------------
+		// Resolved dump (clang): the runtime already resolved each basic block
+		// to (module, rva, count). Group by module and hand the blocks over.
+		template <typename ProcessFn>
+		void ImportResolvedDump(const std::vector<char>& bytes,
+		                        const std::filesystem::path& dumpPath,
+		                        ProcessFn&& processModule)
+		{
+			const auto* header =
+			    reinterpret_cast<const FastCov::DumpHeader*>(bytes.data());
+			auto expected =
+			    sizeof(FastCov::DumpHeader) +
+			    static_cast<std::size_t>(header->moduleCount_) *
+			        sizeof(FastCov::ModuleEntry) +
+			    static_cast<std::size_t>(header->basicBlockCount_) *
+			        sizeof(FastCov::BasicBlockRecord);
+			if (header->version_ != FastCov::DumpVersion ||
+			    bytes.size() < expected)
+				THROW(L"Fast coverage dump is truncated: " +
+				      dumpPath.wstring());
+
+			const auto* modules =
+			    reinterpret_cast<const FastCov::ModuleEntry*>(
+			        bytes.data() + sizeof(FastCov::DumpHeader));
+			const auto* records =
+			    reinterpret_cast<const FastCov::BasicBlockRecord*>(
+			        bytes.data() + sizeof(FastCov::DumpHeader) +
+			        static_cast<std::size_t>(header->moduleCount_) *
+			            sizeof(FastCov::ModuleEntry));
+
+			std::vector<std::vector<BasicBlock>> blocksByModule(
+			    header->moduleCount_);
+			for (std::uint32_t i = 0; i < header->basicBlockCount_; ++i)
+			{
+				const auto& record = records[i];
+				if (record.moduleIndex_ < header->moduleCount_)
+					blocksByModule[record.moduleIndex_].push_back(
+					    BasicBlock{record.rva_, record.count_});
+			}
+
+			for (std::uint32_t m = 0; m < header->moduleCount_; ++m)
+			{
+				if (blocksByModule[m].empty())
+					continue;
+				processModule(std::filesystem::path{modules[m].path_},
+				              &blocksByModule[m],
+				              std::uint32_t{0},
+				              nullptr);
+			}
+		}
+
+		//---------------------------------------------------------------------
+		// Raw dump (MSVC): a copy of each module's .sancov counter region. The
+		// block addresses are recovered by disassembly in processModule.
+		template <typename ProcessFn>
+		void ImportRawDump(const std::vector<char>& bytes,
+		                   const std::filesystem::path& dumpPath,
+		                   ProcessFn&& processModule)
+		{
+			if (bytes.size() < sizeof(FastCov::RawDumpHeader))
+				THROW(L"Fast coverage dump is truncated: " +
+				      dumpPath.wstring());
+			const auto* header =
+			    reinterpret_cast<const FastCov::RawDumpHeader*>(bytes.data());
+			if (header->version_ != FastCov::DumpVersion)
+				THROW(L"Unsupported fast coverage dump version: " +
+				      dumpPath.wstring());
+
+			std::size_t offset = sizeof(FastCov::RawDumpHeader);
+			for (std::uint32_t m = 0; m < header->moduleCount_; ++m)
+			{
+				if (offset + sizeof(FastCov::RawModuleHeader) > bytes.size())
+					THROW(L"Fast coverage dump is truncated: " +
+					      dumpPath.wstring());
+				const auto* moduleHeader =
+				    reinterpret_cast<const FastCov::RawModuleHeader*>(
+				        bytes.data() + offset);
+				offset += sizeof(FastCov::RawModuleHeader);
+
+				if (offset + moduleHeader->regionSize_ > bytes.size())
+					THROW(L"Fast coverage dump is truncated: " +
+					      dumpPath.wstring());
+				const auto* regionBytes =
+				    reinterpret_cast<const std::uint8_t*>(bytes.data() +
+				                                          offset);
+				std::vector<std::uint8_t> region(
+				    regionBytes, regionBytes + moduleHeader->regionSize_);
+				offset += moduleHeader->regionSize_;
+
+				processModule(std::filesystem::path{moduleHeader->path_},
+				              nullptr,
+				              moduleHeader->regionRva_,
+				              &region);
+			}
+		}
 	}
 
 	//-------------------------------------------------------------------------
@@ -202,42 +446,12 @@ namespace CppCoverage
 	FastCoverageImporter::Import(const std::filesystem::path& dumpPath)
 	{
 		auto bytes = ReadFile(dumpPath);
-		if (bytes.size() < sizeof(FastCov::DumpHeader))
+		if (bytes.size() < sizeof(std::uint32_t))
 			THROW(L"Fast coverage dump is truncated: " + dumpPath.wstring());
 
-		const auto* header =
-		    reinterpret_cast<const FastCov::DumpHeader*>(bytes.data());
-		if (header->magic_ != FastCov::DumpMagic ||
-		    header->version_ != FastCov::DumpVersion)
+		auto magic = *reinterpret_cast<const std::uint32_t*>(bytes.data());
+		if (magic != FastCov::DumpMagic && magic != FastCov::RawDumpMagic)
 			THROW(L"Not a fast coverage dump: " + dumpPath.wstring());
-
-		auto expected =
-		    sizeof(FastCov::DumpHeader) +
-		    static_cast<std::size_t>(header->moduleCount_) *
-		        sizeof(FastCov::ModuleEntry) +
-		    static_cast<std::size_t>(header->basicBlockCount_) *
-		        sizeof(FastCov::BasicBlockRecord);
-		if (bytes.size() < expected)
-			THROW(L"Fast coverage dump is truncated: " + dumpPath.wstring());
-
-		const auto* modules = reinterpret_cast<const FastCov::ModuleEntry*>(
-		    bytes.data() + sizeof(FastCov::DumpHeader));
-		const auto* records =
-		    reinterpret_cast<const FastCov::BasicBlockRecord*>(
-		        bytes.data() + sizeof(FastCov::DumpHeader) +
-		        static_cast<std::size_t>(header->moduleCount_) *
-		            sizeof(FastCov::ModuleEntry));
-
-		// Group basic blocks by module.
-		std::vector<std::vector<BasicBlock>> blocksByModule(
-		    header->moduleCount_);
-		for (std::uint32_t i = 0; i < header->basicBlockCount_; ++i)
-		{
-			const auto& record = records[i];
-			if (record.moduleIndex_ < header->moduleCount_)
-				blocksByModule[record.moduleIndex_].push_back(
-				    BasicBlock{record.rva_, record.count_});
-		}
 
 		CoverageFilterManager filterManager{coverageFilterSettings_,
 		                                     unifiedDiffSettings_,
@@ -246,6 +460,7 @@ namespace CppCoverage
 
 		ExecutedAddressManager manager;
 		std::wstring coverageName;
+		std::uintptr_t nextTag = 1;
 
 		// stem -> instantiation name -> (file, line) -> count.
 		std::map<std::wstring,
@@ -254,73 +469,91 @@ namespace CppCoverage
 		                            std::map<unsigned int, unsigned int>>>>
 		    templates;
 
-		for (std::uint32_t m = 0; m < header->moduleCount_; ++m)
-		{
-			auto& blocks = blocksByModule[m];
-			if (blocks.empty())
-				continue;
+		// Maps one module's basic blocks (from the resolved dump, or recovered
+		// by disassembly for the MSVC raw dump) to line and instantiation
+		// coverage. rawRegion is non-null only for the MSVC path.
+		auto processModule =
+		    [&](const std::filesystem::path& modulePath,
+		        const std::vector<BasicBlock>* resolvedBlocks,
+		        std::uint32_t regionRva,
+		        const std::vector<std::uint8_t>* rawRegion) {
+			    if (!filterManager.IsModuleSelected(modulePath.wstring()))
+				    return;
 
-			std::filesystem::path modulePath{modules[m].path_};
-			if (!filterManager.IsModuleSelected(modulePath.wstring()))
-				continue;
+			    // A fresh enumeration (no cache) so function names resolve.
+			    DebugInformationEnumerator enumerator{
+			        substitutePdbSourcePaths_,
+			        /*needSymbolIndex*/ false,
+			        /*lineTableCache*/ nullptr,
+			        /*needFunctionNames*/ true};
+			    ModuleCollector collector{filterManager, modulePath};
+			    if (!enumerator.Enumerate(modulePath, collector))
+			    {
+				    LOG_WARNING << L"Fast coverage: no debug information for "
+				                << modulePath.wstring();
+				    return;
+			    }
 
-			// A fresh enumeration (no cache) so function names are resolved.
-			DebugInformationEnumerator enumerator{
-			    substitutePdbSourcePaths_,
-			    /*needSymbolIndex*/ false,
-			    /*lineTableCache*/ nullptr,
-			    /*needFunctionNames*/ true};
-			ModuleCollector collector{filterManager, modulePath};
-			if (!enumerator.Enumerate(modulePath, collector))
-			{
-				LOG_WARNING << L"Fast coverage: no debug information for "
-				            << modulePath.wstring();
-				continue;
-			}
+			    std::vector<BasicBlock> recovered;
+			    if (!resolvedBlocks)
+			    {
+				    recovered = RecoverBasicBlocksFromSancov(
+				        modulePath, collector.GetFunctions(), regionRva,
+				        *rawRegion);
+				    resolvedBlocks = &recovered;
+			    }
+			    if (resolvedBlocks->empty())
+				    return;
 
-			std::sort(blocks.begin(),
-			          blocks.end(),
-			          [](const auto& lhs, const auto& rhs) {
-				          return lhs.rva_ < rhs.rva_;
-			          });
+			    std::vector<BasicBlock> blocks = *resolvedBlocks;
+			    std::sort(blocks.begin(),
+			              blocks.end(),
+			              [](const auto& lhs, const auto& rhs) {
+				              return lhs.rva_ < rhs.rva_;
+			              });
 
-			if (coverageName.empty())
-				coverageName = modulePath.filename().wstring();
+			    if (coverageName.empty())
+				    coverageName = modulePath.filename().wstring();
 
-			auto moduleTag = reinterpret_cast<HANDLE>(
-			    static_cast<std::uintptr_t>(m) + 1);
-			manager.AddModule(modulePath.wstring(), nullptr);
+			    auto moduleTag = reinterpret_cast<HANDLE>(nextTag++);
+			    manager.AddModule(modulePath.wstring(), nullptr);
 
-			for (const auto& record : collector.GetLineRecords())
-			{
-				auto count = CountAt(blocks, record.rva_);
+			    for (const auto& record : collector.GetLineRecords())
+			    {
+				    auto count = CountAt(blocks, record.rva_);
 
-				Address address{moduleTag,
-				                reinterpret_cast<void*>(
-				                    static_cast<std::uintptr_t>(record.rva_))};
-				manager.RegisterAddress(
-				    address, record.filePath_, record.lineNumber_, 0);
-				if (count > 0)
-					manager.MarkAddressAsExecuted(address);
+				    Address address{
+				        moduleTag,
+				        reinterpret_cast<void*>(
+				            static_cast<std::uintptr_t>(record.rva_))};
+				    manager.RegisterAddress(
+				        address, record.filePath_, record.lineNumber_, 0);
+				    if (count > 0)
+					    manager.MarkAddressAsExecuted(address);
 
-				// Attribute the line to its instantiation for the template axis.
-				const auto* functionName =
-				    FunctionNameAt(collector.GetFunctions(), record.rva_);
-				if (functionName && !functionName->empty())
-				{
-					auto stem = TemplateStem(*functionName);
-					if (!stem.empty())
-					{
-						auto& instantiation =
-						    templates[stem][*functionName];
-						instantiation.first = record.filePath_;
-						auto& lineCount =
-						    instantiation.second[record.lineNumber_];
-						lineCount = std::max(lineCount, count);
-					}
-				}
-			}
-		}
+				    // Attribute the line to its instantiation.
+				    const auto* functionName = FunctionNameAt(
+				        collector.GetFunctions(), record.rva_);
+				    if (functionName && !functionName->empty())
+				    {
+					    auto stem = TemplateStem(*functionName);
+					    if (!stem.empty())
+					    {
+						    auto& instantiation =
+						        templates[stem][*functionName];
+						    instantiation.first = record.filePath_;
+						    auto& lineCount =
+						        instantiation.second[record.lineNumber_];
+						    lineCount = std::max(lineCount, count);
+					    }
+				    }
+			    }
+		    };
+
+		if (magic == FastCov::DumpMagic)
+			ImportResolvedDump(bytes, dumpPath, processModule);
+		else
+			ImportRawDump(bytes, dumpPath, processModule);
 
 		Result result{manager.CreateCoverageData(coverageName, 0), {}};
 

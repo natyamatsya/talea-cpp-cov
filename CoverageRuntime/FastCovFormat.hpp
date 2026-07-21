@@ -68,4 +68,35 @@ namespace FastCov
 
 	// Layout: DumpHeader, then ModuleEntry[moduleCount_], then
 	// BasicBlockRecord[basicBlockCount_].
+
+	// --- MSVC raw variant ---------------------------------------------------
+	//
+	// MSVC's SanitizerCoverage (/fsanitize-coverage=inline-8bit-counters) has no
+	// PC table: the counters live in the module's .sancov section and the code
+	// increments them with `inc byte [rip+disp]`, so counter->address is only
+	// recoverable by disassembling. The MSVC runtime therefore dumps the raw
+	// .sancov counter region and its module-relative address; the host importer
+	// disassembles the module to map each counter back to its basic-block
+	// address, then shares the same line/instantiation mapping as the resolved
+	// (clang) path.
+	constexpr std::uint32_t RawDumpMagic = 0x52464350;   // "PCFR"
+
+	struct RawDumpHeader
+	{
+		std::uint32_t magic_;        // RawDumpMagic
+		std::uint32_t version_;      // DumpVersion
+		std::uint32_t moduleCount_;
+		std::uint32_t reserved_;
+	};
+
+	// Per module, immediately following the header (repeated moduleCount_
+	// times): a RawModuleHeader, then regionSize_ bytes of the .sancov region.
+	// A counter for module-relative address rva is at
+	// region[rva - regionRva_] when rva is in [regionRva_, regionRva_+size).
+	struct RawModuleHeader
+	{
+		wchar_t path_[MaxModulePathChars];
+		std::uint32_t regionRva_;    // module-relative address of the region
+		std::uint32_t regionSize_;   // bytes of .sancov that follow
+	};
 }
