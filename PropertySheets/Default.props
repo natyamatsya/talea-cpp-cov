@@ -16,6 +16,13 @@
       <UseFullPaths>true</UseFullPaths>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
+      <!-- Build every translation unit as UTF-8 (source and execution charset).
+           This is the modern MSVC default, lets fmt be used anywhere, and fixes
+           files that are already UTF-8 but were being misread as the ANSI code
+           page. The few test fixtures whose ANSI encoding is deliberate (they
+           exercise the local-code-page conversion helpers and non-ASCII include
+           paths) override this back to /source-charset:.1252 per file. -->
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup />

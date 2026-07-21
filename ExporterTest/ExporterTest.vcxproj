@@ -96,9 +96,25 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BinaryExporterTest.cpp" />
-    <ClCompile Include="CoberturaExporterTest.cpp" />
+    <ClCompile Include="CoberturaExporterTest.cpp">
+      <!-- Deliberately Windows-1252 encoded: feeds non-ASCII module/file names
+           to exercise escaping, so its narrow literals must be ANSI bytes.
+           Override the tree-wide /utf-8 (see PropertySheets/Default.props). -->
+      <AdditionalOptions>/source-charset:.1252 /execution-charset:.1252</AdditionalOptions>
+      <!-- A charset different from the PCH's is rejected (C2855), so this file
+           compiles without the precompiled header. -->
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="ColumnarCoverageTest.cpp" />
-    <ClCompile Include="CoverageDataSerializerTest.cpp" />
+    <ClCompile Include="CoverageDataSerializerTest.cpp">
+      <!-- Deliberately Windows-1252 encoded: round-trips non-ASCII names, so
+           its narrow literals must be ANSI bytes. Override the tree-wide
+           /utf-8 (see PropertySheets/Default.props). -->
+      <AdditionalOptions>/source-charset:.1252 /execution-charset:.1252</AdditionalOptions>
+      <!-- A charset different from the PCH's is rejected (C2855), so this file
+           compiles without the precompiled header. -->
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="Data\TestFile1.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
