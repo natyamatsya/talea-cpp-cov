@@ -17,6 +17,9 @@
 #pragma once
 
 #include <filesystem>
+#include <memory>
+#include <string>
+#include <vector>
 
 #include "CppCoverageExport.hpp"
 #include "SubstitutePdbSourcePath.hpp"
@@ -60,6 +63,9 @@ namespace CppCoverage
 		                          const std::vector<Line>&) = 0;
 	};
 
+	struct ModuleLineTable;
+	class PdbLineTableCache;
+
 	//-------------------------------------------------------------------------
 	class CPPCOVERAGE_DLL DebugInformationEnumerator
 	{
@@ -67,21 +73,30 @@ namespace CppCoverage
 		// needSymbolIndex controls whether the (expensive) DIA symbol index
 		// is resolved per line record. It is only consumed by the optimized
 		// build filter, so it defaults to off.
+		//
+		// When a PdbLineTableCache is given, the DIA parse of a module is
+		// skipped whenever the cache already holds a line table for the
+		// module's PDB signature.
 		explicit DebugInformationEnumerator(
 		    const std::vector<SubstitutePdbSourcePath>&,
-		    bool needSymbolIndex = false);
+		    bool needSymbolIndex = false,
+		    std::shared_ptr<PdbLineTableCache> lineTableCache = nullptr);
 		bool Enumerate(const std::filesystem::path&,
 		               IDebugInformationHandler&);
 
 	  private:
+		std::shared_ptr<ModuleLineTable>
+		ParseModule(const std::filesystem::path&) const;
+
 		void OnNewLine(IDiaSession&,
 		               IDiaLineNumber&,
-		               std::vector<IDebugInformationHandler::Line>&);
+		               std::vector<IDebugInformationHandler::Line>&) const;
 
 		std::filesystem::path
-		GetSourceFileName(IDiaSourceFile&) const;
+		RemapSourceFileName(const std::wstring& rawName) const;
 
 		const std::vector<SubstitutePdbSourcePath> substitutePdbSourcePaths_;
 		const bool needSymbolIndex_;
+		const std::shared_ptr<PdbLineTableCache> lineTableCache_;
 	};
 }

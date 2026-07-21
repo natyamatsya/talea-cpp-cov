@@ -17,10 +17,15 @@
 #include "stdafx.h"
 
 #include <fstream>
+#include <map>
+#include <tuple>
 
 #include "CppCoverage/DebugInformationEnumerator.hpp"
+#include "CppCoverage/PdbLineTableCache.hpp"
+#include "CppCoverage/PdbSignature.hpp"
 #include "TestCoverageConsole/TestDebugInformationEnumerator.hpp"
 #include "TestCoverageConsole/TestCoverageConsole.hpp"
+#include "TestHelper/TemporaryPath.hpp"
 
 namespace CppCoverageTest
 {
@@ -105,5 +110,120 @@ namespace CppCoverageTest
 		          debugInformationHandler.lines_.end());
 		ASSERT_EQ(debugInformationHandler.lines_, lineWithDebugInfo);
 		ASSERT_NE(0, debugInformationHandler.lineWithLengthCount_);
+	}
+
+	namespace
+	{
+		//---------------------------------------------------------------------
+		// Selects every source file and records the full delivered data, so
+		// two enumerations can be compared for exact equality.
+		struct RecordingHandler : CppCoverage::IDebugInformationHandler
+		{
+			using LineData = std::
+			    tuple<unsigned long, int64_t, unsigned long, unsigned long>;
+
+			bool IsSourceFileSelected(const std::filesystem::path&) override
+			{
+				return true;
+			}
+
+			void OnSourceFile(const std::filesystem::path& path,
+			                  const std::vector<Line>& lines) override
+			{
+				auto& fileLines = files_[path.wstring()];
+				for (const auto& line : lines)
+				{
+					fileLines.emplace_back(line.lineNumber_,
+					                       line.virtualAddress_,
+					                       line.symbolIndex_,
+					                       line.length_);
+				}
+			}
+
+			std::map<std::wstring, std::vector<LineData>> files_;
+		};
+
+		//---------------------------------------------------------------------
+		RecordingHandler EnumerateBinary(
+		    std::shared_ptr<CppCoverage::PdbLineTableCache> cache,
+		    bool needSymbolIndex = false)
+		{
+			CppCoverage::DebugInformationEnumerator enumerator{
+			    {}, needSymbolIndex, cache};
+			RecordingHandler handler;
+			EXPECT_TRUE(enumerator.Enumerate(
+			    TestCoverageConsole::GetOutputBinaryPath(), handler));
+			EXPECT_FALSE(handler.files_.empty());
+			return handler;
+		}
+	}
+
+	//-------------------------------------------------------------------------
+	TEST(DebugInformationEnumeratorTest, PdbSignature)
+	{
+		auto signature = CppCoverage::ExtractPdbSignature(
+		    TestCoverageConsole::GetOutputBinaryPath());
+		ASSERT_TRUE(signature.has_value());
+		ASSERT_FALSE(signature->ToString().empty());
+
+		ASSERT_FALSE(CppCoverage::ExtractPdbSignature(L"does-not-exist.exe")
+		                 .has_value());
+	}
+
+	//-------------------------------------------------------------------------
+	TEST(DebugInformationEnumeratorTest, PdbLineTableCacheMemory)
+	{
+		auto cache = std::make_shared<CppCoverage::PdbLineTableCache>();
+
+		auto firstRun = EnumerateBinary(cache);
+		ASSERT_EQ(1, cache->GetMissCount());
+		ASSERT_EQ(0, cache->GetMemoryHitCount());
+
+		auto secondRun = EnumerateBinary(cache);
+		ASSERT_EQ(1, cache->GetMissCount());
+		ASSERT_EQ(1, cache->GetMemoryHitCount());
+
+		ASSERT_EQ(firstRun.files_, secondRun.files_);
+	}
+
+	//-------------------------------------------------------------------------
+	TEST(DebugInformationEnumeratorTest, PdbLineTableCacheDisk)
+	{
+		TestHelper::TemporaryPath cacheFolder{
+		    TestHelper::TemporaryPathOption::CreateAsFolder};
+
+		auto firstCache = std::make_shared<CppCoverage::PdbLineTableCache>(
+		    cacheFolder.GetPath());
+		auto firstRun = EnumerateBinary(firstCache);
+		ASSERT_EQ(1, firstCache->GetMissCount());
+
+		// A fresh cache on the same folder must hit the disk layer.
+		auto secondCache = std::make_shared<CppCoverage::PdbLineTableCache>(
+		    cacheFolder.GetPath());
+		auto secondRun = EnumerateBinary(secondCache);
+		ASSERT_EQ(0, secondCache->GetMissCount());
+		ASSERT_EQ(1, secondCache->GetDiskHitCount());
+
+		ASSERT_EQ(firstRun.files_, secondRun.files_);
+	}
+
+	//-------------------------------------------------------------------------
+	TEST(DebugInformationEnumeratorTest, PdbLineTableCacheSymbolIndexes)
+	{
+		auto cache = std::make_shared<CppCoverage::PdbLineTableCache>();
+
+		// A table cached without symbol indexes must not satisfy a request
+		// that needs them.
+		EnumerateBinary(cache, false);
+		ASSERT_EQ(1, cache->GetMissCount());
+
+		EnumerateBinary(cache, true);
+		ASSERT_EQ(2, cache->GetMissCount());
+
+		// The richer table satisfies both kinds of request.
+		EnumerateBinary(cache, true);
+		EnumerateBinary(cache, false);
+		ASSERT_EQ(2, cache->GetMissCount());
+		ASSERT_EQ(2, cache->GetMemoryHitCount());
 	}
 }

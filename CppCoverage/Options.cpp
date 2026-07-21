@@ -51,6 +51,7 @@ namespace CppCoverage
 		, isStopOnAssertModeEnabled_{false}
 		, isOptimizedBuildSupportEnabled_{false}
 		, isBranchCoverageModeEnabled_{false}
+		, isNoPdbCacheModeEnabled_{false}
 	{
 		if (startInfo)
 			optionalStartInfo_ = *startInfo;
@@ -210,6 +211,18 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
+	void Options::EnableNoPdbCacheMode()
+	{
+		isNoPdbCacheModeEnabled_ = true;
+	}
+
+	//-------------------------------------------------------------------------
+	bool Options::IsNoPdbCacheModeEnabled() const
+	{
+		return isNoPdbCacheModeEnabled_;
+	}
+
+	//-------------------------------------------------------------------------
 	void Options::AddExcludedLineRegex(const std::wstring& excludedRegex)
 	{
 		excludedLineRegexes_.push_back(excludedRegex);
@@ -246,6 +259,7 @@ namespace CppCoverage
 		ostr << L"Continue after C++ exception: " << options.isContinueAfterCppExceptionModeEnabled_ << std::endl;
 		ostr << L"Optimized build support: " << options.isOptimizedBuildSupportEnabled_ << std::endl;
 		ostr << L"Branch coverage: " << options.isBranchCoverageModeEnabled_ << std::endl;
+		ostr << L"No PDB cache: " << options.isNoPdbCacheModeEnabled_ << std::endl;
 
 		ostr << L"Export: ";
 		for (const auto& optionExport : options.exports_)

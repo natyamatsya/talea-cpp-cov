@@ -37,6 +37,7 @@
 #include "MonitoredLineRegister.hpp"
 #include "FilterAssistant.hpp"
 #include "FileSystem.hpp"
+#include "PdbLineTableCache.hpp"
 
 #include "Tools/WarningManager.hpp"
 #include "Tools/Tool.hpp"
@@ -75,19 +76,37 @@ namespace CppCoverage
 		if (settings.GetBranchCoverage())
 			branchCoverageManager_ = std::make_shared<BranchCoverageManager>();
 
+		std::shared_ptr<PdbLineTableCache> pdbLineTableCache;
+		if (settings.IsPdbCacheEnabled())
+		{
+			pdbLineTableCache = std::make_shared<PdbLineTableCache>(
+			    PdbLineTableCache::GetDefaultDiskCacheDirectory());
+		}
+
 		monitoredLineRegister_ = std::make_unique<MonitoredLineRegister>(
 		    breakpoint_,
 		    executedAddressManager_,
 		    coverageFilterManager_,
 		    std::make_unique<DebugInformationEnumerator>(
 		        settings.GetSubstitutePdbSourcePaths(),
-		        settings.GetOptimizedBuildSupport()),
+		        settings.GetOptimizedBuildSupport(),
+		        pdbLineTableCache),
 			filterAssistant_,
 			branchCoverageManager_);
 
 		const auto& startInfo = settings.GetStartInfo();
 		int exitCode = debugger.Debug(startInfo, *this);
 		const auto& path = startInfo.GetPath();
+
+		if (pdbLineTableCache)
+		{
+			LOG_DEBUG << L"PDB line-table cache: "
+			          << pdbLineTableCache->GetMemoryHitCount()
+			          << L" memory hit(s), "
+			          << pdbLineTableCache->GetDiskHitCount()
+			          << L" disk hit(s), "
+			          << pdbLineTableCache->GetMissCount() << L" miss(es).";
+		}
 
 		auto warningMessageLines = coverageFilterManager_->ComputeWarningMessageLines(
 			settings.GetMaxUnmatchPathsForWarning());

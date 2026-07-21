@@ -85,6 +85,9 @@ namespace CppCoverage
 		void EnableBranchCoverageMode();
 		bool IsBranchCoverageModeEnabled() const;
 
+		void EnableNoPdbCacheMode();
+		bool IsNoPdbCacheModeEnabled() const;
+
 		void AddExcludedLineRegex(const std::wstring&);
 		const std::vector<std::wstring>& GetExcludedLineRegexes() const;
 
@@ -110,6 +113,7 @@ namespace CppCoverage
         bool isStopOnAssertModeEnabled_;
         bool isOptimizedBuildSupportEnabled_;
         bool isBranchCoverageModeEnabled_;
+        bool isNoPdbCacheModeEnabled_;
         std::vector<OptionsExport> exports_;
 		std::vector<std::filesystem::path> inputCoveragePaths_;
 		std::vector<UnifiedDiffSettings> unifiedDiffSettingsCollection_;

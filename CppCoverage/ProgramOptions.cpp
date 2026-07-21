@@ -88,6 +88,9 @@ namespace CppCoverage
 				(ProgramOptions::BranchCoverageOption.c_str(),
 					"(Experimental) Also measure branch coverage (conditional jumps). "
 					"Exported in Cobertura and binary formats. The profiled program runs slower.")
+				(ProgramOptions::NoPdbCacheOption.c_str(),
+					"Disable the PDB line-table cache (in memory and on disk). "
+					"The cache is keyed by the exact PDB identity, so it never returns stale data.")
 				(ProgramOptions::ExcludedLineRegexOption.c_str(), po::value<T_Strings>()->composing(),
 					"Exclude all lines match the regular expression. Regular expression must match the whole line.")
 				(ProgramOptions::SubstitutePdbSourcePathOption.c_str(), po::value<T_Strings>()->composing(),
@@ -133,6 +136,7 @@ namespace CppCoverage
 	const std::string ProgramOptions::SubstitutePdbSourcePathOption = "substitute_pdb_source_path";
     const std::string ProgramOptions::StopOnAssertOption = "stop_on_assert";
 	const std::string ProgramOptions::BranchCoverageOption = "branch_coverage";
+	const std::string ProgramOptions::NoPdbCacheOption = "no_pdb_cache";
 
 	//-------------------------------------------------------------------------
 	ProgramOptions::ProgramOptions(

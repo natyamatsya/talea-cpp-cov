@@ -45,6 +45,7 @@ namespace CppCoverage
         void SetMaxUnmatchPathsForWarning(size_t);
 		void SetOptimizedBuildSupport(bool);
 		void SetBranchCoverage(bool);
+		void SetPdbCacheEnabled(bool);
 
 		const StartInfo& GetStartInfo() const;
 		const CoverageFilterSettings& GetCoverageFilterSettings() const;
@@ -55,6 +56,7 @@ namespace CppCoverage
         size_t GetMaxUnmatchPathsForWarning() const;
 		bool GetOptimizedBuildSupport() const;
 		bool GetBranchCoverage() const;
+		bool IsPdbCacheEnabled() const;
 		const std::vector<std::wstring>& GetExcludedLineRegexes() const;
 		const std::vector<SubstitutePdbSourcePath>& GetSubstitutePdbSourcePaths() const;
 
@@ -68,6 +70,7 @@ namespace CppCoverage
         size_t maxUnmatchPathsForWarning_;
 		bool optimizedBuildSupport_;
 		bool branchCoverage_;
+		bool pdbCacheEnabled_;
 		std::vector<std::wstring> excludedLineRegexes_;
 		std::vector<SubstitutePdbSourcePath> substitutePdbSourcePath_;
 	};

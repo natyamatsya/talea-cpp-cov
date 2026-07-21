@@ -52,6 +52,7 @@ namespace CppCoverage
 		static const std::string ExcludedLineRegexOption;
 		static const std::string SubstitutePdbSourcePathOption;
 		static const std::string BranchCoverageOption;
+		static const std::string NoPdbCacheOption;
 
 		explicit ProgramOptions(const std::vector<std::unique_ptr<IOptionParser>>&);
 

@@ -23,12 +23,16 @@
 #include <atlbase.h>
 
 #include <filesystem>
+#include <memory>
+#include <optional>
 #include <unordered_map>
 #include <boost/algorithm/string.hpp>
 
 #include "tools/Log.hpp"
 
 #include "CppCoverageException.hpp"
+#include "PdbLineTableCache.hpp"
+#include "PdbSignature.hpp"
 
 namespace CppCoverage
 {
@@ -115,6 +119,15 @@ namespace CppCoverage
 			});
 
 			return sourceFiles;
+		}
+
+		//----------------------------------------------------------------------
+		std::wstring GetRawSourceFileName(IDiaSourceFile& sourceFile)
+		{
+			DiaString fileName;
+			if (sourceFile.get_fileName(&fileName) != S_OK)
+				THROW("DIA: Cannot get filename");
+			return fileName;
 		}
 
 		//----------------------------------------------------------------------
@@ -232,9 +245,11 @@ namespace CppCoverage
 	//--------------------------------------------------------------------------
 	DebugInformationEnumerator::DebugInformationEnumerator(
 	    const std::vector<SubstitutePdbSourcePath>& substitutePdbSourcePaths,
-	    bool needSymbolIndex)
+	    bool needSymbolIndex,
+	    std::shared_ptr<PdbLineTableCache> lineTableCache)
 		: substitutePdbSourcePaths_{ substitutePdbSourcePaths }
 		, needSymbolIndex_{ needSymbolIndex }
+		, lineTableCache_{ std::move(lineTableCache) }
 	{
 	}
 
@@ -243,35 +258,70 @@ namespace CppCoverage
 	DebugInformationEnumerator::Enumerate(const std::filesystem::path& path,
 	                                      IDebugInformationHandler& handler)
 	{
+		// The cache is keyed by the PDB's GUID + age (the linker's exact
+		// identity), read from the PE debug directory without loading DIA.
+		std::optional<PdbSignature> signature;
+		std::shared_ptr<const ModuleLineTable> lineTable;
+
+		if (lineTableCache_)
+		{
+			signature = ExtractPdbSignature(path);
+			if (signature)
+				lineTable =
+				    lineTableCache_->TryGet(*signature, needSymbolIndex_);
+		}
+
+		if (!lineTable)
+		{
+			auto parsedTable = ParseModule(path);
+			if (!parsedTable)
+				return false;
+			if (lineTableCache_ && signature)
+				lineTableCache_->Store(*signature, parsedTable);
+			lineTable = std::move(parsedTable);
+		}
+
+		// Path substitution and source-file selection run on every replay:
+		// they depend on the run's settings, so a cached table stays valid
+		// whatever filters are active.
+		for (const auto& file : lineTable->files_)
+		{
+			auto sourcePath = RemapSourceFileName(file.rawName_);
+			if (handler.IsSourceFileSelected(sourcePath))
+				handler.OnSourceFile(sourcePath, file.lines_);
+		}
+
+		return true;
+	}
+
+	//-------------------------------------------------------------------------
+	std::shared_ptr<ModuleLineTable> DebugInformationEnumerator::ParseModule(
+	    const std::filesystem::path& path) const
+	{
 		auto sourcePtr = LoadDataForExe(path);
 
 		if (!sourcePtr)
-			return false;
+			return nullptr;
 
 		CComPtr<IDiaSession> sessionPtr;
 		if (sourcePtr->openSession(&sessionPtr) != S_OK || !sessionPtr)
 			THROW("DIA: Cannot open session.");
 
-		// Pass 1: enumerate the source files once, keyed by their (remapped)
-		// name, remembering the selection decision and delivery order.
+		auto lineTable = std::make_shared<ModuleLineTable>();
+		lineTable->hasSymbolIndexes_ = needSymbolIndex_;
+
+		// Pass 1: enumerate the source files once, in delivery order.
 		// Previously the line data was re-queried once per source file via
 		// get_compilands + findLines, paying a fixed per-call cost for every
 		// header — O(files) findLines calls that dominate startup on large
 		// translation units where many headers share one compiland.
 		//
-		// The name is the key rather than IDiaSourceFile::get_uniqueId because
-		// DIA assigns different unique ids to the source-file objects reached
-		// through the source-files table (pass 1) and through a line record's
-		// get_sourceFile (pass 2); the remapped file name is stable across
-		// both paths.
-		struct FileEntry
-		{
-			std::filesystem::path path_;
-			bool selected_;
-			std::vector<IDebugInformationHandler::Line> lines_;
-		};
-		std::unordered_map<std::wstring, FileEntry> filesByName;
-		std::vector<std::wstring> orderedNames;
+		// Files are keyed by their raw PDB name rather than
+		// IDiaSourceFile::get_uniqueId because DIA assigns different unique
+		// ids to the source-file objects reached through the source-files
+		// table (pass 1) and through a line record's get_sourceFile
+		// (pass 2); the name is stable across both paths.
+		std::unordered_map<std::wstring, size_t> fileIndexByName;
 
 		auto sourceFiles = GetEnumSourceFiles(*sessionPtr);
 		if (!sourceFiles)
@@ -279,27 +329,28 @@ namespace CppCoverage
 
 		EnumerateCollection<IDiaSourceFile>(
 		    *sourceFiles, [&](IDiaSourceFile& sourceFile) {
-			    auto filename = GetSourceFileName(sourceFile);
-			    auto key = filename.wstring();
-			    if (filesByName.find(key) != filesByName.end())
-				    return;
-
-			    bool selected = handler.IsSourceFileSelected(filename);
-			    orderedNames.push_back(key);
-			    filesByName.emplace(
-			        key, FileEntry{std::move(filename), selected, {}});
+			    auto name = GetRawSourceFileName(sourceFile);
+			    if (fileIndexByName
+			            .emplace(name, lineTable->files_.size())
+			            .second)
+			    {
+				    lineTable->files_.push_back(
+				        ModuleLineTable::File{std::move(name), {}});
+			    }
 		    });
 
 		// Pass 2: enumerate every line record in the module in one query and
-		// bucket the records of selected files.
+		// bucket the records by source file. All files are collected — not
+		// only the currently selected ones — so the table can be cached and
+		// replayed under any later selection.
 		auto lineNumbers = GetAllLineNumbers(*sessionPtr);
 
-		// Records arrive in RVA order, so consecutive records usually share a
-		// source file: cache the last resolved file to avoid re-reading and
-		// re-mapping the source file name per record.
+		// Records arrive in RVA order, so consecutive records usually share
+		// a source file: cache the last resolved file to avoid re-reading
+		// the source file name per record.
 		std::wstring lastName;
 		bool hasLastFile = false;
-		FileEntry* lastEntry = nullptr;
+		ModuleLineTable::File* lastFile = nullptr;
 
 		EnumerateCollection<IDiaLineNumber>(
 		    *lineNumbers, [&](IDiaLineNumber& lineNumber) {
@@ -310,38 +361,30 @@ namespace CppCoverage
 				    THROW("DIA: Cannot get line source file");
 			    }
 
-			    auto name = GetSourceFileName(*sourceFile).wstring();
+			    auto name = GetRawSourceFileName(*sourceFile);
 
 			    if (!hasLastFile || name != lastName)
 			    {
-				    auto it = filesByName.find(name);
-				    lastEntry = (it != filesByName.end()) ? &it->second
-				                                          : nullptr;
+				    auto it = fileIndexByName.find(name);
+				    lastFile = (it != fileIndexByName.end())
+				                   ? &lineTable->files_[it->second]
+				                   : nullptr;
 				    lastName = std::move(name);
 				    hasLastFile = true;
 			    }
 
-			    if (lastEntry && lastEntry->selected_)
-				    OnNewLine(*sessionPtr, lineNumber, lastEntry->lines_);
+			    if (lastFile)
+				    OnNewLine(*sessionPtr, lineNumber, lastFile->lines_);
 		    });
 
-		// Deliver each selected file (even when empty) in source-file
-		// enumeration order, matching the previous behavior.
-		for (const auto& name : orderedNames)
-		{
-			auto& entry = filesByName[name];
-			if (entry.selected_)
-				handler.OnSourceFile(entry.path_, entry.lines_);
-		}
-
-		return true;
+		return lineTable;
 	}
 
 	//----------------------------------------------------------------------
 	void DebugInformationEnumerator::OnNewLine(
 	    IDiaSession& session,
 	    IDiaLineNumber& lineNumber,
-	    std::vector<IDebugInformationHandler::Line>& lines)
+	    std::vector<IDebugInformationHandler::Line>& lines) const
 	{
 		DWORD linenum = 0;
 		if (lineNumber.get_lineNumber(&linenum) != S_OK)
@@ -382,13 +425,10 @@ namespace CppCoverage
 	}
 
 	//----------------------------------------------------------------------
-	std::filesystem::path DebugInformationEnumerator::GetSourceFileName(
-	    IDiaSourceFile& sourceFile) const
+	std::filesystem::path DebugInformationEnumerator::RemapSourceFileName(
+	    const std::wstring& rawName) const
 	{
-		DiaString fileName;
-		if (sourceFile.get_fileName(&fileName) != S_OK)
-			THROW("DIA: Cannot get filename");
-		std::wstring filenameStr = fileName;
+		std::wstring filenameStr = rawName;
 
 		for (const auto& paths : substitutePdbSourcePaths_)
 		{

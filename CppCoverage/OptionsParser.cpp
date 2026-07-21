@@ -451,6 +451,8 @@ namespace CppCoverage
 			options.EnableStopOnAssertMode();
 		if (variablesMap.IsOptionSelected(ProgramOptions::BranchCoverageOption))
 			options.EnableBranchCoverageMode();
+		if (variablesMap.IsOptionSelected(ProgramOptions::NoPdbCacheOption))
+			options.EnableNoPdbCacheMode();
 
 		AddInputCoverages(variablesMap, options);
 		AddUnifiedDiff(variablesMap, options);

@@ -31,9 +31,11 @@ namespace CppCoverage
 	      unifiedDiffSettings_{unifiedDiffSettings},
 	      coverChildren_{false},
 	      continueAfterCppException_{false},
+	      stopOnAssert_{false},
 	      maxUnmatchPathsForWarning_{0},
 	      optimizedBuildSupport_{false},
 	      branchCoverage_{false},
+	      pdbCacheEnabled_{true},
 	      excludedLineRegexes_{excludedLineRegexes},
 	      substitutePdbSourcePath_{substitutePdbSourcePath}
 	{
@@ -73,6 +75,12 @@ namespace CppCoverage
 	void RunCoverageSettings::SetBranchCoverage(bool branchCoverage)
 	{
 		branchCoverage_ = branchCoverage;
+	}
+
+	//-------------------------------------------------------------------------
+	void RunCoverageSettings::SetPdbCacheEnabled(bool pdbCacheEnabled)
+	{
+		pdbCacheEnabled_ = pdbCacheEnabled;
 	}
 
 	//-------------------------------------------------------------------------
@@ -127,6 +135,12 @@ namespace CppCoverage
 	bool RunCoverageSettings::GetBranchCoverage() const
 	{
 		return branchCoverage_;
+	}
+
+	//-------------------------------------------------------------------------
+	bool RunCoverageSettings::IsPdbCacheEnabled() const
+	{
+		return pdbCacheEnabled_;
 	}
 
 	//-------------------------------------------------------------------------

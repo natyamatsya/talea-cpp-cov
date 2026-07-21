@@ -145,6 +145,17 @@ namespace CppCoverageTest
 			->IsBranchCoverageModeEnabled());
 		ASSERT_FALSE(TestTools::Parse(parser, {})->IsBranchCoverageModeEnabled());
 	}
+
+	//-------------------------------------------------------------------------
+	TEST(OptionsParserTest, NoPdbCache)
+	{
+		cov::OptionsParser parser;
+
+		ASSERT_TRUE(TestTools::Parse(parser,
+		{ TestTools::GetOptionPrefix() + cov::ProgramOptions::NoPdbCacheOption })
+			->IsNoPdbCacheModeEnabled());
+		ASSERT_FALSE(TestTools::Parse(parser, {})->IsNoPdbCacheModeEnabled());
+	}
     
     //-------------------------------------------------------------------------
 	TEST(OptionsParserTest, WorkingDirectory)

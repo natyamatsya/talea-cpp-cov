@@ -183,6 +183,7 @@ namespace OpenCppCoverage
                 runCoverageSettings.SetMaxUnmatchPathsForWarning(maxUnmatchPathsForWarning);
 				runCoverageSettings.SetOptimizedBuildSupport(options.IsOptimizedBuildSupportEnabled());
 				runCoverageSettings.SetBranchCoverage(options.IsBranchCoverageModeEnabled());
+				runCoverageSettings.SetPdbCacheEnabled(!options.IsNoPdbCacheModeEnabled());
 				auto coverageData = codeCoverageRunner.RunCoverage(runCoverageSettings);
 				exitCode = coverageData.GetExitCode();
 				coveraDatas.push_back(std::move(coverageData));
