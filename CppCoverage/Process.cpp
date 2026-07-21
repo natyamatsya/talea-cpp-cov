@@ -148,10 +148,6 @@ namespace CppCoverage
 				    << CheckIfValidExecutableMessage
 				    << std::endl;
 
-#ifndef _WIN64
-				ostr << L"\n*** This version support only 32 bits executable "
-				        L"***.\n\n";
-#endif
 				ostr << startInfo_
 				     << CppCoverage::GetErrorMessage(GetLastError());
 			}

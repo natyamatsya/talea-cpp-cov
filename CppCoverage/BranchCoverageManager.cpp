@@ -169,11 +169,7 @@ namespace CppCoverage
 		if (!GetThreadContext(hThread, &context))
 			THROW_LAST_ERROR("Error in GetThreadContext", GetLastError());
 
-#ifdef _WIN64
 		DWORD64 rcx = context.Rcx;
-#else
-		DWORD64 rcx = context.Ecx;
-#endif
 		if (IsBranchTaken(state.condition_, context.EFlags, rcx))
 			state.outcome_->taken_ = true;
 		else

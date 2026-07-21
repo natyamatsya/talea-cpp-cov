@@ -110,11 +110,7 @@ namespace CppCoverage
 		if (!GetThreadContext(hThread, &lcContext))
 			THROW_LAST_ERROR("Error in GetThreadContext", GetLastError());
 
-#ifdef _WIN64
 		--lcContext.Rip; // Move back one byte
-#else
-		--lcContext.Eip; // Move back one byte
-#endif
 		if (!SetThreadContext(hThread, &lcContext))
 			THROW_LAST_ERROR("Error in SetThreadContext", GetLastError());
 	}
@@ -128,11 +124,7 @@ namespace CppCoverage
 		if (!GetThreadContext(hThread, &lcContext))
 			THROW_LAST_ERROR("Error in GetThreadContext", GetLastError());
 
-#ifdef _WIN64
 		--lcContext.Rip; // Move back one byte
-#else
-		--lcContext.Eip; // Move back one byte
-#endif
 		// Single-step over the restored instruction to set
 		// the breakpoint again on the next single-step event.
 		lcContext.EFlags |= trapFlag;

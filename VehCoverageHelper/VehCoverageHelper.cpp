@@ -295,13 +295,8 @@ namespace
 			*address = module.originalBytes_[index];
 			FlushInstructionCache(GetCurrentProcess(), address, 1);
 
-#ifdef _WIN64
 			exceptionInfo->ContextRecord->Rip =
 			    reinterpret_cast<DWORD64>(address);
-#else
-			exceptionInfo->ContextRecord->Eip =
-			    reinterpret_cast<DWORD>(address);
-#endif
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 

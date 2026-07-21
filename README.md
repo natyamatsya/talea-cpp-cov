@@ -38,8 +38,10 @@ to those terms.
 - **Coverage aggregation**: Run several code coverages and merge them into a single report.
  
 ## Requirements
-- Windows Vista or higher.
-- Microsoft Visual Studio 2008 or higher all editions **including Express edition**. It should also work with previous version of Visual Studio.
+- 64-bit Windows 10 or later.
+- The profiled program must be **64-bit** and built with a program database
+  (`.pdb`). Use the [original OpenCppCoverage releases](https://github.com/OpenCppCoverage/OpenCppCoverage/releases)
+  if you need to profile 32-bit binaries.
 
 ## Building from source
 - Visual Studio with the *Desktop development with C++* workload.
