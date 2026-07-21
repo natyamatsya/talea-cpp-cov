@@ -40,10 +40,11 @@ namespace Exporter
 	// every shard through per-line map lookups. Both cost O(total lines).
 	//
 	// The columnar layout stores, per (module, file): the file's line numbers
-	// as delta-varints and a packed "executed" bitmap (1 bit/line), plus a
-	// sparse branch side-table. Shards of the same build share an identical
-	// line array, so merging two files is a word-wise OR of their bitmaps
-	// (ColumnarCoverageMerger's fast path) instead of a per-line map merge.
+	// as delta-varints and a packed "executed" bitmap (1 bit/line on disk),
+	// plus a sparse branch side-table. Shards of the same build share an
+	// identical line array, so merging two files is a linear byte-wise OR of
+	// their executed arrays (expanded to one byte per line in memory;
+	// ColumnarCoverageMerger's fast path) instead of a per-line map merge.
 	//
 	// Layout (little-endian; varint = unsigned LEB128):
 	//   u32 magic ('O''C''C''2'), u32 version

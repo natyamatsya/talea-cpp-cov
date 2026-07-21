@@ -215,6 +215,49 @@ namespace Exporter
 				}
 			}
 		}
+
+		//---------------------------------------------------------------------
+		// Rebuilds one file's lines and branches from its parsed columns.
+		void EmitFile(Plugin::FileCoverage& file,
+		              const ColumnarBinary::FileData& data)
+		{
+			for (size_t i = 0; i < data.lines.size(); ++i)
+				file.AddLine(data.lines[i], data.executed[i] != 0);
+			for (const auto& [lineNumber, branchMap] : data.branches)
+				for (const auto& [index, flags] : branchMap)
+					file.AddBranch(lineNumber,
+					               Plugin::BranchCoverage{index,
+					                                      (flags & 1) != 0,
+					                                      (flags & 2) != 0});
+		}
+
+		//---------------------------------------------------------------------
+		enum class HeaderResult
+		{
+			Ok,
+			BadMagic,
+			BadVersion
+		};
+
+		// Reads magic, version, name, exit code and the string table, leaving
+		// the reader positioned at the first module (consumed by ParseModules).
+		HeaderResult ReadHeader(Reader& reader,
+		                        std::string& name,
+		                        std::int32_t& exitCode,
+		                        std::vector<std::string>& strings)
+		{
+			if (reader.U32() != ColumnarBinary::Magic)
+				return HeaderResult::BadMagic;
+			if (reader.U32() > ColumnarBinary::Version)
+				return HeaderResult::BadVersion;
+			name = reader.Str();
+			exitCode = reader.I32();
+			auto stringCount = reader.U32();
+			strings.reserve(std::min<size_t>(stringCount, reader.Remaining()));
+			for (std::uint32_t i = 0; i < stringCount; ++i)
+				strings.push_back(reader.Str());
+			return HeaderResult::Ok;
+		}
 	}
 
 	//-------------------------------------------------------------------------
@@ -261,13 +304,14 @@ namespace Exporter
 			w.U32(static_cast<std::uint32_t>(coverageData.GetModules().size()));
 			for (const auto& module : coverageData.GetModules())
 			{
-				w.U32(stringIds.at(Tools::ToUtf8String(module->GetPath().wstring())));
+				// intern() returns the id already assigned in the first pass
+				// (no re-insert), avoiding a second ToUtf8String + map lookup.
+				w.U32(intern(module->GetPath()));
 				w.U32(static_cast<std::uint32_t>(module->GetFiles().size()));
 
 				for (const auto& file : module->GetFiles())
 				{
-					w.U32(stringIds.at(
-					    Tools::ToUtf8String(file->GetPath().wstring())));
+					w.U32(intern(file->GetPath()));
 
 					const auto& lineCollection = file->GetLineCollection();
 					w.U32(static_cast<std::uint32_t>(lineCollection.size()));
@@ -320,21 +364,23 @@ namespace Exporter
 		{
 			auto buffer = ReadFile(path);
 			Reader reader(buffer.data(), buffer.size());
-			if (reader.U32() != Magic)
-				THROW(L"Not a columnar coverage file: " + path.wstring());
-			if (reader.U32() > Version)
-				THROW(L"Unsupported columnar coverage file version: " +
-				      path.wstring());
-			auto name = Tools::Utf8ToWString(reader.Str());
-			auto exitCode = reader.I32();
 
-			auto stringCount = reader.U32();
+			std::string name;
+			std::int32_t exitCode = 0;
 			std::vector<std::string> strings;
-			strings.reserve(std::min<size_t>(stringCount, reader.Remaining()));
-			for (std::uint32_t i = 0; i < stringCount; ++i)
-				strings.push_back(reader.Str());
+			switch (ReadHeader(reader, name, exitCode, strings))
+			{
+				case HeaderResult::BadMagic:
+					THROW(L"Not a columnar coverage file: " + path.wstring());
+				case HeaderResult::BadVersion:
+					THROW(L"Unsupported columnar coverage file version: " +
+					      path.wstring());
+				case HeaderResult::Ok:
+					break;
+			}
 
-			Plugin::CoverageData coverageData{name, exitCode};
+			Plugin::CoverageData coverageData{Tools::Utf8ToWString(name),
+			                                  exitCode};
 
 			// Files of a module are contiguous, so tracking the last module
 			// path rebuilds the stored order without sorting.
@@ -353,16 +399,7 @@ namespace Exporter
 					    currentModulePath = modulePath;
 					    hasModule = true;
 				    }
-				    auto& file = currentModule->AddFile(filePath);
-				    for (size_t i = 0; i < data.lines.size(); ++i)
-					    file.AddLine(data.lines[i], data.executed[i] != 0);
-				    for (const auto& [lineNumber, branchMap] : data.branches)
-					    for (const auto& [index, flags] : branchMap)
-						    file.AddBranch(
-						        lineNumber,
-						        Plugin::BranchCoverage{index,
-						                               (flags & 1) != 0,
-						                               (flags & 2) != 0});
+				    EmitFile(currentModule->AddFile(filePath), data);
 			    });
 			return coverageData;
 		}
@@ -509,27 +546,24 @@ namespace Exporter
 	//-------------------------------------------------------------------------
 	bool ColumnarCoverageMerger::AddColumnarFile(const std::filesystem::path& path)
 	{
-		if (!ColumnarBinary::IsColumnarFile(path))
-			return false;
-
 		auto buffer = ColumnarBinary::ReadFile(path);
+		// Too small to hold the magic (missing/unreadable/not columnar): decline
+		// so the caller can try another format, matching the old IsColumnarFile
+		// probe without the extra file open.
+		if (buffer.size() < sizeof(std::uint32_t))
+			return false;
 		Reader reader(buffer.data(), buffer.size());
-		if (reader.U32() != ColumnarBinary::Magic)
+
+		std::string name;
+		std::int32_t exitCode = 0;
+		std::vector<std::string> strings;
+		// ReadHeader validates the magic and version.
+		if (ReadHeader(reader, name, exitCode, strings) != HeaderResult::Ok)
 			return false;
-		if (reader.U32() > ColumnarBinary::Version)
-			return false;
-		auto name = reader.Str();
-		auto exitCode = reader.I32();
 
 		name_ = Tools::Utf8ToWString(name);
 		if (exitCode)
 			lastNotZeroExitCode_ = exitCode;
-
-		auto stringCount = reader.U32();
-		std::vector<std::string> strings;
-		strings.reserve(std::min<size_t>(stringCount, reader.Remaining()));
-		for (std::uint32_t i = 0; i < stringCount; ++i)
-			strings.push_back(reader.Str());
 
 		ParseModules(reader, strings,
 		             [this](const std::filesystem::path& modulePath,
@@ -549,21 +583,7 @@ namespace Exporter
 		{
 			auto& module = coverageData.AddModule(modulePath);
 			for (const auto& [filePath, data] : files)
-			{
-				auto& file = module.AddFile(filePath);
-				for (size_t i = 0; i < data.lines.size(); ++i)
-					file.AddLine(data.lines[i], data.executed[i] != 0);
-
-				for (const auto& [lineNumber, branchMap] : data.branches)
-				{
-					for (const auto& [index, flags] : branchMap)
-						file.AddBranch(
-						    lineNumber,
-						    Plugin::BranchCoverage{index,
-						                           (flags & 1) != 0,
-						                           (flags & 2) != 0});
-				}
-			}
+				EmitFile(module.AddFile(filePath), data);
 		}
 		return coverageData;
 	}
