@@ -22,7 +22,9 @@
 #include <algorithm>
 #include <optional>
 #include <string>
+#include <system_error>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "tools/Log.hpp"
@@ -49,10 +51,14 @@ namespace CppCoverage
 {
 	namespace
 	{
-		constexpr DWORD HelperReadyTimeoutMs = 30000;
+		constexpr DWORD HelperReadyTimeoutMs = 60000;
+		// Bounds on the exe-directory scan, so a pathological tree cannot make
+		// startup unbounded.
+		constexpr std::size_t MaxDiscoveredModules = 256;
+		constexpr std::size_t MaxScannedFiles = 50000;
 
 		//---------------------------------------------------------------------
-		// A selected line, in the module's RVA space.
+		// A source line in the module's RVA space.
 		struct SelectedLine
 		{
 			std::uint32_t rva_;
@@ -61,8 +67,30 @@ namespace CppCoverage
 			std::wstring filePath_;
 		};
 
+		// One instrumented module: the probe leader RVAs the helper patches,
+		// and, aligned with them, the (file, line)s each leader covers, so the
+		// coverage data can be built from the hit bitmap after the run.
+		struct ModuleProbes
+		{
+			std::filesystem::path path_;
+			std::wstring baseNameLower_;
+			std::vector<std::uint32_t> probeRvas_;
+			std::vector<std::vector<std::pair<std::wstring, unsigned int>>>
+			    probeLines_;
+		};
+
 		//---------------------------------------------------------------------
-		// Collects the function ranges and the filtered, selected lines of the
+		std::wstring ToLowerAscii(const std::wstring& value)
+		{
+			std::wstring result;
+			result.reserve(value.size());
+			for (auto c : value)
+				result.push_back(VehCoverage::AsciiToLower(c));
+			return result;
+		}
+
+		//---------------------------------------------------------------------
+		// Collects the function ranges and the filtered, selected lines of a
 		// module straight from its PDB - no live process needed. Mirrors what
 		// MonitoredLineRegister does in the debugger engine, minus the process.
 		class ProbeCollector : public IDebugInformationHandler
@@ -138,15 +166,14 @@ namespace CppCoverage
 
 		//---------------------------------------------------------------------
 		// Reduces the selected lines to probe leaders (one per straight-line
-		// run when merging applies), registering every line under its leader
-		// in the RVA-space probe table. Returns the sorted, unique leader RVAs
-		// - the spec the helper patches.
-		std::vector<std::uint32_t> BuildProbes(
-		    const std::filesystem::path& modulePath,
-		    bool is64BitModule,
-		    bool enableLineMerging,
-		    ProbeCollector& collector,
-		    ExecutedAddressManager& manager)
+		// run when merging applies). Fills probeRvas (sorted, unique) and, for
+		// each leader, the (file, line)s it covers. One leader can carry many
+		// lines (run merging); one line can appear under several leaders (a
+		// line split across runs).
+		void BuildProbes(const std::filesystem::path& modulePath,
+		                 bool enableLineMerging,
+		                 ProbeCollector& collector,
+		                 ModuleProbes& out)
 		{
 			auto& lines = collector.GetSelectedLines();
 			std::sort(lines.begin(),
@@ -155,15 +182,15 @@ namespace CppCoverage
 				          return lhs.rva_ < rhs.rva_;
 			          });
 
-			std::vector<std::uint32_t> probeRvas;
 			// leaderRva -> selected-line indices registered under it.
 			std::unordered_map<std::uint32_t, std::vector<std::size_t>>
 			    linesByLeader;
+			std::vector<std::uint32_t> leaderOrder;
 			auto addProbe = [&](std::uint32_t leaderRva, std::size_t index) {
 				auto [it, inserted] = linesByLeader.emplace(
 				    leaderRva, std::vector<std::size_t>{});
 				if (inserted)
-					probeRvas.push_back(leaderRva);
+					leaderOrder.push_back(leaderRva);
 				it->second.push_back(index);
 			};
 
@@ -175,7 +202,7 @@ namespace CppCoverage
 			else
 			{
 				auto reader = PeImageFileReader::TryCreate(modulePath);
-				LineRunScanner scanner{is64BitModule};
+				LineRunScanner scanner{/*is64BitModule*/ true};
 
 				constexpr std::uint32_t MaxScannedFunctionSize = 1 << 20;
 				std::size_t cursor = 0;
@@ -245,26 +272,107 @@ namespace CppCoverage
 					addProbe(lines[cursor].rva_, cursor);
 			}
 
-			// Register every line under its leader address (RVA space, with a
-			// synthetic null process handle). One leader can carry many lines
-			// (run merging); one line can appear under several leaders (a line
-			// split across runs) - both are native to ExecutedAddressManager.
-			for (const auto& [leaderRva, lineIndices] : linesByLeader)
+			std::sort(leaderOrder.begin(), leaderOrder.end());
+			out.probeRvas_ = leaderOrder;
+			out.probeLines_.resize(leaderOrder.size());
+			for (std::size_t i = 0; i < leaderOrder.size(); ++i)
 			{
-				Address address{nullptr,
-				                reinterpret_cast<void*>(
-				                    static_cast<std::uintptr_t>(leaderRva))};
-				for (auto index : lineIndices)
-				{
-					manager.RegisterAddress(address,
-					                        lines[index].filePath_,
-					                        lines[index].lineNumber_,
-					                        0);
-				}
+				auto& target = out.probeLines_[i];
+				for (auto lineIndex : linesByLeader[leaderOrder[i]])
+					target.emplace_back(lines[lineIndex].filePath_,
+					                    lines[lineIndex].lineNumber_);
 			}
+		}
 
-			std::sort(probeRvas.begin(), probeRvas.end());
-			return probeRvas;
+		//---------------------------------------------------------------------
+		// Computes the probe spec for one module from its PDB and file, offline.
+		// Returns nullopt when the module has no debug information or no
+		// selected line to instrument.
+		std::optional<ModuleProbes>
+		ComputeModuleProbes(const std::filesystem::path& modulePath,
+		                    ICoverageFilterManager& filterManager,
+		                    const RunCoverageSettings& settings,
+		                    std::shared_ptr<PdbLineTableCache> pdbLineTableCache)
+		{
+			DebugInformationEnumerator enumerator{
+			    settings.GetSubstitutePdbSourcePaths(),
+			    /*needSymbolIndex*/ false,
+			    pdbLineTableCache};
+			ProbeCollector collector{filterManager, modulePath};
+			if (!enumerator.Enumerate(modulePath, collector))
+				return std::nullopt;
+
+			ModuleProbes probes;
+			probes.path_ = modulePath;
+			probes.baseNameLower_ =
+			    ToLowerAscii(modulePath.filename().wstring());
+			BuildProbes(modulePath,
+			            settings.IsLineMergingEnabled(),
+			            collector,
+			            probes);
+			if (probes.probeRvas_.empty())
+				return std::nullopt;
+			return probes;
+		}
+
+		//---------------------------------------------------------------------
+		// The main executable plus every selected module with a distinct base
+		// name found under its directory. Scanning the directory (rather than
+		// walking imports) also catches dynamically loaded modules, as long as
+		// they live next to the executable.
+		std::vector<std::filesystem::path>
+		DiscoverModulePaths(const std::filesystem::path& exePath,
+		                    ICoverageFilterManager& filterManager)
+		{
+			std::vector<std::filesystem::path> paths;
+			std::vector<std::wstring> seenNames;
+
+			auto add = [&](const std::filesystem::path& path) {
+				if (!filterManager.IsModuleSelected(path.wstring()))
+					return;
+				auto name = ToLowerAscii(path.filename().wstring());
+				if (std::find(seenNames.begin(), seenNames.end(), name) !=
+				    seenNames.end())
+					return;
+				seenNames.push_back(name);
+				paths.push_back(path);
+			};
+
+			add(exePath);
+
+			auto directory = exePath.parent_path();
+			std::size_t visited = 0;
+			auto scan = [&](auto&& iterator) {
+				std::error_code error;
+				std::decay_t<decltype(iterator)> end;
+				for (; !error && iterator != end; iterator.increment(error))
+				{
+					if (++visited > MaxScannedFiles ||
+					    paths.size() >= MaxDiscoveredModules)
+						break;
+					if (!iterator->is_regular_file(error))
+						continue;
+					auto extension =
+					    ToLowerAscii(iterator->path().extension().wstring());
+					if (extension == L".dll" || extension == L".exe")
+						add(iterator->path());
+				}
+			};
+
+			// The executable's own directory first, so that when the same DLL
+			// name exists in a subdirectory too, the copy next to the exe (the
+			// one most likely to be the loaded one) wins the base-name dedup.
+			std::error_code error;
+			scan(std::filesystem::directory_iterator{
+			    directory,
+			    std::filesystem::directory_options::skip_permission_denied,
+			    error});
+			scan(std::filesystem::recursive_directory_iterator{
+			    directory,
+			    std::filesystem::directory_options::skip_permission_denied,
+			    error});
+
+			return paths;
 		}
 
 		//---------------------------------------------------------------------
@@ -284,12 +392,9 @@ namespace CppCoverage
 		}
 
 		//---------------------------------------------------------------------
-		bool
-		Is64BitProcess(HANDLE hProcess)
+		bool Is64BitProcess(HANDLE hProcess)
 		{
 			BOOL isWow64 = FALSE;
-			// On x64 Windows a 32-bit process runs under WOW64. The host is
-			// x64, so a non-WOW64 process is 64-bit.
 			if (!IsWow64Process(hProcess, &isWow64))
 				return true;
 			return !isWow64;
@@ -357,13 +462,11 @@ namespace CppCoverage
 			for (;;)
 			{
 				auto status = header->status;
-				if (status ==
-				    static_cast<std::uint32_t>(
-				        VehCoverage::HelperStatus::Ready))
+				if (status == static_cast<std::uint32_t>(
+				                  VehCoverage::HelperStatus::Ready))
 					return true;
-				if (status ==
-				    static_cast<std::uint32_t>(
-				        VehCoverage::HelperStatus::Error))
+				if (status == static_cast<std::uint32_t>(
+				                  VehCoverage::HelperStatus::Error))
 				{
 					LOG_ERROR << L"VEH: helper reported error code "
 					          << header->helperErrorCode << L".";
@@ -375,6 +478,132 @@ namespace CppCoverage
 					return false;
 				}
 				Sleep(1);
+			}
+		}
+
+		//---------------------------------------------------------------------
+		// Lays out the shared section: header, one descriptor per module, then
+		// the rva and hit arrays. Returns the mapping handle and mapped view.
+		bool CreateSharedSection(DWORD processId,
+		                         const std::vector<ModuleProbes>& modules,
+		                         HANDLE& mappingOut,
+		                         void*& viewOut)
+		{
+			std::size_t totalSize =
+			    sizeof(VehCoverage::SharedHeader) +
+			    VehCoverage::DescriptorsSize(
+			        static_cast<std::uint32_t>(modules.size()));
+			for (const auto& module : modules)
+			{
+				totalSize += VehCoverage::ModuleArraysSize(
+				    static_cast<std::uint32_t>(module.probeRvas_.size()));
+			}
+
+			auto mappingName = std::wstring{VehCoverage::MappingNamePrefix} +
+			                   std::to_wstring(processId);
+			auto mapping = CreateFileMappingW(
+			    INVALID_HANDLE_VALUE,
+			    nullptr,
+			    PAGE_READWRITE,
+			    static_cast<DWORD>(
+			        static_cast<std::uint64_t>(totalSize) >> 32),
+			    static_cast<DWORD>(totalSize & 0xFFFFFFFF),
+			    mappingName.c_str());
+			auto* view =
+			    mapping ? MapViewOfFile(mapping, FILE_MAP_ALL_ACCESS, 0, 0, 0)
+			            : nullptr;
+			if (!view)
+			{
+				if (mapping)
+					CloseHandle(mapping);
+				return false;
+			}
+
+			auto* header = static_cast<VehCoverage::SharedHeader*>(view);
+			header->magic = VehCoverage::ProtocolMagic;
+			header->version = VehCoverage::ProtocolVersion;
+			header->status = static_cast<std::uint32_t>(
+			    VehCoverage::HelperStatus::Initializing);
+			header->moduleCount =
+			    static_cast<std::uint32_t>(modules.size());
+			header->helperErrorCode = 0;
+			header->reserved = 0;
+
+			auto* descriptors = VehCoverage::GetModuleDescriptors(header);
+			auto* base = static_cast<std::uint8_t*>(view);
+			auto arrayOffset =
+			    sizeof(VehCoverage::SharedHeader) +
+			    VehCoverage::DescriptorsSize(
+			        static_cast<std::uint32_t>(modules.size()));
+
+			for (std::size_t i = 0; i < modules.size(); ++i)
+			{
+				const auto& module = modules[i];
+				auto& descriptor = descriptors[i];
+				auto probeCount =
+				    static_cast<std::uint32_t>(module.probeRvas_.size());
+
+				std::fill(std::begin(descriptor.baseName_),
+				          std::end(descriptor.baseName_),
+				          L'\0');
+				std::fill(std::begin(descriptor.loadedPath_),
+				          std::end(descriptor.loadedPath_),
+				          L'\0');
+				auto count = std::min(module.baseNameLower_.size(),
+				                      VehCoverage::MaxModuleNameChars - 1);
+				std::copy_n(module.baseNameLower_.begin(),
+				            count,
+				            descriptor.baseName_);
+
+				descriptor.probeCount_ = probeCount;
+				descriptor.rvaOffset_ =
+				    static_cast<std::uint32_t>(arrayOffset);
+				descriptor.hitOffset_ = static_cast<std::uint32_t>(
+				    arrayOffset + probeCount * sizeof(std::uint32_t));
+				descriptor.loaded_ = 0;
+
+				auto* rvaArray = reinterpret_cast<std::uint32_t*>(
+				    base + descriptor.rvaOffset_);
+				std::copy(module.probeRvas_.begin(),
+				          module.probeRvas_.end(),
+				          rvaArray);
+				auto* hitArray = base + descriptor.hitOffset_;
+				std::fill_n(hitArray, probeCount, std::uint8_t{0});
+
+				arrayOffset += VehCoverage::ModuleArraysSize(probeCount);
+			}
+
+			mappingOut = mapping;
+			viewOut = view;
+			return true;
+		}
+
+		//---------------------------------------------------------------------
+		// Registers a loaded module's probes and executed bits into the manager
+		// and returns its CreateCoverageData. Uses a per-module synthetic
+		// address tag so equal RVAs in different modules stay distinct keys.
+		void RegisterLoadedModule(const ModuleProbes& module,
+		                          const wchar_t* loadedPath,
+		                          std::uintptr_t addressTag,
+		                          const std::uint8_t* hits,
+		                          ExecutedAddressManager& manager)
+		{
+			// Prefer the path the helper reported (the actually-loaded file)
+			// over the copy the directory scan happened to find.
+			std::wstring modulePath =
+			    (loadedPath && loadedPath[0]) ? loadedPath
+			                                  : module.path_.wstring();
+			manager.AddModule(modulePath, nullptr);
+			for (std::size_t i = 0; i < module.probeRvas_.size(); ++i)
+			{
+				Address address{
+				    reinterpret_cast<HANDLE>(addressTag),
+				    reinterpret_cast<void*>(
+				        static_cast<std::uintptr_t>(module.probeRvas_[i]))};
+				for (const auto& [filePath, lineNumber] : module.probeLines_[i])
+					manager.RegisterAddress(address, filePath, lineNumber, 0);
+				if (hits[i])
+					manager.MarkAddressAsExecuted(address);
 			}
 		}
 	}
@@ -403,8 +632,7 @@ namespace CppCoverage
 		}
 
 		wchar_t modulePath[MAX_PATH];
-		auto length =
-		    GetModuleFileNameW(thisModule, modulePath, MAX_PATH);
+		auto length = GetModuleFileNameW(thisModule, modulePath, MAX_PATH);
 		if (length == 0 || length == MAX_PATH)
 			return L"VehCoverageHelper.dll";
 
@@ -417,8 +645,8 @@ namespace CppCoverage
 	VehCoverageEngine::RunCoverage(const RunCoverageSettings& settings)
 	{
 		const auto& startInfo = settings.GetStartInfo();
-		const auto& modulePath = startInfo.GetPath();
-		auto moduleName = modulePath.filename().wstring();
+		const auto& exePath = startInfo.GetPath();
+		auto coverageName = exePath.filename().wstring();
 
 		CoverageFilterManager filterManager{
 		    settings.GetCoverageFilterSettings(),
@@ -426,38 +654,21 @@ namespace CppCoverage
 		    settings.GetExcludedLineRegexes(),
 		    /*useReleaseCoverageFilter*/ false};
 
-		ExecutedAddressManager manager;
-		manager.AddModule(modulePath.wstring(), nullptr);
-
-		std::vector<std::uint32_t> probeRvas;
-		if (filterManager.IsModuleSelected(modulePath.wstring()))
+		std::shared_ptr<PdbLineTableCache> pdbLineTableCache;
+		if (settings.IsPdbCacheEnabled())
 		{
-			std::shared_ptr<PdbLineTableCache> pdbLineTableCache;
-			if (settings.IsPdbCacheEnabled())
-			{
-				pdbLineTableCache = std::make_shared<PdbLineTableCache>(
-				    PdbLineTableCache::GetDefaultDiskCacheDirectory());
-			}
+			pdbLineTableCache = std::make_shared<PdbLineTableCache>(
+			    PdbLineTableCache::GetDefaultDiskCacheDirectory());
+		}
 
-			DebugInformationEnumerator enumerator{
-			    settings.GetSubstitutePdbSourcePaths(),
-			    /*needSymbolIndex*/ false,
-			    pdbLineTableCache};
-			ProbeCollector collector{filterManager, modulePath};
-			if (!enumerator.Enumerate(modulePath, collector))
-			{
-				LOG_WARNING << L"VEH: no debug information for "
-				            << modulePath.wstring()
-				            << L"; the module is not instrumented.";
-			}
-			else
-			{
-				probeRvas = BuildProbes(modulePath,
-				                        /*is64BitModule*/ true,
-				                        settings.IsLineMergingEnabled(),
-				                        collector,
-				                        manager);
-			}
+		std::vector<ModuleProbes> modules;
+		for (const auto& modulePath :
+		     DiscoverModulePaths(exePath, filterManager))
+		{
+			auto probes = ComputeModuleProbes(
+			    modulePath, filterManager, settings, pdbLineTableCache);
+			if (probes)
+				modules.push_back(std::move(*probes));
 		}
 
 		auto commandLine = BuildCommandLine(startInfo.GetArguments());
@@ -478,7 +689,7 @@ namespace CppCoverage
 		                    &startupInfo,
 		                    &processInfo))
 		{
-			THROW(L"VEH: cannot start " + modulePath.wstring());
+			THROW(L"VEH: cannot start " + exePath.wstring());
 		}
 
 		if (!Is64BitProcess(processInfo.hProcess))
@@ -491,54 +702,22 @@ namespace CppCoverage
 
 		HANDLE mapping = nullptr;
 		void* view = nullptr;
-		if (!probeRvas.empty())
+		if (!modules.empty())
 		{
-			auto mappingName = std::wstring{VehCoverage::MappingNamePrefix} +
-			                   std::to_wstring(processInfo.dwProcessId);
-			auto sharedSize = VehCoverage::GetSharedSize(
-			    static_cast<std::uint32_t>(probeRvas.size()));
-
-			mapping = CreateFileMappingW(
-			    INVALID_HANDLE_VALUE,
-			    nullptr,
-			    PAGE_READWRITE,
-			    0,
-			    static_cast<DWORD>(sharedSize),
-			    mappingName.c_str());
-			if (mapping)
-				view = MapViewOfFile(
-				    mapping, FILE_MAP_ALL_ACCESS, 0, 0, 0);
-
-			if (!view)
-			{
-				LOG_ERROR << L"VEH: cannot create the shared section; "
-				             L"running without instrumentation.";
-				if (mapping)
-					CloseHandle(mapping);
-				mapping = nullptr;
-			}
-			else
+			if (CreateSharedSection(
+			        processInfo.dwProcessId, modules, mapping, view))
 			{
 				auto* header =
 				    static_cast<VehCoverage::SharedHeader*>(view);
-				header->magic = VehCoverage::ProtocolMagic;
-				header->version = VehCoverage::ProtocolVersion;
-				header->status = static_cast<std::uint32_t>(
-				    VehCoverage::HelperStatus::Initializing);
-				header->probeCount =
-				    static_cast<std::uint32_t>(probeRvas.size());
-				header->helperErrorCode = 0;
-				header->reserved = 0;
-
-				auto* rvaArray = const_cast<std::uint32_t*>(
-				    VehCoverage::GetRvaArray(header));
-				std::copy(
-				    probeRvas.begin(), probeRvas.end(), rvaArray);
-
 				if (InjectHelper(processInfo.hProcess, GetHelperDllPath()))
 					WaitForHelperReady(header);
 				else
 					LOG_WARNING << L"VEH: continuing without instrumentation.";
+			}
+			else
+			{
+				LOG_ERROR << L"VEH: cannot create the shared section; "
+				             L"running without instrumentation.";
 			}
 		}
 
@@ -548,20 +727,24 @@ namespace CppCoverage
 		DWORD exitCode = 0;
 		GetExitCodeProcess(processInfo.hProcess, &exitCode);
 
+		ExecutedAddressManager manager;
 		if (view)
 		{
 			auto* header = static_cast<VehCoverage::SharedHeader*>(view);
-			auto* hits = VehCoverage::GetHitArray(header);
-			for (std::size_t i = 0; i < probeRvas.size(); ++i)
+			auto* descriptors = VehCoverage::GetModuleDescriptors(header);
+			auto* base = static_cast<std::uint8_t*>(view);
+			for (std::size_t i = 0; i < modules.size(); ++i)
 			{
-				if (hits[i])
-				{
-					Address address{
-					    nullptr,
-					    reinterpret_cast<void*>(
-					        static_cast<std::uintptr_t>(probeRvas[i]))};
-					manager.MarkAddressAsExecuted(address);
-				}
+				// Only modules the helper actually patched contribute to the
+				// output, so a precomputed module that never loaded is omitted.
+				if (!descriptors[i].loaded_)
+					continue;
+				auto* hits = base + descriptors[i].hitOffset_;
+				RegisterLoadedModule(modules[i],
+				                     descriptors[i].loadedPath_,
+				                     i + 1,
+				                     hits,
+				                     manager);
 			}
 			UnmapViewOfFile(view);
 		}
@@ -571,7 +754,7 @@ namespace CppCoverage
 		CloseHandle(processInfo.hThread);
 		CloseHandle(processInfo.hProcess);
 
-		return manager.CreateCoverageData(moduleName,
+		return manager.CreateCoverageData(coverageName,
 		                                  static_cast<int>(exitCode));
 	}
 }

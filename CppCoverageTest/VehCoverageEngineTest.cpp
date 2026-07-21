@@ -18,6 +18,7 @@
 
 #include "TestTools.hpp"
 #include "TestCoverageConsole/TestCoverageConsole.hpp"
+#include "TestCoverageSharedLib/TestCoverageSharedLib.hpp"
 #include "TestHelper/CoverageDataComparer.hpp"
 #include "Plugin/Exporter/CoverageData.hpp"
 
@@ -78,6 +79,24 @@ namespace CppCoverageTest
 	{
 		auto args = VehArgs(TestCoverageConsole::TestBasic);
 		args.lineMerging_ = false;
+
+		auto debuggerCoverage = TestTools::ComputeCoverageDataPatterns(args);
+		auto vehCoverage = TestTools::ComputeCoverageDataVeh(args);
+
+		TestHelper::CoverageDataComparer().AssertEquals(debuggerCoverage,
+		                                                vehCoverage);
+	}
+
+	//-------------------------------------------------------------------------
+	// A DLL is loaded and patched through the DLL-load notification, not the
+	// main module: the VEH engine must cover it exactly like the debugger.
+	TEST(VehCoverageEngineTest, DllMatchesDebugger)
+	{
+		TestTools::CoverageArgs args{
+		    {TestCoverageConsole::TestSharedLib},
+		    TestCoverageSharedLib::GetOutputBinaryPath().wstring(),
+		    TestCoverageSharedLib::GetMainCppPath().wstring()};
+		args.coverChildren_ = false;
 
 		auto debuggerCoverage = TestTools::ComputeCoverageDataPatterns(args);
 		auto vehCoverage = TestTools::ComputeCoverageDataVeh(args);

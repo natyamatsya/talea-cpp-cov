@@ -22,10 +22,26 @@
 // Shared contract between the OpenCppCoverage host and the injected VEH
 // helper DLL. Header-only, no dependencies, so the helper stays a tiny
 // self-contained DLL.
+//
+// The host precomputes a probe spec for every instrumented module (the main
+// executable plus filter-matching DLLs with debug information) and hands it
+// over in one file mapping. The helper patches each module's probes at that
+// module's load-time base - the main executable and any DLL already mapped at
+// injection immediately, later DLLs as the loader reports them - records first
+// hits in the module's bitmap, and the host reads the bitmaps after the target
+// exits.
 namespace VehCoverage
 {
 	constexpr std::uint32_t ProtocolMagic = 0x43484556;   // "VEHC"
-	constexpr std::uint32_t ProtocolVersion = 1;
+	constexpr std::uint32_t ProtocolVersion = 2;
+
+	// Maximum wide chars (including the null) for a module's base name in the
+	// descriptor. Base names longer than this are not instrumented.
+	constexpr std::size_t MaxModuleNameChars = 128;
+
+	// Maximum wide chars (including the null) for a module's full load path,
+	// which the helper reports back so coverage names the actually-loaded file.
+	constexpr std::size_t MaxModulePathChars = 260;
 
 	// Written by the helper so the host can tell setup succeeded before it
 	// resumes the target's main thread.
@@ -36,41 +52,64 @@ namespace VehCoverage
 		Error = 2,
 	};
 
+	// One instrumented module. rvaOffset / hitOffset are byte offsets from the
+	// start of the shared section to this module's uint32 rva[probeCount] and
+	// uint8 hit[probeCount] arrays. The helper sets loaded = 1 when it patches
+	// the module, so the host reports coverage only for modules that actually
+	// mapped.
+	struct ModuleDescriptor
+	{
+		wchar_t baseName_[MaxModuleNameChars]; // lowercased, e.g. "mylib.dll"
+		wchar_t loadedPath_[MaxModulePathChars]; // helper writes the load path
+		std::uint32_t probeCount_;
+		std::uint32_t rvaOffset_;
+		std::uint32_t hitOffset_;
+		volatile std::uint32_t loaded_;
+	};
+
 	// Layout of the shared section:
 	//   SharedHeader
-	//   std::uint32_t rva[probeCount]   (module-relative, sorted ascending)
-	//   std::uint8_t  hit[probeCount]   (helper writes 1 on first execution)
-	// The host fills magic/version/probeCount and the rva[] array before
-	// injection; the helper patches an int3 at each (mainModuleBase + rva)
-	// and records hits; the host reads hit[] after the target exits.
+	//   ModuleDescriptor[moduleCount]
+	//   (per module, at rvaOffset_) std::uint32_t rva[probeCount_]
+	//   (per module, at hitOffset_) std::uint8_t  hit[probeCount_]
 	struct SharedHeader
 	{
 		std::uint32_t magic;
 		std::uint32_t version;
 		volatile std::uint32_t status;   // HelperStatus
-		std::uint32_t probeCount;
+		std::uint32_t moduleCount;
 		std::uint32_t helperErrorCode;   // GetLastError() when status == Error
 		std::uint32_t reserved;
 	};
 
 	//-------------------------------------------------------------------------
-	inline const std::uint32_t* GetRvaArray(const SharedHeader* header)
+	// ASCII lowercase, used by both host and helper so module base names match
+	// without depending on a locale (filenames are ASCII in practice).
+	inline wchar_t AsciiToLower(wchar_t c)
 	{
-		return reinterpret_cast<const std::uint32_t*>(header + 1);
+		return (c >= L'A' && c <= L'Z')
+		           ? static_cast<wchar_t>(c - L'A' + L'a')
+		           : c;
 	}
 
 	//-------------------------------------------------------------------------
-	inline std::uint8_t* GetHitArray(SharedHeader* header)
+	inline ModuleDescriptor* GetModuleDescriptors(SharedHeader* header)
 	{
-		return reinterpret_cast<std::uint8_t*>(
-		    reinterpret_cast<std::uint32_t*>(header + 1) + header->probeCount);
+		return reinterpret_cast<ModuleDescriptor*>(header + 1);
 	}
 
 	//-------------------------------------------------------------------------
-	inline std::size_t GetSharedSize(std::uint32_t probeCount)
+	inline std::size_t DescriptorsSize(std::uint32_t moduleCount)
 	{
-		return sizeof(SharedHeader) +
-		       static_cast<std::size_t>(probeCount) * sizeof(std::uint32_t) +
+		return static_cast<std::size_t>(moduleCount) *
+		       sizeof(ModuleDescriptor);
+	}
+
+	//-------------------------------------------------------------------------
+	// Byte size of a module's rva[] + hit[] arrays.
+	inline std::size_t ModuleArraysSize(std::uint32_t probeCount)
+	{
+		return static_cast<std::size_t>(probeCount) * sizeof(std::uint32_t) +
 		       static_cast<std::size_t>(probeCount);
 	}
 
