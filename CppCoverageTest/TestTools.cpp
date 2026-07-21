@@ -193,6 +193,7 @@ namespace CppCoverageTest
 			    args.substitutePdbSourcePath_);
 			settings.SetLineMergingEnabled(args.lineMerging_);
 			settings.SetBranchCoverage(args.branchCoverage_);
+			settings.SetCoverChildren(args.coverChildren_);
 
 			return vehEngine.RunCoverage(settings);
 		}

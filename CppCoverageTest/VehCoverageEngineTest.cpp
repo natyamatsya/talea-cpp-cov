@@ -111,6 +111,24 @@ namespace CppCoverageTest
 	}
 
 	//-------------------------------------------------------------------------
+	// Child-process coverage (experimental): the helper hooks CreateProcess in
+	// the target, force-suspends each child, and the host injects the helper
+	// into it. The child's coverage (here the TestBasic path, which runs only
+	// in the child) must match the debugger's --cover_children output.
+	TEST(VehCoverageEngineTest, ChildProcessMatchesDebugger)
+	{
+		auto args = VehArgs(TestCoverageConsole::TestChildProcess);
+		args.arguments_.push_back(TestCoverageConsole::TestBasic);
+		args.coverChildren_ = true;
+
+		auto debuggerCoverage = TestTools::ComputeCoverageDataPatterns(args);
+		auto vehCoverage = TestTools::ComputeCoverageDataVeh(args);
+
+		TestHelper::CoverageDataComparer().AssertEquals(debuggerCoverage,
+		                                                vehCoverage);
+	}
+
+	//-------------------------------------------------------------------------
 	// A DLL is loaded and patched through the DLL-load notification, not the
 	// main module: the VEH engine must cover it exactly like the debugger.
 	TEST(VehCoverageEngineTest, DllMatchesDebugger)

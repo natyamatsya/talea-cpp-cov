@@ -449,6 +449,177 @@ namespace
 	}
 
 	//-------------------------------------------------------------------------
+	// --- child-process coverage: hook CreateProcessW ------------------------
+	using CreateProcessWFn = BOOL(WINAPI*)(
+	    LPCWSTR, LPWSTR, LPSECURITY_ATTRIBUTES, LPSECURITY_ATTRIBUTES, BOOL,
+	    DWORD, LPVOID, LPCWSTR, LPSTARTUPINFOW, LPPROCESS_INFORMATION);
+
+	CreateProcessWFn g_realCreateProcessW = nullptr;
+	HANDLE g_childPending = nullptr;
+	HANDLE g_childReady = nullptr;
+
+	//-------------------------------------------------------------------------
+	// Writes prefix followed by pid's decimal digits into dst.
+	void BuildPidName(wchar_t* dst, const wchar_t* prefix, DWORD pid) noexcept
+	{
+		wchar_t* cursor = dst;
+		for (const wchar_t* p = prefix; *p; ++p)
+			*cursor++ = *p;
+		wchar_t digits[16];
+		int count = 0;
+		do
+		{
+			digits[count++] = static_cast<wchar_t>(L'0' + pid % 10);
+			pid /= 10;
+		} while (pid != 0);
+		while (count > 0)
+			*cursor++ = digits[--count];
+		*cursor = L'\0';
+	}
+
+	//-------------------------------------------------------------------------
+	// Runs in the target when it spawns a child: force the child suspended,
+	// hand its pid to the host (which injects the helper into it), then resume.
+	BOOL WINAPI HookedCreateProcessW(
+	    LPCWSTR applicationName,
+	    LPWSTR commandLine,
+	    LPSECURITY_ATTRIBUTES processAttributes,
+	    LPSECURITY_ATTRIBUTES threadAttributes,
+	    BOOL inheritHandles,
+	    DWORD creationFlags,
+	    LPVOID environment,
+	    LPCWSTR currentDirectory,
+	    LPSTARTUPINFOW startupInfo,
+	    LPPROCESS_INFORMATION processInfo) noexcept
+	{
+		bool forcedSuspend = (creationFlags & CREATE_SUSPENDED) == 0;
+
+		auto ok = g_realCreateProcessW(applicationName,
+		                               commandLine,
+		                               processAttributes,
+		                               threadAttributes,
+		                               inheritHandles,
+		                               creationFlags | CREATE_SUSPENDED,
+		                               environment,
+		                               currentDirectory,
+		                               startupInfo,
+		                               processInfo);
+		if (!ok || !processInfo)
+			return ok;
+
+		// Register the child with the host one at a time: it has a single pid
+		// slot and a pair of events. childLock is int32 in the header (no
+		// windows.h there), so cast to LONG* for the interlocked ops.
+		auto* lock = reinterpret_cast<volatile LONG*>(&g_header->childLock);
+		while (InterlockedCompareExchange(lock, 1, 0) != 0)
+			Sleep(0);
+		g_header->childPid = processInfo->dwProcessId;
+		SetEvent(g_childPending);
+		WaitForSingleObject(g_childReady, 30000);
+		InterlockedExchange(lock, 0);
+
+		if (forcedSuspend)
+			ResumeThread(processInfo->hThread);
+		return ok;
+	}
+
+	//-------------------------------------------------------------------------
+	// Repoints every IAT slot that currently resolves to the real
+	// CreateProcessW at the hook. Matching by resolved address (not by import
+	// name) also catches bound imports and needs no name-table walk.
+	void HookIatInModule(HMODULE module) noexcept
+	{
+		auto* base = reinterpret_cast<std::uint8_t*>(module);
+		auto* dosHeader = reinterpret_cast<IMAGE_DOS_HEADER*>(base);
+		if (dosHeader->e_magic != IMAGE_DOS_SIGNATURE)
+			return;
+		auto* ntHeaders =
+		    reinterpret_cast<IMAGE_NT_HEADERS*>(base + dosHeader->e_lfanew);
+		if (ntHeaders->Signature != IMAGE_NT_SIGNATURE)
+			return;
+		auto directory = ntHeaders->OptionalHeader
+		                     .DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+		if (directory.VirtualAddress == 0)
+			return;
+
+		auto target = reinterpret_cast<ULONG_PTR>(g_realCreateProcessW);
+		for (auto* import = reinterpret_cast<IMAGE_IMPORT_DESCRIPTOR*>(
+		         base + directory.VirtualAddress);
+		     import->Name != 0;
+		     ++import)
+		{
+			for (auto* thunk = reinterpret_cast<IMAGE_THUNK_DATA*>(
+			         base + import->FirstThunk);
+			     thunk->u1.Function != 0;
+			     ++thunk)
+			{
+				if (thunk->u1.Function != target)
+					continue;
+				DWORD oldProtect = 0;
+				if (VirtualProtect(&thunk->u1.Function,
+				                   sizeof(void*),
+				                   PAGE_READWRITE,
+				                   &oldProtect))
+				{
+					thunk->u1.Function = reinterpret_cast<ULONGLONG>(
+					    &HookedCreateProcessW);
+					VirtualProtect(&thunk->u1.Function,
+					               sizeof(void*),
+					               oldProtect,
+					               &oldProtect);
+				}
+			}
+		}
+	}
+
+	//-------------------------------------------------------------------------
+	// Hooks CreateProcessW in every currently-loaded module. Safe under the
+	// loader lock: it only reads the loader's module list and patches IAT
+	// memory (no allocation, no loader calls).
+	void HookAllLoadedModules() noexcept
+	{
+		auto* peb = NtCurrentTeb()->ProcessEnvironmentBlock;
+		if (!peb || !peb->Ldr)
+			return;
+		auto* head = &peb->Ldr->InMemoryOrderModuleList;
+		for (auto* cursor = head->Flink; cursor != head; cursor = cursor->Flink)
+		{
+			auto* entry = CONTAINING_RECORD(
+			    cursor, LDR_DATA_TABLE_ENTRY, InMemoryOrderLinks);
+			if (entry->DllBase)
+				HookIatInModule(static_cast<HMODULE>(entry->DllBase));
+		}
+	}
+
+	//-------------------------------------------------------------------------
+	// If the host asked for child coverage, resolve the real CreateProcessW,
+	// open the host's registration events, and install the IAT hooks.
+	void InstallChildProcessHook() noexcept
+	{
+		if (!g_header->coverChildren)
+			return;
+
+		g_realCreateProcessW = reinterpret_cast<CreateProcessWFn>(GetProcAddress(
+		    GetModuleHandleW(L"kernel32.dll"), "CreateProcessW"));
+		if (!g_realCreateProcessW)
+			return;
+
+		auto pid = GetCurrentProcessId();
+		wchar_t name[128];
+		BuildPidName(name, VehCoverage::ChildPendingEventPrefix, pid);
+		g_childPending = OpenEventW(EVENT_MODIFY_STATE, FALSE, name);
+		BuildPidName(name, VehCoverage::ChildReadyEventPrefix, pid);
+		g_childReady = OpenEventW(SYNCHRONIZE, FALSE, name);
+		if (!g_childPending || !g_childReady)
+		{
+			g_realCreateProcessW = nullptr; // stay dormant if setup failed
+			return;
+		}
+
+		HookAllLoadedModules();
+	}
+
+	//-------------------------------------------------------------------------
 	void Fail() noexcept
 	{
 		if (g_header)
@@ -532,6 +703,11 @@ namespace
 			if (moduleBase)
 				PatchModule(i, moduleBase);
 		}
+
+		// Hook CreateProcessW so children are instrumented too, if requested.
+		// (Spike: modules mapped at injection are covered - the exe and its
+		// static-import DLLs like Poco; DLLs loaded later are a follow-up.)
+		InstallChildProcessHook();
 
 		g_header->status =
 		    static_cast<std::uint32_t>(VehCoverage::HelperStatus::Ready);

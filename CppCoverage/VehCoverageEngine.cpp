@@ -20,9 +20,11 @@
 #include <Windows.h>
 
 #include <algorithm>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <system_error>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -604,6 +606,7 @@ namespace CppCoverage
 		// the rva and hit arrays. Returns the mapping handle and mapped view.
 		bool CreateSharedSection(DWORD processId,
 		                         const std::vector<ModuleProbes>& modules,
+		                         bool coverChildren,
 		                         HANDLE& mappingOut,
 		                         void*& viewOut)
 		{
@@ -648,6 +651,10 @@ namespace CppCoverage
 			    static_cast<std::uint32_t>(modules.size());
 			header->helperErrorCode = 0;
 			header->reserved = 0;
+			header->coverChildren = coverChildren ? 1 : 0;
+			header->childLock = 0;
+			header->childPid = 0;
+			header->stopChildThread = 0;
 
 			auto* descriptors = VehCoverage::GetModuleDescriptors(header);
 			auto* base = static_cast<std::uint8_t*>(view);
@@ -829,6 +836,65 @@ namespace CppCoverage
 				            0});
 			}
 		}
+
+		//---------------------------------------------------------------------
+		// A child process the host injected into, held until its coverage is
+		// read back after it exits.
+		struct ChildCoverage
+		{
+			HANDLE process = nullptr;
+			HANDLE mapping = nullptr;
+			void* view = nullptr;
+			std::vector<ModuleProbes> modules;
+		};
+
+		//---------------------------------------------------------------------
+		// Sets up a child the parent's hook force-suspended: compute its probes
+		// offline, lay out its shared section, and inject the helper into the
+		// still-suspended child. The parent's hook resumes it once the host
+		// releases the ready event.
+		void SetupChildProcess(DWORD childPid,
+		                       ICoverageFilterManager& filterManager,
+		                       const RunCoverageSettings& settings,
+		                       std::shared_ptr<PdbLineTableCache> pdbLineTableCache,
+		                       const std::filesystem::path& helperDllPath,
+		                       ChildCoverage& out)
+		{
+			out.process = OpenProcess(PROCESS_ALL_ACCESS, FALSE, childPid);
+			if (!out.process)
+				return;
+			if (!Is64BitProcess(out.process))
+				return; // VEH mode is 64-bit only
+
+			wchar_t exePath[MAX_PATH];
+			DWORD size = MAX_PATH;
+			if (!QueryFullProcessImageNameW(out.process, 0, exePath, &size))
+				return;
+
+			for (const auto& modulePath :
+			     DiscoverModulePaths(exePath, filterManager))
+			{
+				auto probes = ComputeModuleProbes(
+				    modulePath, filterManager, settings, pdbLineTableCache);
+				if (probes)
+					out.modules.push_back(std::move(*probes));
+			}
+			if (out.modules.empty())
+				return;
+
+			// Spike: the child's own section leaves child hooking off (no
+			// grandchildren yet).
+			if (!CreateSharedSection(childPid,
+			                         out.modules,
+			                         /*coverChildren*/ false,
+			                         out.mapping,
+			                         out.view))
+				return;
+
+			if (InjectHelper(out.process, helperDllPath))
+				WaitForHelperReady(
+				    static_cast<VehCoverage::SharedHeader*>(out.view));
+		}
 	}
 
 	//-------------------------------------------------------------------------
@@ -923,16 +989,70 @@ namespace CppCoverage
 			THROW(L"VEH mode supports only 64-bit targets.");
 		}
 
+		auto coverChildren = settings.GetCoverChildren();
+		auto helperDllPath = GetHelperDllPath();
+
 		HANDLE mapping = nullptr;
 		void* view = nullptr;
+		HANDLE childPending = nullptr;
+		HANDLE childReady = nullptr;
+		std::thread registrationThread;
+		std::vector<ChildCoverage> children;
+		std::mutex childrenMutex;
+
 		if (!modules.empty())
 		{
-			if (CreateSharedSection(
-			        processInfo.dwProcessId, modules, mapping, view))
+			if (CreateSharedSection(processInfo.dwProcessId,
+			                        modules,
+			                        coverChildren,
+			                        mapping,
+			                        view))
 			{
-				auto* header =
-				    static_cast<VehCoverage::SharedHeader*>(view);
-				if (InjectHelper(processInfo.hProcess, GetHelperDllPath()))
+				auto* header = static_cast<VehCoverage::SharedHeader*>(view);
+
+				// The registration events must exist before the helper is
+				// injected (its InstallChildProcessHook opens them). The
+				// thread services one force-suspended child at a time.
+				if (coverChildren)
+				{
+					auto rootPid = processInfo.dwProcessId;
+					childPending = CreateEventW(
+					    nullptr, FALSE, FALSE,
+					    (std::wstring{VehCoverage::ChildPendingEventPrefix} +
+					     std::to_wstring(rootPid))
+					        .c_str());
+					childReady = CreateEventW(
+					    nullptr, FALSE, FALSE,
+					    (std::wstring{VehCoverage::ChildReadyEventPrefix} +
+					     std::to_wstring(rootPid))
+					        .c_str());
+					if (childPending && childReady)
+					{
+						registrationThread = std::thread([&, header] {
+							for (;;)
+							{
+								WaitForSingleObject(childPending, INFINITE);
+								if (header->stopChildThread)
+									break;
+								ChildCoverage child;
+								SetupChildProcess(header->childPid,
+								                  filterManager,
+								                  settings,
+								                  pdbLineTableCache,
+								                  helperDllPath,
+								                  child);
+								{
+									std::lock_guard<std::mutex> lock(
+									    childrenMutex);
+									children.push_back(std::move(child));
+								}
+								SetEvent(childReady);
+							}
+						});
+					}
+				}
+
+				if (InjectHelper(processInfo.hProcess, helperDllPath))
 					WaitForHelperReady(header);
 				else
 					LOG_WARNING << L"VEH: continuing without instrumentation.";
@@ -947,35 +1067,74 @@ namespace CppCoverage
 		ResumeThread(processInfo.hThread);
 		WaitForSingleObject(processInfo.hProcess, INFINITE);
 
+		// Wake and stop the child-registration thread now that no more child
+		// spawns can arrive from the (exited) root.
+		if (registrationThread.joinable())
+		{
+			static_cast<VehCoverage::SharedHeader*>(view)->stopChildThread = 1;
+			SetEvent(childPending);
+			registrationThread.join();
+		}
+
 		DWORD exitCode = 0;
 		GetExitCodeProcess(processInfo.hProcess, &exitCode);
 
 		ExecutedAddressManager manager;
 		std::vector<BranchResult> branchResults;
-		if (view)
-		{
-			auto* header = static_cast<VehCoverage::SharedHeader*>(view);
+		// A distinct address tag per (process, module) keeps equal RVAs in
+		// different modules - and the same module in different processes -
+		// separate keys in the manager.
+		std::uintptr_t addressTag = 1;
+		auto readback = [&](const std::vector<ModuleProbes>& mods, void* v) {
+			auto* header = static_cast<VehCoverage::SharedHeader*>(v);
 			auto* descriptors = VehCoverage::GetModuleDescriptors(header);
-			auto* base = static_cast<std::uint8_t*>(view);
-			for (std::size_t i = 0; i < modules.size(); ++i)
+			auto* base = static_cast<std::uint8_t*>(v);
+			for (std::size_t i = 0; i < mods.size(); ++i)
 			{
-				// Only modules the helper actually patched contribute to the
-				// output, so a precomputed module that never loaded is omitted.
+				// Only modules the helper actually patched contribute, so a
+				// precomputed module that never loaded is omitted.
 				if (!descriptors[i].loaded_)
 					continue;
 				auto* hits = base + descriptors[i].hitOffset_;
-				RegisterLoadedModule(modules[i],
+				RegisterLoadedModule(mods[i],
 				                     descriptors[i].loadedPath_,
-				                     i + 1,
+				                     addressTag++,
 				                     hits,
 				                     manager);
 				CollectBranchResults(
-				    modules[i], descriptors[i], base, branchResults);
+				    mods[i], descriptors[i], base, branchResults);
 			}
+		};
+
+		if (view)
+		{
+			readback(modules, view);
 			UnmapViewOfFile(view);
 		}
 		if (mapping)
 			CloseHandle(mapping);
+
+		// Children were force-suspended and injected as they spawned; read
+		// their coverage back once they too have exited.
+		for (auto& child : children)
+		{
+			if (child.process)
+				WaitForSingleObject(child.process, INFINITE);
+			if (child.view)
+			{
+				readback(child.modules, child.view);
+				UnmapViewOfFile(child.view);
+			}
+			if (child.mapping)
+				CloseHandle(child.mapping);
+			if (child.process)
+				CloseHandle(child.process);
+		}
+
+		if (childPending)
+			CloseHandle(childPending);
+		if (childReady)
+			CloseHandle(childReady);
 
 		CloseHandle(processInfo.hThread);
 		CloseHandle(processInfo.hProcess);

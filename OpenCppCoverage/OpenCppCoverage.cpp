@@ -253,9 +253,9 @@ namespace OpenCppCoverage
 				if (options.IsExperimentalVehModeEnabled())
 				{
 					if (options.IsCoverChildrenModeEnabled())
-						LOG_WARNING << L"--experimental_veh does not cover "
-						               L"child processes; only the main "
-						               L"executable is instrumented.";
+						LOG_WARNING << L"--experimental_veh child-process "
+						               L"coverage is experimental (in-process "
+						               L"CreateProcess hook).";
 
 					cov::VehCoverageEngine vehEngine{warningManager};
 					coverageData.emplace(

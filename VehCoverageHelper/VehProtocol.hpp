@@ -33,7 +33,7 @@
 namespace VehCoverage
 {
 	constexpr std::uint32_t ProtocolMagic = 0x43484556;   // "VEHC"
-	constexpr std::uint32_t ProtocolVersion = 3;
+	constexpr std::uint32_t ProtocolVersion = 4;
 
 	// Maximum wide chars (including the null) for a module's base name in the
 	// descriptor. Base names longer than this are not instrumented.
@@ -96,7 +96,27 @@ namespace VehCoverage
 		std::uint32_t moduleCount;
 		std::uint32_t helperErrorCode;   // GetLastError() when status == Error
 		std::uint32_t reserved;
+
+		// --- child-process coverage (experimental) ---------------------------
+		// When coverChildren is 1 the helper hooks CreateProcess and, for each
+		// child, force-suspends it, publishes its pid here, signals the host's
+		// pending event, and waits on the ready event while the host injects the
+		// helper into the child. childLock serializes concurrent spawns onto the
+		// single childPid slot. Set stopChildThread to unblock the host's
+		// registration thread at shutdown.
+		std::uint32_t coverChildren;
+		volatile std::int32_t childLock;      // 0 = free
+		volatile std::uint32_t childPid;      // helper writes the spawned pid
+		volatile std::uint32_t stopChildThread;
 	};
+
+	// Session-local named auto-reset events for child registration; each is
+	// followed by the *spawning* process's decimal pid (so a process's own
+	// helper and the host agree on the names without another channel).
+	constexpr const wchar_t* ChildPendingEventPrefix =
+	    L"Local\\OpenCppCoverageVehChildPending_";
+	constexpr const wchar_t* ChildReadyEventPrefix =
+	    L"Local\\OpenCppCoverageVehChildReady_";
 
 	//-------------------------------------------------------------------------
 	// ASCII lowercase, used by both host and helper so module base names match
