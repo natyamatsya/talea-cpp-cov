@@ -156,7 +156,37 @@ namespace CppCoverage
 				auto record =
 				    view.At<CodeViewRecord>(entry->PointerToRawData);
 				if (record && record->signature_ == RsdsSignature)
-					return PdbSignature{record->guid_, record->age_};
+				{
+					PdbSignature signature{record->guid_, record->age_, {}};
+
+					// The UTF-8, null-terminated PDB path follows the record,
+					// bounded by the entry's data size.
+					auto pathOffset =
+					    entry->PointerToRawData + sizeof(CodeViewRecord);
+					auto pathMax = entry->SizeOfData - sizeof(CodeViewRecord);
+					auto* pathBytes = view.At<char>(pathOffset);
+					if (pathBytes)
+					{
+						size_t length = 0;
+						while (length < pathMax &&
+						       pathOffset + length < view.size_ &&
+						       pathBytes[length] != '\0')
+							++length;
+						std::string utf8{pathBytes, pathBytes + length};
+						int wideLength = MultiByteToWideChar(
+						    CP_UTF8, 0, utf8.data(),
+						    static_cast<int>(utf8.size()), nullptr, 0);
+						if (wideLength > 0)
+						{
+							signature.pdbPath_.resize(wideLength);
+							MultiByteToWideChar(
+							    CP_UTF8, 0, utf8.data(),
+							    static_cast<int>(utf8.size()),
+							    signature.pdbPath_.data(), wideLength);
+						}
+					}
+					return signature;
+				}
 			}
 
 			return std::nullopt;

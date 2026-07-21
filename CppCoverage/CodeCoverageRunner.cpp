@@ -96,7 +96,9 @@ namespace CppCoverage
 		    std::make_unique<DebugInformationEnumerator>(
 		        settings.GetSubstitutePdbSourcePaths(),
 		        settings.GetOptimizedBuildSupport(),
-		        pdbLineTableCache),
+		        pdbLineTableCache,
+		        /*needFunctionNames*/ false,
+		        settings.IsRawPdbEnabled()),
 			filterAssistant_,
 			branchCoverageManager_,
 			enableLineMerging);

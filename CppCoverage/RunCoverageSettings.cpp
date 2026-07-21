@@ -36,6 +36,7 @@ namespace CppCoverage
 	      optimizedBuildSupport_{false},
 	      branchCoverage_{false},
 	      pdbCacheEnabled_{true},
+	      rawPdbEnabled_{true},
 	      lineMergingEnabled_{true},
 	      excludedLineRegexes_{excludedLineRegexes},
 	      substitutePdbSourcePath_{substitutePdbSourcePath}
@@ -82,6 +83,12 @@ namespace CppCoverage
 	void RunCoverageSettings::SetPdbCacheEnabled(bool pdbCacheEnabled)
 	{
 		pdbCacheEnabled_ = pdbCacheEnabled;
+	}
+
+	//-------------------------------------------------------------------------
+	void RunCoverageSettings::SetRawPdbEnabled(bool rawPdbEnabled)
+	{
+		rawPdbEnabled_ = rawPdbEnabled;
 	}
 
 	//-------------------------------------------------------------------------
@@ -148,6 +155,12 @@ namespace CppCoverage
 	bool RunCoverageSettings::IsPdbCacheEnabled() const
 	{
 		return pdbCacheEnabled_;
+	}
+
+	//-------------------------------------------------------------------------
+	bool RunCoverageSettings::IsRawPdbEnabled() const
+	{
+		return rawPdbEnabled_;
 	}
 
 	//-------------------------------------------------------------------------

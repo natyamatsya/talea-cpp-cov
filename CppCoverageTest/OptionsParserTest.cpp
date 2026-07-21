@@ -158,6 +158,17 @@ namespace CppCoverageTest
 	}
 
 	//-------------------------------------------------------------------------
+	TEST(OptionsParserTest, NoRawPdb)
+	{
+		cov::OptionsParser parser;
+
+		ASSERT_TRUE(TestTools::Parse(parser,
+		{ TestTools::GetOptionPrefix() + cov::ProgramOptions::NoRawPdbOption })
+			->IsNoRawPdbModeEnabled());
+		ASSERT_FALSE(TestTools::Parse(parser, {})->IsNoRawPdbModeEnabled());
+	}
+
+	//-------------------------------------------------------------------------
 	TEST(OptionsParserTest, NoLineMerging)
 	{
 		cov::OptionsParser parser;

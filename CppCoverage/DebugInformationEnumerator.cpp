@@ -34,6 +34,7 @@
 #include "CppCoverageException.hpp"
 #include "PdbLineTableCache.hpp"
 #include "PdbSignature.hpp"
+#include "RawPdbReader.hpp"
 
 namespace CppCoverage
 {
@@ -248,11 +249,13 @@ namespace CppCoverage
 	    const std::vector<SubstitutePdbSourcePath>& substitutePdbSourcePaths,
 	    bool needSymbolIndex,
 	    std::shared_ptr<PdbLineTableCache> lineTableCache,
-	    bool needFunctionNames)
+	    bool needFunctionNames,
+	    bool useRawPdb)
 		: substitutePdbSourcePaths_{ substitutePdbSourcePaths }
 		, needSymbolIndex_{ needSymbolIndex }
 		, lineTableCache_{ std::move(lineTableCache) }
 		, needFunctionNames_{ needFunctionNames }
+		, useRawPdb_{ useRawPdb }
 	{
 	}
 
@@ -303,6 +306,19 @@ namespace CppCoverage
 	std::shared_ptr<ModuleLineTable> DebugInformationEnumerator::ParseModule(
 	    const std::filesystem::path& path) const
 	{
+		// Fast path: read the line table straight from the PDB with raw_pdb
+		// (mmap + columnar scan, parsed in parallel) instead of DIA's per-record
+		// COM calls. It does not provide symbol indexes or demangled function
+		// names, so the optimized-build filter and the fast-mode instantiation
+		// axis still use DIA; everything else falls back to DIA only when
+		// raw_pdb cannot handle the PDB (missing, FASTLINK, mismatched).
+		if (useRawPdb_ && !needSymbolIndex_ && !needFunctionNames_)
+		{
+			auto lineTable = std::make_shared<ModuleLineTable>();
+			if (RawPdbReader::TryRead(path, *lineTable))
+				return lineTable;
+		}
+
 		auto sourcePtr = LoadDataForExe(path);
 
 		if (!sourcePtr)

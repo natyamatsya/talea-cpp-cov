@@ -46,6 +46,7 @@ namespace CppCoverage
 		void SetOptimizedBuildSupport(bool);
 		void SetBranchCoverage(bool);
 		void SetPdbCacheEnabled(bool);
+		void SetRawPdbEnabled(bool);
 		void SetLineMergingEnabled(bool);
 
 		const StartInfo& GetStartInfo() const;
@@ -58,6 +59,7 @@ namespace CppCoverage
 		bool GetOptimizedBuildSupport() const;
 		bool GetBranchCoverage() const;
 		bool IsPdbCacheEnabled() const;
+		bool IsRawPdbEnabled() const;
 		bool IsLineMergingEnabled() const;
 		const std::vector<std::wstring>& GetExcludedLineRegexes() const;
 		const std::vector<SubstitutePdbSourcePath>& GetSubstitutePdbSourcePaths() const;
@@ -73,6 +75,7 @@ namespace CppCoverage
 		bool optimizedBuildSupport_;
 		bool branchCoverage_;
 		bool pdbCacheEnabled_;
+		bool rawPdbEnabled_;
 		bool lineMergingEnabled_;
 		std::vector<std::wstring> excludedLineRegexes_;
 		std::vector<SubstitutePdbSourcePath> substitutePdbSourcePath_;

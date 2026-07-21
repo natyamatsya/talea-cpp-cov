@@ -106,6 +106,7 @@
     <ClCompile Include="DebugInformationEnumeratorTest.cpp" />
     <ClCompile Include="FastCoverageImporterTest.cpp" />
     <ClCompile Include="FilterAssistantTest.cpp" />
+    <ClCompile Include="RawPdbReaderTest.cpp" />
     <ClCompile Include="LineRunScannerTest.cpp" />
     <ClCompile Include="VehCoverageEngineTest.cpp" />
     <ClCompile Include="UnifiedDiffCoverageFilterManagerTest.cpp" />

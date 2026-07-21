@@ -91,6 +91,9 @@ namespace CppCoverage
 				(ProgramOptions::NoPdbCacheOption.c_str(),
 					"Disable the PDB line-table cache (in memory and on disk). "
 					"The cache is keyed by the exact PDB identity, so it never returns stale data.")
+				(ProgramOptions::NoRawPdbOption.c_str(),
+					"Parse PDBs with DIA instead of the faster built-in raw reader. "
+					"The raw reader already falls back to DIA on unsupported PDBs.")
 				(ProgramOptions::NoLineMergingOption.c_str(),
 					"Place one breakpoint per source line instead of one per straight-line "
 					"run of lines. Merging is a pure performance optimization; coverage "
@@ -154,6 +157,7 @@ namespace CppCoverage
     const std::string ProgramOptions::StopOnAssertOption = "stop_on_assert";
 	const std::string ProgramOptions::BranchCoverageOption = "branch_coverage";
 	const std::string ProgramOptions::NoPdbCacheOption = "no_pdb_cache";
+	const std::string ProgramOptions::NoRawPdbOption = "no_raw_pdb";
 	const std::string ProgramOptions::NoLineMergingOption = "no_line_merging";
 	const std::string ProgramOptions::ExperimentalVehOption = "experimental_veh";
 	const std::string ProgramOptions::InputFastCovValue = "input_fastcov";

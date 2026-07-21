@@ -99,7 +99,8 @@ namespace CppCoverage
 		    const std::vector<SubstitutePdbSourcePath>&,
 		    bool needSymbolIndex = false,
 		    std::shared_ptr<PdbLineTableCache> lineTableCache = nullptr,
-		    bool needFunctionNames = false);
+		    bool needFunctionNames = false,
+		    bool useRawPdb = true);
 		bool Enumerate(const std::filesystem::path&,
 		               IDebugInformationHandler&);
 
@@ -118,5 +119,6 @@ namespace CppCoverage
 		const bool needSymbolIndex_;
 		const std::shared_ptr<PdbLineTableCache> lineTableCache_;
 		const bool needFunctionNames_;
+		const bool useRawPdb_;
 	};
 }

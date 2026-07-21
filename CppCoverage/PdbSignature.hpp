@@ -35,7 +35,12 @@ namespace CppCoverage
 		GUID guid_{};
 		unsigned long age_ = 0;
 
+		// The PDB path recorded in the binary (build-machine path). Used to
+		// locate the PDB for the DIA-free reader; not part of the identity.
+		std::wstring pdbPath_;
+
 		// Filesystem- and map-friendly form: 32 hex digits + "-" + age.
+		// Uses only the GUID and age, never the path.
 		std::wstring ToString() const;
 	};
 

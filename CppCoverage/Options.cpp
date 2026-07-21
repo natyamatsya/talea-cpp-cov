@@ -52,6 +52,7 @@ namespace CppCoverage
 		, isOptimizedBuildSupportEnabled_{false}
 		, isBranchCoverageModeEnabled_{false}
 		, isNoPdbCacheModeEnabled_{false}
+		, isNoRawPdbModeEnabled_{false}
 		, isNoLineMergingModeEnabled_{false}
 		, isExperimentalVehModeEnabled_{false}
 	{
@@ -250,6 +251,18 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
+	void Options::EnableNoRawPdbMode()
+	{
+		isNoRawPdbModeEnabled_ = true;
+	}
+
+	//-------------------------------------------------------------------------
+	bool Options::IsNoRawPdbModeEnabled() const
+	{
+		return isNoRawPdbModeEnabled_;
+	}
+
+	//-------------------------------------------------------------------------
 	void Options::EnableNoLineMergingMode()
 	{
 		isNoLineMergingModeEnabled_ = true;
@@ -311,6 +324,7 @@ namespace CppCoverage
 		ostr << L"Optimized build support: " << options.isOptimizedBuildSupportEnabled_ << std::endl;
 		ostr << L"Branch coverage: " << options.isBranchCoverageModeEnabled_ << std::endl;
 		ostr << L"No PDB cache: " << options.isNoPdbCacheModeEnabled_ << std::endl;
+		ostr << L"No raw PDB: " << options.isNoRawPdbModeEnabled_ << std::endl;
 		ostr << L"No line merging: " << options.isNoLineMergingModeEnabled_ << std::endl;
 		ostr << L"Experimental VEH: " << options.isExperimentalVehModeEnabled_ << std::endl;
 

@@ -26,6 +26,7 @@
     <BuildDependency Project="OpenCppCoverage/OpenCppCoverage.vcxproj" />
   </Project>
   <Project Path="Plugin/Plugin.vcxproj" />
+  <Project Path="RawPdb/RawPdb.vcxproj" />
   <Project Path="PluginTest/PluginTest.vcxproj" />
   <Project Path="TestCoverageConsole/TestCoverageConsole.vcxproj" />
   <Project Path="TestCoverageOptimizedBuild/TestCoverageOptimizedBuild.vcxproj" />

@@ -61,6 +61,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;CPPCOVERAGE_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>$(SolutionDir)RawPdb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -77,6 +78,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;CPPCOVERAGE_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>$(SolutionDir)RawPdb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -127,6 +129,7 @@
     <ClInclude Include="ExceptionHandler.hpp" />
     <ClInclude Include="ExecutedAddressManager.hpp" />
     <ClInclude Include="FastCoverageImporter.hpp" />
+    <ClInclude Include="RawPdbReader.hpp" />
     <ClInclude Include="CppCoverageExport.hpp" />
     <ClInclude Include="Handle.hpp" />
     <ClInclude Include="HandleInformation.hpp" />
@@ -172,6 +175,7 @@
     <ClCompile Include="ExceptionHandler.cpp" />
     <ClCompile Include="ExecutedAddressManager.cpp" />
     <ClCompile Include="FastCoverageImporter.cpp" />
+    <ClCompile Include="RawPdbReader.cpp" />
     <ClCompile Include="HandleInformation.cpp" />
     <ClCompile Include="IDebugEventsHandler.cpp" />
     <ClCompile Include="Options.cpp" />
@@ -196,6 +200,9 @@
     </ProjectReference>
     <ProjectReference Include="..\Tools\Tools.vcxproj">
       <Project>{7f6d05ef-deb0-4c64-bd13-a85f46314b91}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\RawPdb\RawPdb.vcxproj">
+      <Project>{c7e4f1a9-8b2d-4e63-a5f1-3d9c7b0e2a48}</Project>
     </ProjectReference>
     <ProjectReference Include="..\Zydis\Zydis.vcxproj">
       <Project>{b5c7e9d2-3f41-4a8e-9c26-7d5a81b4e063}</Project>

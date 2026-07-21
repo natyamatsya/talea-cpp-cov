@@ -94,6 +94,9 @@ namespace CppCoverage
 		void EnableNoPdbCacheMode();
 		bool IsNoPdbCacheModeEnabled() const;
 
+		void EnableNoRawPdbMode();
+		bool IsNoRawPdbModeEnabled() const;
+
 		void EnableNoLineMergingMode();
 		bool IsNoLineMergingModeEnabled() const;
 
@@ -126,6 +129,7 @@ namespace CppCoverage
         bool isOptimizedBuildSupportEnabled_;
         bool isBranchCoverageModeEnabled_;
         bool isNoPdbCacheModeEnabled_;
+        bool isNoRawPdbModeEnabled_;
         bool isNoLineMergingModeEnabled_;
         bool isExperimentalVehModeEnabled_;
         std::vector<OptionsExport> exports_;

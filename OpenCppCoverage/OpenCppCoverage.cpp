@@ -231,6 +231,7 @@ namespace OpenCppCoverage
 				runCoverageSettings.SetOptimizedBuildSupport(options.IsOptimizedBuildSupportEnabled());
 				runCoverageSettings.SetBranchCoverage(options.IsBranchCoverageModeEnabled());
 				runCoverageSettings.SetPdbCacheEnabled(!options.IsNoPdbCacheModeEnabled());
+				runCoverageSettings.SetRawPdbEnabled(!options.IsNoRawPdbModeEnabled());
 				runCoverageSettings.SetLineMergingEnabled(!options.IsNoLineMergingModeEnabled());
 
 				std::optional<Plugin::CoverageData> coverageData;

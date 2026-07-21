@@ -481,6 +481,8 @@ namespace CppCoverage
 			options.EnableBranchCoverageMode();
 		if (variablesMap.IsOptionSelected(ProgramOptions::NoPdbCacheOption))
 			options.EnableNoPdbCacheMode();
+		if (variablesMap.IsOptionSelected(ProgramOptions::NoRawPdbOption))
+			options.EnableNoRawPdbMode();
 		if (variablesMap.IsOptionSelected(ProgramOptions::NoLineMergingOption))
 			options.EnableNoLineMergingMode();
 		if (variablesMap.IsOptionSelected(ProgramOptions::ExperimentalVehOption))

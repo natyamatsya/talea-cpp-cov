@@ -297,7 +297,9 @@ namespace CppCoverage
 			DebugInformationEnumerator enumerator{
 			    settings.GetSubstitutePdbSourcePaths(),
 			    /*needSymbolIndex*/ false,
-			    pdbLineTableCache};
+			    pdbLineTableCache,
+			    /*needFunctionNames*/ false,
+			    settings.IsRawPdbEnabled()};
 			ProbeCollector collector{filterManager, modulePath};
 			if (!enumerator.Enumerate(modulePath, collector))
 				return std::nullopt;
