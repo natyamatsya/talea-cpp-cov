@@ -101,7 +101,8 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	void BreakPoint::AdjustEipAfterBreakPointRemoval(HANDLE hThread) const
+	void BreakPoint::RewindInstructionPointer(HANDLE hThread,
+	                                          bool setTrapFlag) const
 	{
 		CONTEXT lcContext;
 		// Only the control registers (instruction pointer, flags) are read
@@ -110,26 +111,28 @@ namespace CppCoverage
 		if (!GetThreadContext(hThread, &lcContext))
 			THROW_LAST_ERROR("Error in GetThreadContext", GetLastError());
 
-		--lcContext.Rip; // Move back one byte
+		--lcContext.Rip; // Move back one byte, over the int3.
+		if (setTrapFlag)
+		{
+			// Single-step the restored instruction so the breakpoint can be
+			// re-planted on the next single-step event.
+			const DWORD trapFlag = 0x100;
+			lcContext.EFlags |= trapFlag;
+		}
+
 		if (!SetThreadContext(hThread, &lcContext))
 			THROW_LAST_ERROR("Error in SetThreadContext", GetLastError());
 	}
 
 	//-------------------------------------------------------------------------
-	void BreakPoint::AdjustEipAndSetTrapFlag(HANDLE hThread) const
+	void BreakPoint::AdjustIpAfterBreakPointRemoval(HANDLE hThread) const
 	{
-		const DWORD trapFlag = 0x100;
-		CONTEXT lcContext;
-		lcContext.ContextFlags = CONTEXT_CONTROL;
-		if (!GetThreadContext(hThread, &lcContext))
-			THROW_LAST_ERROR("Error in GetThreadContext", GetLastError());
+		RewindInstructionPointer(hThread, /*setTrapFlag*/ false);
+	}
 
-		--lcContext.Rip; // Move back one byte
-		// Single-step over the restored instruction to set
-		// the breakpoint again on the next single-step event.
-		lcContext.EFlags |= trapFlag;
-
-		if (!SetThreadContext(hThread, &lcContext))
-			THROW_LAST_ERROR("Error in SetThreadContext", GetLastError());
+	//-------------------------------------------------------------------------
+	void BreakPoint::AdjustIpAndSetTrapFlag(HANDLE hThread) const
+	{
+		RewindInstructionPointer(hThread, /*setTrapFlag*/ true);
 	}
 }

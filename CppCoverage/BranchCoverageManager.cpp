@@ -179,7 +179,7 @@ namespace CppCoverage
 			state.armed_ = false;
 
 		breakPoint.RemoveBreakPoint(address, state.originalInstruction_);
-		breakPoint.AdjustEipAndSetTrapFlag(hThread);
+		breakPoint.AdjustIpAndSetTrapFlag(hThread);
 
 		auto threadId = GetThreadId(hThread);
 		pendingReArms_[threadId] = std::make_pair(

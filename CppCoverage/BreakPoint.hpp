@@ -41,12 +41,17 @@ namespace CppCoverage
 
 		void SetBreakPoint(const Address&) const;
 
-		void AdjustEipAfterBreakPointRemoval(HANDLE hThread) const;
+		void AdjustIpAfterBreakPointRemoval(HANDLE hThread) const;
 
-		void AdjustEipAndSetTrapFlag(HANDLE hThread) const;
+		void AdjustIpAndSetTrapFlag(HANDLE hThread) const;
 
 	  private:
 		BreakPoint(const BreakPoint&) = delete;
 		BreakPoint& operator=(const BreakPoint&) = delete;
+
+		// Rewinds the thread's instruction pointer by one byte (past the int3),
+		// optionally arming the trap flag to single-step the restored
+		// instruction. Only the control registers are touched.
+		void RewindInstructionPointer(HANDLE hThread, bool setTrapFlag) const;
 	};
 }

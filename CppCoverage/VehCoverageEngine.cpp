@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <format>
+#include <map>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -33,8 +34,6 @@
 
 #include "tools/Log.hpp"
 #include "Tools/WarningManager.hpp"
-
-#include <map>
 
 #include "Address.hpp"
 #include "BranchDisassembler.hpp"
