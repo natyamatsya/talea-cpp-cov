@@ -94,8 +94,8 @@ services each breakpoint inside the process. This replaces the cross-process
 debug-event round trip (~50 µs per first hit) with an in-process exception
 dispatch, so hit-heavy runs speed up several-fold (measured ~5× on a
 fully-executed 100k-line program) while producing exactly the same coverage as
-the debugger. This v1 instruments only the main 64-bit executable — no DLLs, no
-child processes, and no branch coverage.
+the debugger. It instruments the main 64-bit executable and DLLs found under
+its directory; child processes and branch coverage are not supported.
 
 ## Branch coverage (experimental)
 

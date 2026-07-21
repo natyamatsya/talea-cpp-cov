@@ -362,6 +362,17 @@ approach: fewer traps, each far cheaper.
   module file and serves a function's original bytes in RVA space; control-flow
   opcodes are unaffected by load-time relocation, so the on-disk bytes are what
   the run scanner needs.
+- **DLLs, not just the exe:** the host precomputes a probe spec for the main
+  executable plus every filter-matching module with debug info found under the
+  executable's directory, and the helper registers a DLL-load notification
+  (`LdrRegisterDllNotification`) to patch each module at its load-time base —
+  the exe and any already-mapped module at injection, later DLLs as the loader
+  reports them. Each module carries its own probe/hit arrays in the shared
+  section; the helper writes back the actual load path and a `loaded` flag, so
+  coverage names the real file and omits precomputed modules that never loaded.
+  Probe placement is per-module RVA-space, disambiguated by a synthetic address
+  tag so equal RVAs in different modules stay distinct. Verified byte-identical
+  to the debugger for a loaded DLL by `VehCoverageEngineTest.DllMatchesDebugger`.
 
 **Measured (Release, 100k lines, warm PDB cache, coverage byte-identical to the
 debugger):**
@@ -379,10 +390,12 @@ gone so the marginal win is modest; the per-line rows isolate the per-hit
 lever, where the ~4–5 s of debug round trips collapse to the in-process residue
 (planting + patch + export).
 
-**v1 limitations (rejected or warned by the CLI):** instruments only the main
-executable (no DLLs, no child processes), 64-bit targets only, and no branch
-coverage. Extending to DLLs (dynamic module discovery + late-load patching via
-`LdrRegisterDllNotification`) is the natural next step.
+**Limitations (rejected or warned by the CLI):** 64-bit targets only, no child
+processes, and no branch coverage. DLLs are covered as long as they live under
+the executable's directory (where the directory scan finds them); modules loaded
+from elsewhere are not instrumented. The natural next step is broadening module
+discovery beyond the exe directory (import-closure walk, or an on-load host
+round trip) and, further out, child-process support.
 
 ### 6.3 Selective binary rewriting (data, ~15–20%, no recompile)
 
