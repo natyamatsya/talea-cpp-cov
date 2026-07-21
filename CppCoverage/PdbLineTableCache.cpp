@@ -33,12 +33,16 @@ namespace CppCoverage
 		//   then per file: u32 nameChars, wchar_t[nameChars],
 		//                  u32 lineCount,
 		//                  then per line: u32 lineNumber, u32 symbolIndex,
-		//                                 i64 virtualAddress, u32 length.
+		//                                 i64 virtualAddress, u32 length,
+		//   then u32 functionCount,
+		//   then per function: i64 virtualAddress, u32 length.
 		constexpr uint32_t CacheMagic = 0x4350434F; // "OCPC"
-		constexpr uint32_t CacheVersion = 1;
+		constexpr uint32_t CacheVersion = 2;
 		constexpr auto CacheFileExtension = L".lines";
 		constexpr size_t SerializedLineSize =
 		    3 * sizeof(uint32_t) + sizeof(int64_t);
+		constexpr size_t SerializedFunctionSize =
+		    sizeof(int64_t) + sizeof(uint32_t);
 
 		// The identity key makes stale entries harmless but they still take
 		// disk space: cap the directory and drop the oldest entries.
@@ -257,6 +261,20 @@ namespace CppCoverage
 			table->files_.push_back(std::move(file));
 		}
 
+		auto functionCount = reader.Read<uint32_t>();
+		if (reader.failed_ ||
+		    functionCount > reader.Remaining() / SerializedFunctionSize)
+			return nullptr;
+		table->functions_.reserve(functionCount);
+		for (uint32_t functionIndex = 0; functionIndex < functionCount;
+		     ++functionIndex)
+		{
+			auto virtualAddress = reader.Read<int64_t>();
+			auto length = reader.Read<uint32_t>();
+			table->functions_.push_back(
+			    {virtualAddress, static_cast<unsigned long>(length)});
+		}
+
 		if (reader.failed_ || reader.Remaining() != 0)
 			return nullptr;
 
@@ -272,7 +290,8 @@ namespace CppCoverage
 		if (error)
 			return;
 
-		size_t totalSize = 3 * sizeof(uint32_t) + sizeof(uint8_t);
+		size_t totalSize = 4 * sizeof(uint32_t) + sizeof(uint8_t) +
+		                   table.functions_.size() * SerializedFunctionSize;
 		for (const auto& file : table.files_)
 		{
 			totalSize += 2 * sizeof(uint32_t) +
@@ -305,6 +324,13 @@ namespace CppCoverage
 				            static_cast<int64_t>(line.virtualAddress_));
 				AppendValue(buffer, static_cast<uint32_t>(line.length_));
 			}
+		}
+		AppendValue(buffer, static_cast<uint32_t>(table.functions_.size()));
+		for (const auto& function : table.functions_)
+		{
+			AppendValue(buffer, function.virtualAddress_);
+			AppendValue(buffer,
+			            static_cast<uint32_t>(function.length_));
 		}
 
 		// Write to a process-unique temporary and publish with a rename, so

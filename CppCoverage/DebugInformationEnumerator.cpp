@@ -22,6 +22,7 @@
 #include <dia2.h>
 #include <atlbase.h>
 
+#include <algorithm>
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -281,6 +282,8 @@ namespace CppCoverage
 			lineTable = std::move(parsedTable);
 		}
 
+		handler.OnModuleFunctions(lineTable->functions_);
+
 		// Path substitution and source-file selection run on every replay:
 		// they depend on the run's settings, so a cached table stays valid
 		// whatever filters are active.
@@ -376,6 +379,42 @@ namespace CppCoverage
 			    if (lastFile)
 				    OnNewLine(*sessionPtr, lineNumber, lastFile->lines_);
 		    });
+
+		// Function code ranges bound the straight-line run analysis (a run
+		// must never span two functions: indirect calls and exception
+		// dispatch can enter any function at its entry point).
+		CComPtr<IDiaSymbol> globalScope;
+		if (sessionPtr->get_globalScope(&globalScope) == S_OK && globalScope)
+		{
+			CComPtr<IDiaEnumSymbols> functionSymbols;
+			if (globalScope->findChildren(SymTagFunction,
+			                              nullptr,
+			                              nsNone,
+			                              &functionSymbols) == S_OK &&
+			    functionSymbols)
+			{
+				EnumerateCollection<IDiaSymbol>(
+				    *functionSymbols, [&](IDiaSymbol& symbol) {
+					    ULONGLONG virtualAddress = 0;
+					    ULONGLONG length = 0;
+					    if (symbol.get_virtualAddress(&virtualAddress) !=
+					            S_OK ||
+					        symbol.get_length(&length) != S_OK ||
+					        length == 0)
+					    {
+						    return;
+					    }
+					    lineTable->functions_.push_back(
+					        {static_cast<int64_t>(virtualAddress),
+					         static_cast<unsigned long>(length)});
+				    });
+			}
+		}
+		std::sort(lineTable->functions_.begin(),
+		          lineTable->functions_.end(),
+		          [](const auto& lhs, const auto& rhs) {
+			          return lhs.virtualAddress_ < rhs.virtualAddress_;
+		          });
 
 		return lineTable;
 	}

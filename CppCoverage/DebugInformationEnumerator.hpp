@@ -57,10 +57,24 @@ namespace CppCoverage
 			unsigned long length_;
 		};
 
+		// A function's code range, from the PDB function symbols. Straight
+		// -line run analysis never crosses these boundaries.
+		struct FunctionRange
+		{
+			int64_t virtualAddress_;
+			unsigned long length_;
+		};
+
 		virtual ~IDebugInformationHandler() = default;
 		virtual bool IsSourceFileSelected(const std::filesystem::path&) = 0;
 		virtual void OnSourceFile(const std::filesystem::path&,
 		                          const std::vector<Line>&) = 0;
+
+		// Called once per module, before the source files, with the function
+		// ranges sorted by address. Optional: the default ignores them.
+		virtual void OnModuleFunctions(const std::vector<FunctionRange>&)
+		{
+		}
 	};
 
 	struct ModuleLineTable;

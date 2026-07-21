@@ -43,6 +43,8 @@ namespace CppCoverage
 		};
 
 		std::vector<File> files_; // in PDB source-file enumeration order
+		// Function code ranges, sorted by address.
+		std::vector<IDebugInformationHandler::FunctionRange> functions_;
 		bool hasSymbolIndexes_ = false;
 	};
 
