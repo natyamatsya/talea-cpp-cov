@@ -294,16 +294,42 @@ data, so no locking.
 
 Here we attack levers 2 and 3 directly. Ordered by effort.
 
-### 6.1 Basic-block-leader breakpoints (biggest bang-for-buck)
+### 6.1 Basic-block-leader breakpoints — SHIPPED (as sound line-run merging)
 
-Instrument **BB leaders**, not every PDB line. A leader hit implies every line in
-its straight-line block executed; map back to lines via the line table we already
-have. This is how mesos, TinyInst, and Jackalope all work, and it slashes the
-number of ~100 µs round trips (the dominant runtime cost) with **no change to the
-trap mechanism** — keep the one-shot remove-on-first-hit (re-arming would pay the
-round trip per *hit* instead of per *first-hit*). Requires CFG reconstruction
-(leaders = branch targets + instructions after branches); we already have a Zydis
-disassembler in-tree from the branch-coverage work.
+Instrument **run leaders**, not every PDB line: a breakpoint on the first
+instruction of a straight-line run proves execution of every line the run
+touches. This is the mesos/TinyInst idea, shipped here in a *sound* variant —
+coverage output is **exactly identical** to per-line breakpoints, not an
+approximation — and entirely as a registration-time transform:
+`ExecutedAddressManager` already supports many (file, line) probes per address,
+so `MonitoredLineRegister` simply registers all of a run's lines at the leader
+address. No runtime, export, or merge changes at all.
+
+**Done** (`LineRunScanner` + deferred per-module registration; on by default,
+`--no_line_merging` opts out, auto-disabled under `--optimized_build`):
+
+- Runs end at every branch, return, interrupt **and call** (a callee can throw
+  and never return — this keeps exception paths exact, verified by the
+  TestThrow suites); every statically-known branch target starts a new run.
+- A function containing an **indirect jump** (switch jump table: targets
+  unknown statically) or undecodable bytes falls back to per-line breakpoints
+  for that function only.
+- Runs never span functions: function ranges come from the PDB `SymTagFunction`
+  symbols (cached in the PDB line-table cache, format v2), so indirect calls
+  and exception dispatch — which enter at function boundaries only — cannot
+  enter a run mid-way.
+- Lines are collected per module and registered after enumeration, because a
+  run can mix lines of several source files (inlined headers, macros).
+- `ExecutedAddressManager` now emits files in path order, making the output
+  deterministic and independent of registration order.
+
+**Measured (Release, 100k lines, full run, warm PDB cache, byte-identical
+Cobertura output):** 1 file **4,990 → 290 ms (17×)**; 5,000 headers
+**5,850 → 880 ms (6.6×)**. Startup improves too (5,000-header "skip" case
+**~500 → ~240 ms**) because ~5,000 leader breakpoints are planted instead of
+100,000. The remaining full-run time is the surviving debug-event round trips
+(one per executed run + per call/branch boundary) — the next lever there is
+in-process VEH servicing (6.2).
 
 ### 6.2 In-process VEH servicing (biggest per-hit win, novel)
 

@@ -75,6 +75,17 @@ against unchanged binaries skip the debug-information parse entirely. A relink
 changes the key, so the cache can never return stale data. Use `--no_pdb_cache`
 to disable it.
 
+### Straight-line run merging
+
+Instead of one breakpoint per source line, one breakpoint is placed per
+straight-line run of code: hitting the run's first instruction proves execution
+of every line the run touches, so the number of debug-event round trips — the
+dominant cost of a coverage run — drops by up to an order of magnitude.
+Merging is sound (runs end at every branch, call and return; functions with
+jump tables fall back to per-line breakpoints), so coverage results are
+identical to the unmerged mode. Use `--no_line_merging` to opt out; it is
+disabled automatically with `--optimized_build`.
+
 ## Branch coverage (experimental)
 
 In addition to line coverage, OpenCppCoverage can measure branch coverage: for every
