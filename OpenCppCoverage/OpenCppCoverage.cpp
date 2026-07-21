@@ -155,7 +155,13 @@ namespace OpenCppCoverage
 		{
 			const auto& fastCovPaths = options.GetInputFastCovPaths();
 			if (fastCovPaths.empty())
+			{
+				if (options.GetFastCovTemplateReportPath())
+					LOG_WARNING
+					    << L"--fastcov_template_report has no effect without "
+					       L"--input_fastcov; no report was written.";
 				return;
+			}
 
 			cov::CoverageFilterSettings coverageFilterSettings{
 			    options.GetModulePatterns(), options.GetSourcePatterns()};

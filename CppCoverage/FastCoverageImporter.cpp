@@ -325,7 +325,14 @@ namespace CppCoverage
 						terminators.push_back(terminator);
 					}
 
-					if (region)
+					// MSVC's per-block counters are `inc byte [rip+disp]` (some
+					// builds `add byte [rip+disp], 1`). Only those instructions
+					// write the .sancov region, so gate on the mnemonic: a stray
+					// lea/read into the section would otherwise be mistaken for a
+					// counter.
+					if (region &&
+					    (instruction.mnemonic == ZYDIS_MNEMONIC_INC ||
+					     instruction.mnemonic == ZYDIS_MNEMONIC_ADD))
 					{
 						for (int i = 0; i < instruction.operand_count; ++i)
 						{

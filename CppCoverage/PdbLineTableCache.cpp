@@ -18,6 +18,7 @@
 #include "PdbLineTableCache.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <format>
@@ -40,6 +41,7 @@ namespace CppCoverage
 		constexpr uint32_t CacheMagic = 0x4350434F; // "OCPC"
 		constexpr uint32_t CacheVersion = 2;
 		constexpr auto CacheFileExtension = L".lines";
+		constexpr auto TempFileExtension = L".tmp";
 		constexpr size_t SerializedLineSize =
 		    3 * sizeof(uint32_t) + sizeof(int64_t);
 		constexpr size_t SerializedFunctionSize =
@@ -384,6 +386,20 @@ namespace CppCoverage
 		     !error && it != end;
 		     it.increment(error))
 		{
+			// Reap orphaned temporaries left by a process that died between
+			// write and rename (named "<cache>.<pid>.tmp"). Age-gate so a
+			// live writer's in-progress temp is never removed.
+			if (it->path().extension() == TempFileExtension)
+			{
+				std::error_code timeError;
+				auto tempWriteTime = it->last_write_time(timeError);
+				if (!timeError &&
+				    std::filesystem::file_time_type::clock::now() -
+				            tempWriteTime >
+				        std::chrono::minutes{10})
+					std::filesystem::remove(it->path(), timeError);
+				continue;
+			}
 			if (it->path().extension() != CacheFileExtension)
 				continue;
 			auto writeTime = it->last_write_time(error);
