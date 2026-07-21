@@ -13,6 +13,7 @@
     "boost-uuid",
     "ctemplate",
     "fmt",
+    "glaze",
     "gtest",
     "mio"
   ]
