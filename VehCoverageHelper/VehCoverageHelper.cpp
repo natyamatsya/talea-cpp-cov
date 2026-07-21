@@ -197,15 +197,8 @@ namespace
 	                   std::uint32_t rva,
 	                   EXCEPTION_POINTERS* exceptionInfo) noexcept
 	{
-#ifndef _WIN64
-		// Branch coverage is 64-bit only (the host injects the helper only into
-		// 64-bit targets); the context has no Rcx/Rip to read here on 32-bit.
-		(void)module;
-		(void)address;
-		(void)rva;
-		(void)exceptionInfo;
-		return false;
-#else
+		// Branch coverage is 64-bit only - the host injects the helper only into
+		// 64-bit targets - so the x64 context (Rip/Rcx/EFlags) is always here.
 		auto branchIndex =
 		    FindBranchProbe(module.branches_, module.branchCount_, rva);
 		if (branchIndex < 0)
@@ -242,7 +235,6 @@ namespace
 			context->EFlags |= 0x100; // trap flag: fault after the next insn
 		}
 		return true;
-#endif
 	}
 
 	//-------------------------------------------------------------------------
