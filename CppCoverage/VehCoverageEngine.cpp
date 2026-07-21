@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <format>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -850,14 +851,29 @@ namespace CppCoverage
 		// A child process the host injected into, held until its coverage is
 		// read back after it exits. pending/ready are this child's own
 		// registration events when it in turn covers its children.
+		// RAII for the Win32 resources released on RunCoverage's many exit
+		// paths: a HANDLE (CloseHandle) and a mapped section view
+		// (UnmapViewOfFile). unique_ptr's deleter runs only when non-null, so
+		// empty (nullptr) resources are ignored. Both are move-only.
+		struct HandleDeleter
+		{
+			void operator()(void* h) const noexcept { CloseHandle(h); }
+		};
+		struct ViewDeleter
+		{
+			void operator()(void* v) const noexcept { UnmapViewOfFile(v); }
+		};
+		using UniqueHandle = std::unique_ptr<void, HandleDeleter>;
+		using UniqueView = std::unique_ptr<void, ViewDeleter>;
+
 		struct ChildCoverage
 		{
-			HANDLE process = nullptr;
-			HANDLE mapping = nullptr;
-			void* view = nullptr;
+			UniqueHandle process;
+			UniqueHandle mapping;
+			UniqueView view;
 			std::vector<ModuleProbes> modules;
-			HANDLE pending = nullptr;
-			HANDLE ready = nullptr;
+			UniqueHandle pending;
+			UniqueHandle ready;
 		};
 
 		//---------------------------------------------------------------------
@@ -881,15 +897,15 @@ namespace CppCoverage
 		                       bool coverChildren,
 		                       ChildCoverage& out)
 		{
-			out.process = OpenProcess(PROCESS_ALL_ACCESS, FALSE, childPid);
+			out.process.reset(OpenProcess(PROCESS_ALL_ACCESS, FALSE, childPid));
 			if (!out.process)
 				return;
-			if (!Is64BitProcess(out.process))
+			if (!Is64BitProcess(out.process.get()))
 				return; // VEH mode is 64-bit only
 
 			wchar_t exePath[MAX_PATH];
 			DWORD size = MAX_PATH;
-			if (!QueryFullProcessImageNameW(out.process, 0, exePath, &size))
+			if (!QueryFullProcessImageNameW(out.process.get(), 0, exePath, &size))
 				return;
 
 			for (const auto& modulePath :
@@ -903,26 +919,27 @@ namespace CppCoverage
 			if (out.modules.empty())
 				return;
 
-			if (!CreateSharedSection(childPid,
-			                         out.modules,
-			                         coverChildren,
-			                         out.mapping,
-			                         out.view))
+			HANDLE mapping = nullptr;
+			void* view = nullptr;
+			if (!CreateSharedSection(
+			        childPid, out.modules, coverChildren, mapping, view))
 				return;
+			out.mapping.reset(mapping);
+			out.view.reset(view);
 
 			// The child's helper opens these in its own Initialize, so they
 			// must exist before it is injected.
 			if (coverChildren)
 			{
-				out.pending = MakeChildEvent(
-				    VehCoverage::ChildPendingEventPrefix, childPid);
-				out.ready = MakeChildEvent(
-				    VehCoverage::ChildReadyEventPrefix, childPid);
+				out.pending.reset(MakeChildEvent(
+				    VehCoverage::ChildPendingEventPrefix, childPid));
+				out.ready.reset(MakeChildEvent(
+				    VehCoverage::ChildReadyEventPrefix, childPid));
 			}
 
-			if (InjectHelper(out.process, helperDllPath))
+			if (InjectHelper(out.process.get(), helperDllPath))
 				WaitForHelperReady(
-				    static_cast<VehCoverage::SharedHeader*>(out.view));
+				    static_cast<VehCoverage::SharedHeader*>(out.view.get()));
 		}
 
 		//---------------------------------------------------------------------
@@ -988,11 +1005,13 @@ namespace CppCoverage
 				if (child.pending && child.ready && child.view)
 				{
 					if (slots.size() + 1 < MAXIMUM_WAIT_OBJECTS)
+						// Non-owning aliases of the handles owned by `child`;
+						// captured before child is moved into `children` below.
 						slots.push_back(
 						    {static_cast<VehCoverage::SharedHeader*>(
-						         child.view),
-						     child.pending,
-						     child.ready});
+						         child.view.get()),
+						     child.pending.get(),
+						     child.ready.get()});
 					else if (!warnedCap)
 					{
 						LOG_WARNING << L"VEH: watching the maximum number of "
@@ -1091,34 +1110,42 @@ namespace CppCoverage
 			THROW(L"VEH: cannot start " + exePath.wstring());
 		}
 
-		if (!Is64BitProcess(processInfo.hProcess))
+		// Own the process/thread handles from here on so every exit path -
+		// including the throw below - releases them.
+		UniqueHandle processHandle{processInfo.hProcess};
+		UniqueHandle threadHandle{processInfo.hThread};
+
+		if (!Is64BitProcess(processHandle.get()))
 		{
-			TerminateProcess(processInfo.hProcess, 1);
-			CloseHandle(processInfo.hThread);
-			CloseHandle(processInfo.hProcess);
+			TerminateProcess(processHandle.get(), 1);
 			THROW(L"VEH mode supports only 64-bit targets.");
 		}
 
 		auto coverChildren = settings.GetCoverChildren();
 		auto helperDllPath = GetHelperDllPath();
 
-		HANDLE mapping = nullptr;
-		void* view = nullptr;
-		HANDLE rootPending = nullptr;
-		HANDLE rootReady = nullptr;
-		HANDLE stopEvent = nullptr;
+		UniqueHandle mapping;
+		UniqueView view;
+		UniqueHandle rootPending;
+		UniqueHandle rootReady;
+		UniqueHandle stopEvent;
 		std::thread registrationThread;
 		std::vector<ChildCoverage> children;
 
 		if (!modules.empty())
 		{
+			HANDLE rawMapping = nullptr;
+			void* rawView = nullptr;
 			if (CreateSharedSection(processInfo.dwProcessId,
 			                        modules,
 			                        coverChildren,
-			                        mapping,
-			                        view))
+			                        rawMapping,
+			                        rawView))
 			{
-				auto* header = static_cast<VehCoverage::SharedHeader*>(view);
+				mapping.reset(rawMapping);
+				view.reset(rawView);
+				auto* header =
+				    static_cast<VehCoverage::SharedHeader*>(view.get());
 
 				// The registration events must exist before the helper is
 				// injected (its InstallChildProcessHook opens them). One loop
@@ -1126,16 +1153,19 @@ namespace CppCoverage
 				if (coverChildren)
 				{
 					auto rootPid = processInfo.dwProcessId;
-					rootPending = MakeChildEvent(
-					    VehCoverage::ChildPendingEventPrefix, rootPid);
-					rootReady = MakeChildEvent(
-					    VehCoverage::ChildReadyEventPrefix, rootPid);
-					stopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+					rootPending.reset(MakeChildEvent(
+					    VehCoverage::ChildPendingEventPrefix, rootPid));
+					rootReady.reset(MakeChildEvent(
+					    VehCoverage::ChildReadyEventPrefix, rootPid));
+					stopEvent.reset(
+					    CreateEventW(nullptr, TRUE, FALSE, nullptr));
 					if (rootPending && rootReady && stopEvent)
 					{
-						RegSlot rootSlot{header, rootPending, rootReady};
-						registrationThread = std::thread([&, rootSlot] {
-							RunRegistrationLoop(stopEvent,
+						RegSlot rootSlot{
+						    header, rootPending.get(), rootReady.get()};
+						auto* stop = stopEvent.get();
+						registrationThread = std::thread([&, rootSlot, stop] {
+							RunRegistrationLoop(stop,
 							                    rootSlot,
 							                    filterManager,
 							                    settings,
@@ -1158,7 +1188,7 @@ namespace CppCoverage
 					}
 				}
 
-				if (InjectHelper(processInfo.hProcess, helperDllPath))
+				if (InjectHelper(processHandle.get(), helperDllPath))
 					WaitForHelperReady(header);
 				else
 					LOG_WARNING << L"VEH: continuing without instrumentation.";
@@ -1170,19 +1200,19 @@ namespace CppCoverage
 			}
 		}
 
-		ResumeThread(processInfo.hThread);
-		WaitForSingleObject(processInfo.hProcess, INFINITE);
+		ResumeThread(threadHandle.get());
+		WaitForSingleObject(processHandle.get(), INFINITE);
 
 		// Stop the registration loop now that the whole tree rooted here has
 		// exited (children were waited on by their parents).
 		if (registrationThread.joinable())
 		{
-			SetEvent(stopEvent);
+			SetEvent(stopEvent.get());
 			registrationThread.join();
 		}
 
 		DWORD exitCode = 0;
-		GetExitCodeProcess(processInfo.hProcess, &exitCode);
+		GetExitCodeProcess(processHandle.get(), &exitCode);
 
 		ExecutedAddressManager manager;
 		std::vector<BranchResult> branchResults;
@@ -1212,43 +1242,19 @@ namespace CppCoverage
 		};
 
 		if (view)
-		{
-			readback(modules, view);
-			UnmapViewOfFile(view);
-		}
-		if (mapping)
-			CloseHandle(mapping);
+			readback(modules, view.get());
 
 		// Children were force-suspended and injected as they spawned; read
-		// their coverage back once they too have exited.
+		// their coverage back once they too have exited. All the child and
+		// root handles/views are released automatically when this scope ends
+		// (ChildCoverage and the UniqueHandle/UniqueView locals are RAII).
 		for (auto& child : children)
 		{
 			if (child.process)
-				WaitForSingleObject(child.process, INFINITE);
+				WaitForSingleObject(child.process.get(), INFINITE);
 			if (child.view)
-			{
-				readback(child.modules, child.view);
-				UnmapViewOfFile(child.view);
-			}
-			if (child.mapping)
-				CloseHandle(child.mapping);
-			if (child.process)
-				CloseHandle(child.process);
-			if (child.pending)
-				CloseHandle(child.pending);
-			if (child.ready)
-				CloseHandle(child.ready);
+				readback(child.modules, child.view.get());
 		}
-
-		if (rootPending)
-			CloseHandle(rootPending);
-		if (rootReady)
-			CloseHandle(rootReady);
-		if (stopEvent)
-			CloseHandle(stopEvent);
-
-		CloseHandle(processInfo.hThread);
-		CloseHandle(processInfo.hProcess);
 
 		auto coverageData = manager.CreateCoverageData(
 		    coverageName, static_cast<int>(exitCode));
