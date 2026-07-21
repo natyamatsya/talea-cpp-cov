@@ -17,6 +17,8 @@
 #include "stdafx.h"
 #include "ExecutedAddressManager.hpp"
 
+#include <algorithm>
+
 #include <boost/container/small_vector.hpp>
 
 #include "tools/Log.hpp"
@@ -204,7 +206,8 @@ namespace CppCoverage
 		}
 
 		// Emit modules in name order (matching the previous std::map order),
-		// including modules that registered no lines.
+		// including modules that registered no lines, and files in path
+		// order so the output does not depend on registration order.
 		for (const auto& [moduleName, moduleId] : moduleIdByName_)
 		{
 			auto& moduleCoverage = coverageData.AddModule(moduleName);
@@ -213,11 +216,22 @@ namespace CppCoverage
 			if (moduleIt == linesByModuleFile.end())
 				continue;
 
+			std::vector<std::uint32_t> fileIds;
+			fileIds.reserve(moduleIt->second.size());
 			for (const auto& [fileId, lines] : moduleIt->second)
+				fileIds.push_back(fileId);
+			std::sort(fileIds.begin(),
+			          fileIds.end(),
+			          [&](std::uint32_t lhs, std::uint32_t rhs) {
+				          return filePaths_[lhs] < filePaths_[rhs];
+			          });
+
+			for (auto fileId : fileIds)
 			{
 				auto& fileCoverage =
 				    moduleCoverage.AddFile(filePaths_[fileId]);
-				for (const auto& [lineNumber, executed] : lines)
+				for (const auto& [lineNumber, executed] :
+				     moduleIt->second[fileId])
 					fileCoverage.AddLine(lineNumber, executed);
 			}
 		}
