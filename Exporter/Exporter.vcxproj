@@ -65,9 +65,6 @@
     <PostBuildEvent>
       <Command>if not exist "$(OutDir)Template" mkdir "$(OutDir)Template" &amp;&amp; xcopy /s /y "$(ProjectDir)Html\Template" "$(OutDir)Template"</Command>
     </PostBuildEvent>
-    <PreBuildEvent>
-      <Command>"$(SolutionDir)\vcpkg_installed\x64-windows\tools\protobuf\protoc.exe" -I="$(ProjectDir)Binary" --cpp_out="$(ProjectDir)Binary" "$(ProjectDir)Binary\CoverageData.proto"</Command>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -90,15 +87,9 @@
     <PostBuildEvent>
       <Command>if not exist "$(OutDir)Template" mkdir "$(OutDir)Template" &amp;&amp; xcopy /s /y "$(ProjectDir)Html\Template" "$(OutDir)Template"</Command>
     </PostBuildEvent>
-    <PreBuildEvent>
-      <Command>"$(SolutionDir)\vcpkg_installed\x64-windows\tools\protobuf\protoc.exe" -I="$(ProjectDir)Binary" --cpp_out="$(ProjectDir)Binary" "$(ProjectDir)Binary\CoverageData.proto"</Command>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Binary\BinaryExporter.hpp" />
-    <ClInclude Include="Binary\CoverageData.pb.h" />
-    <ClInclude Include="Binary\CoverageData.pb.hpp" />
-    <ClInclude Include="Binary\ProtoBuff.hpp" />
     <ClInclude Include="CoberturaExporter.hpp" />
     <ClInclude Include="Binary\CoverageDataSerializer.hpp" />
     <ClInclude Include="Binary\CoverageDataDeserializer.hpp" />
@@ -121,14 +112,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Binary\BinaryExporter.cpp" />
-    <ClCompile Include="Binary\CoverageData.pb.cc">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
-      <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">TurnOffAllWarnings</WarningLevel>
-      <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">TurnOffAllWarnings</WarningLevel>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
-      <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">4146;%(DisableSpecificWarnings)</DisableSpecificWarnings>
-      <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|x64'">4146;%(DisableSpecificWarnings)</DisableSpecificWarnings>
-    </ClCompile>
     <ClCompile Include="CoberturaExporter.cpp" />
     <ClCompile Include="Binary\CoverageDataSerializer.cpp" />
     <ClCompile Include="Binary\CoverageDataDeserializer.cpp" />
@@ -157,7 +140,6 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Binary\CoverageData.proto" />
     <None Include="Html\Template\MainTemplate.html">
       <SubType>Designer</SubType>
     </None>

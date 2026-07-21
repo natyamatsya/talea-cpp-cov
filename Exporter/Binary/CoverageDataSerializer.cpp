@@ -16,10 +16,6 @@
 
 #include "stdafx.h"
 
-// Protobuf and abseil headers raise conversion warnings when their
-// templates are instantiated, which happens after any warning(pop).
-#pragma warning(disable : 4018 4244 4267)
-
 #include "CoverageDataSerializer.hpp"
 #include <fstream>
 
@@ -32,11 +28,6 @@
 
 namespace Exporter
 {
-	//-------------------------------------------------------------------------
-	// Kept for the legacy v1 (protobuf) magic the deserializer still accepts;
-	// new files are written in the columnar v2 format below.
-	const unsigned int CoverageDataSerializer::FileTypeId = 1351727964; // random number
-
 	//-------------------------------------------------------------------------
 	void CoverageDataSerializer::Serialize(
 		const Plugin::CoverageData& coverageData,

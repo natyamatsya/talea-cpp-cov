@@ -6,7 +6,6 @@
     "benchmark",
     "boost-algorithm",
     "boost-container",
-    "boost-locale",
     "boost-log",
     "boost-program-options",
     "boost-range",
@@ -15,7 +14,6 @@
     "ctemplate",
     "gtest",
     "mio",
-    "poco",
-    "protobuf"
+    "poco"
   ]
 }

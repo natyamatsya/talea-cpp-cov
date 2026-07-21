@@ -15,8 +15,4 @@ nuget.exe
 vcpkg_installed/
 Build/ThirdParty/vcpkg
 
-# ProtoBuff files
-CoverageData.pb.h
-CoverageData.pb.cc
-
 .clang-format

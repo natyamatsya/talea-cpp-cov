@@ -18,14 +18,13 @@
 #include "Log.hpp"
 
 #include <filesystem>
+#include <locale>
 
 #include <boost/log/expressions.hpp>
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/support/date_time.hpp>
-
-#include <boost/locale.hpp>
 
 namespace logging = boost::log;
 namespace sinks = boost::log::sinks;
@@ -63,10 +62,20 @@ namespace Tools
 			<< "] " << expr::message
 			);
 
-		// Set correct endocing for special char
-		auto loc = boost::locale::generator()("en_US.UTF-8");		
-		fileSink->imbue(loc);
-		consoleSink->imbue(loc);		
+		// UTF-8 output so paths with special characters are not mangled. The
+		// OS supplies a UTF-8 codecvt via the ".UTF-8" code-page locale
+		// (Windows 10+), which avoids pulling in ICU through boost::locale. If
+		// that locale is unavailable the log simply falls back to the default
+		// encoding.
+		try
+		{
+			std::locale loc(".UTF-8");
+			fileSink->imbue(loc);
+			consoleSink->imbue(loc);
+		}
+		catch (const std::exception&)
+		{
+		}
 	}
 
 	//-------------------------------------------------------------------------

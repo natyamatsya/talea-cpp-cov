@@ -122,10 +122,11 @@ namespace OpenCppCoverage
 		}
 
 		//-----------------------------------------------------------------------------
-		// Loads every --input_coverage file into the columnar merger. Columnar
-		// v2 files are read straight into the accumulator and OR-ed together
-		// (no intermediate CoverageData per shard); legacy protobuf files fall
-		// back to full deserialization.
+		// Loads every --input_coverage file into the columnar merger. The files
+		// are the columnar v2 format the binary exporter writes, read straight
+		// into the accumulator and OR-ed together (no intermediate CoverageData
+		// per shard). A file that is not columnar is rejected by the
+		// deserializer.
 		void LoadInputCoverageDatas(
 		    const cov::Options& options,
 		    Exporter::ColumnarCoverageMerger& merger)

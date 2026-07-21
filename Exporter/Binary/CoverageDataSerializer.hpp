@@ -29,8 +29,6 @@ namespace Exporter
 	class EXPORTER_DLL CoverageDataSerializer
 	{
 	public:
-		const static unsigned int FileTypeId;
-
 		CoverageDataSerializer() = default;
 
 		void Serialize(const Plugin::CoverageData&, const std::filesystem::path&) const;
