@@ -20,15 +20,56 @@
 #include "Tools.hpp"
 #include "Tools/Tool.hpp"
 
+#include <Windows.h>
+
 #include <fstream>
 #include <filesystem>
+#include <vector>
 #include <boost/algorithm/string.hpp>
 
-#include <Poco/Process.h>
-#include <Poco/Pipe.h>
-#include <Poco/PipeStream.h>
-
 namespace fs = std::filesystem;
+
+namespace
+{
+	//-------------------------------------------------------------------------
+	// Quotes an argument for a Windows command line (the standard MSVCRT
+	// rules), so LaunchProcess can join args the way Poco::Process::launch did.
+	std::string QuoteArgument(const std::string& argument)
+	{
+		if (!argument.empty() &&
+		    argument.find_first_of(" \t\"") == std::string::npos)
+			return argument;
+
+		std::string result = "\"";
+		for (std::size_t i = 0; i < argument.size();)
+		{
+			std::size_t backslashes = 0;
+			while (i < argument.size() && argument[i] == '\\')
+			{
+				++backslashes;
+				++i;
+			}
+			if (i == argument.size())
+			{
+				result.append(backslashes * 2, '\\');
+				break;
+			}
+			if (argument[i] == '"')
+			{
+				result.append(backslashes * 2 + 1, '\\');
+				result.push_back('"');
+			}
+			else
+			{
+				result.append(backslashes, '\\');
+				result.push_back(argument[i]);
+			}
+			++i;
+		}
+		result.push_back('"');
+		return result;
+	}
+}
 
 //-------------------------------------------------------------------------
 void TestUnloadDll()
@@ -57,21 +98,96 @@ namespace TestHelper
 	}
 
 	//-------------------------------------------------------------------------
+	ProcessResult LaunchProcess(const fs::path& program,
+	                            const std::vector<std::string>& args,
+	                            const std::string& workingDirectory,
+	                            bool captureOutput)
+	{
+		std::string commandLine = QuoteArgument(program.string());
+		for (const auto& arg : args)
+		{
+			commandLine += ' ';
+			commandLine += QuoteArgument(arg);
+		}
+		std::vector<char> mutableCommandLine(commandLine.begin(),
+		                                     commandLine.end());
+		mutableCommandLine.push_back('\0');
+
+		HANDLE readPipe = nullptr;
+		HANDLE writePipe = nullptr;
+		STARTUPINFOA startupInfo{};
+		startupInfo.cb = sizeof(startupInfo);
+
+		if (captureOutput)
+		{
+			SECURITY_ATTRIBUTES sa{};
+			sa.nLength = sizeof(sa);
+			sa.bInheritHandle = TRUE;
+			if (!CreatePipe(&readPipe, &writePipe, &sa, 0))
+				throw std::runtime_error("CreatePipe failed for " +
+				                         program.string());
+			// The child inherits only the write end.
+			SetHandleInformation(readPipe, HANDLE_FLAG_INHERIT, 0);
+			startupInfo.dwFlags |= STARTF_USESTDHANDLES;
+			startupInfo.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+			startupInfo.hStdOutput = writePipe;
+			startupInfo.hStdError = writePipe;
+		}
+
+		PROCESS_INFORMATION processInfo{};
+		BOOL created = CreateProcessA(
+		    nullptr,
+		    mutableCommandLine.data(),
+		    nullptr,
+		    nullptr,
+		    captureOutput ? TRUE : FALSE,
+		    0,
+		    nullptr,
+		    workingDirectory.empty() ? nullptr : workingDirectory.c_str(),
+		    &startupInfo,
+		    &processInfo);
+
+		// The parent never writes to the pipe; closing its handle lets the read
+		// end see EOF once the child exits.
+		if (writePipe)
+			CloseHandle(writePipe);
+		if (!created)
+		{
+			if (readPipe)
+				CloseHandle(readPipe);
+			throw std::runtime_error("Cannot start process: " +
+			                         program.string());
+		}
+
+		ProcessResult result;
+		if (captureOutput)
+		{
+			char buffer[4096];
+			DWORD read = 0;
+			while (ReadFile(readPipe, buffer, sizeof(buffer), &read, nullptr) &&
+			       read > 0)
+				result.output.append(buffer, read);
+			CloseHandle(readPipe);
+		}
+
+		WaitForSingleObject(processInfo.hProcess, INFINITE);
+		DWORD exitCode = 0;
+		GetExitCodeProcess(processInfo.hProcess, &exitCode);
+		result.exitCode = static_cast<int>(exitCode);
+		CloseHandle(processInfo.hThread);
+		CloseHandle(processInfo.hProcess);
+		return result;
+	}
+
+	//-------------------------------------------------------------------------
 	std::string RunProcess(const fs::path& program,
 	                       const std::vector<std::string>& args)
 	{
-		Poco::Pipe outPipe;
-		auto handle = Poco::Process::launch(
-		    program.string(), args, nullptr, &outPipe, nullptr);
-		Poco::PipeInputStream istr(outPipe);
-		std::string content{std::istreambuf_iterator<char>(istr),
-		                    std::istreambuf_iterator<char>()};
-
-		int exitCode = handle.wait();
-		if (exitCode)
+		auto result = LaunchProcess(program, args, {}, /*captureOutput*/ true);
+		if (result.exitCode)
 			throw std::runtime_error("Error when running: " + program.string() +
-			                         " " + content);
-		return content;
+			                         " " + result.output);
+		return result.output;
 	}
 
 	//------------------------------------------------------------------------ -

@@ -775,9 +775,9 @@ namespace
 				PatchModule(i, moduleBase);
 		}
 
-		// Hook CreateProcessW so children are instrumented too, if requested.
-		// (Spike: modules mapped at injection are covered - the exe and its
-		// static-import DLLs like Poco; DLLs loaded later are a follow-up.)
+		// Hook CreateProcess so children are instrumented too, if requested.
+		// Modules mapped at injection are hooked here; modules loaded later are
+		// hooked from OnDllLoaded.
 		InstallChildProcessHook();
 
 		g_header->status =

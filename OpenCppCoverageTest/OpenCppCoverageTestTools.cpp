@@ -18,10 +18,8 @@
 #include "OpenCppCoverageTestTools.hpp"
 
 #include <filesystem>
-#include <Poco/Process.h>
-#include <Poco/Pipe.h>
-#include <Poco/PipeStream.h>
 
+#include "TestHelper/Tools.hpp"
 #include "Tools/Tool.hpp"
 #include "CppCoverage/OptionsParser.hpp"
 #include "CppCoverage/ProgramOptions.hpp"
@@ -82,30 +80,17 @@ namespace OpenCppCoverageTest
 		for (const auto& argument : arguments)
 			allCoverageArguments.push_back(Tools::ToLocalString(argument));
 
-		for (auto& argument : allCoverageArguments)
-			argument = "\"" + argument + "\"";
-
 		std::filesystem::path openCppCoverage(OUT_DIR);
-
 		openCppCoverage /= "OpenCppCoverage.exe";
 
-		auto pipe = optionalOutput ? std::make_unique<Poco::Pipe>() : nullptr;
-		auto handle = Poco::Process::launch(openCppCoverage.string(),
-		                                    allCoverageArguments,
-		                                    ".",
-		                                    nullptr,
-		                                    pipe.get(),
-		                                    pipe.get());
-		if (pipe)
-		{
-			Poco::PipeInputStream istr{*pipe};
-			*optionalOutput = {std::istreambuf_iterator<char>(istr),
-			                   std::istreambuf_iterator<char>()};
-		}
+		auto result = TestHelper::LaunchProcess(openCppCoverage,
+		                                        allCoverageArguments,
+		                                        ".",
+		                                        optionalOutput != nullptr);
+		if (optionalOutput)
+			*optionalOutput = result.output;
 
-		int exitCode = handle.wait();
-
-		return exitCode;
+		return result.exitCode;
 	}
 
 	//-------------------------------------------------------------------------

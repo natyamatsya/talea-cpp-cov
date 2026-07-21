@@ -31,6 +31,21 @@ namespace TestHelper
 
 	void TEST_HELPER_DLL CreateEmptyFile(const std::filesystem::path&);
 
+	struct ProcessResult
+	{
+		int exitCode = 0;
+		std::string output; // stdout + stderr, only when captureOutput is set
+	};
+
+	// Launches program with args (each argument quoted as needed) and waits for
+	// it to exit. workingDirectory may be empty (inherit the caller's). When
+	// captureOutput is set, the child's stdout and stderr are captured.
+	ProcessResult TEST_HELPER_DLL LaunchProcess(
+		const std::filesystem::path& program,
+		const std::vector<std::string>& args,
+		const std::string& workingDirectory,
+		bool captureOutput);
+
 	std::string TEST_HELPER_DLL RunProcess(
 		const std::filesystem::path& program,
 		const std::vector<std::string>& args);

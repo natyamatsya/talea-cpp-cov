@@ -13,7 +13,6 @@
     "boost-uuid",
     "ctemplate",
     "gtest",
-    "mio",
-    "poco"
+    "mio"
   ]
 }

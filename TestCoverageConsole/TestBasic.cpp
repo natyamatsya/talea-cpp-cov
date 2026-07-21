@@ -15,14 +15,43 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "TestBasic.hpp"
-#include <Poco/Process.h>
 #include <iostream>
+#include <stdexcept>
+#include <string>
+#include <vector>
 #include <windows.h>
 
 #include "Tools/Tool.hpp"
 #include "Tools/ScopedAction.hpp"
 
 #include "TestCoverageConsole.hpp"
+
+namespace
+{
+	// Launches program with args and waits for it to exit. A tiny CreateProcess
+	// wrapper so this target does not pull in a process-launching library.
+	void LaunchAndWait(const std::filesystem::path& program,
+	                   const std::vector<std::string>& args)
+	{
+		std::string commandLine = "\"" + program.string() + "\"";
+		for (const auto& arg : args)
+			commandLine += " \"" + arg + "\"";
+
+		std::vector<char> buffer(commandLine.begin(), commandLine.end());
+		buffer.push_back('\0');
+
+		STARTUPINFOA startupInfo{};
+		startupInfo.cb = sizeof(startupInfo);
+		PROCESS_INFORMATION processInfo{};
+		if (!CreateProcessA(nullptr, buffer.data(), nullptr, nullptr, FALSE, 0,
+		                    nullptr, nullptr, &startupInfo, &processInfo))
+			throw std::runtime_error("Cannot start child process.");
+
+		WaitForSingleObject(processInfo.hProcess, INFINITE);
+		CloseHandle(processInfo.hThread);
+		CloseHandle(processInfo.hProcess);
+	}
+}
 
 // We cannot move this code in the header, because the tests will not work in
 // release mode. (This project has no optmisation in release mode).
@@ -52,8 +81,7 @@ namespace TestCoverageConsole
 		{
 			auto argument = Tools::ToLocalString(argv[i]);
 			std::cout << "Start: " << outputBinaryPath << " with " << argument << std::endl;
-			auto handle = Poco::Process::launch(outputBinaryPath.string(), std::vector<std::string>{argument});
-			handle.wait();
+			LaunchAndWait(outputBinaryPath, std::vector<std::string>{argument});
 		}
 	}
 
@@ -63,12 +91,11 @@ namespace TestCoverageConsole
 	void RunNestedChildProcess()
 	{
 		auto outputBinaryPath = TestCoverageConsole::GetOutputBinaryPath();
-		auto handle = Poco::Process::launch(
-		    outputBinaryPath.string(),
+		LaunchAndWait(
+		    outputBinaryPath,
 		    std::vector<std::string>{
 		        Tools::ToLocalString(TestCoverageConsole::TestChildProcess),
 		        Tools::ToLocalString(TestCoverageConsole::TestBasic)});
-		handle.wait();
 	}
 
 	//-------------------------------------------------------------------------
