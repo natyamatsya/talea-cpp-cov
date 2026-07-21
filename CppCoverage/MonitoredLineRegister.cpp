@@ -118,6 +118,23 @@ namespace CppCoverage
 	MonitoredLineRegister::~MonitoredLineRegister() = default;
 
 	//----------------------------------------------------------------------------
+	unsigned char MonitoredLineRegister::ResolveOriginalInstruction(
+	    const Address& address, unsigned char oldInstruction) const
+	{
+		// At an already-armed branch breakpoint the byte read from memory is
+		// the 0xCC, so substitute the real original byte the branch manager
+		// recorded for that address.
+		if (branchCoverageManager_)
+		{
+			auto branchInstruction =
+			    branchCoverageManager_->GetOriginalInstruction(address);
+			if (branchInstruction)
+				return *branchInstruction;
+		}
+		return oldInstruction;
+	}
+
+	//----------------------------------------------------------------------------
 	bool MonitoredLineRegister::RegisterLineToMonitor(
 	    const std::filesystem::path& modulePath,
 	    HANDLE hProcess,
@@ -269,18 +286,8 @@ namespace CppCoverage
 				Address address{hProcess,
 				                reinterpret_cast<void*>(addressValue)};
 
-				// If the address is an armed branch breakpoint, the
-				// instruction read from memory is the breakpoint
-				// instruction itself: use the real original instruction.
-				auto registeredInstruction = oldInstruction;
-				if (branchCoverageManager_)
-				{
-					auto branchInstruction =
-					    branchCoverageManager_->GetOriginalInstruction(
-					        address);
-					if (branchInstruction)
-						registeredInstruction = *branchInstruction;
-				}
+				auto registeredInstruction =
+				    ResolveOriginalInstruction(address, oldInstruction);
 
 				const auto& lineNumbers = it->second;
 				for (auto lineNumber : lineNumbers)
@@ -546,17 +553,8 @@ namespace CppCoverage
 			Address address{hProcess,
 			                reinterpret_cast<void*>(addressValue)};
 
-			// If the address is an armed branch breakpoint, the instruction
-			// read from memory is the breakpoint instruction itself: use
-			// the real original instruction.
-			auto registeredInstruction = oldInstruction;
-			if (branchCoverageManager_)
-			{
-				auto branchInstruction =
-				    branchCoverageManager_->GetOriginalInstruction(address);
-				if (branchInstruction)
-					registeredInstruction = *branchInstruction;
-			}
+			auto registeredInstruction =
+			    ResolveOriginalInstruction(address, oldInstruction);
 
 			bool isFirstRegistration = true;
 			bool keepBreakpoint = true;

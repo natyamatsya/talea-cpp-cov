@@ -31,6 +31,7 @@ namespace CppCoverage
 {
 	class ICoverageFilterManager;
 	class BreakPoint;
+	class Address;
 	class ExecutedAddressManager;
 	class FilterAssistant;
 	class BranchCoverageManager;
@@ -58,6 +59,12 @@ namespace CppCoverage
 		                  const std::vector<Line>&) override;
 		void OnModuleFunctions(
 		    const std::vector<FunctionRange>&) override;
+
+		// The byte read from memory at an already-armed branch breakpoint is
+		// the 0xCC, not the real instruction; returns the branch manager's
+		// recorded original byte in that case, otherwise oldInstruction.
+		unsigned char ResolveOriginalInstruction(
+		    const Address&, unsigned char oldInstruction) const;
 
 		using LineNumberByAddress =
 		    std::unordered_map<DWORD64, std::vector<int>>;
