@@ -226,14 +226,39 @@ registration and enabling Tiers 2 and 4.
 
 ## 5. Tier 2 — Stop re-doing work across modules and processes
 
-### 5.1 PDB parse cache (flyweight)
+### 5.1 PDB parse cache (flyweight) — SHIPPED
 
-Registry keyed by **`(pdbPath, GUID, age)`** → `shared_ptr<const LineTable>`. The
-GUID+age is the linker's exact identity (same key symbol servers use). First load
-parses; every later load — same process or child, repeated DLL, or a later run —
-is a pointer copy. A templated header in 50 DLLs is parsed **once**. Only
-`origByte` and diff-based filters stay per-process. Immutability makes readers
-lock-free (enables 5.3).
+Registry keyed by **`(GUID, age)`** → `shared_ptr<const ModuleLineTable>`. The
+GUID+age is the linker's exact identity (same key symbol servers use), read
+straight from the PE debug directory (RSDS record) without loading DIA. First
+load parses; every later load — same process or child, repeated DLL, or a later
+run — replays the table. A templated header in 50 DLLs is parsed **once**. Only
+`origByte` and diff-based filters stay per-process.
+
+**Done** (`PdbSignature`, `PdbLineTableCache`, wired through
+`DebugInformationEnumerator`):
+
+- **Two layers.** In-memory map for repeated loads within a run (child
+  processes, DLL reloads), plus a disk layer under
+  `%LOCALAPPDATA%\OpenCppCoverage\PdbCache` (atomic temp+rename publish,
+  bounds-checked mmap load via mio, LRU-pruned at 256 entries) so later runs
+  skip DIA entirely. `--no_pdb_cache` disables both.
+- **Settings-independent.** The table stores *raw* PDB file names and *all*
+  files (not just the selected ones); source selection and
+  `--substitute_pdb_source_path` remapping run at replay time, so one cached
+  table is valid under any filter combination. Tables parsed with
+  `--optimized_build` symbol indexes are cached as a richer variant that
+  satisfies both kinds of request.
+- **Always correct by construction:** a relink changes GUID/age, which changes
+  the key; stale entries are unreachable and eventually pruned.
+
+**Measured (Release, 100k lines, cobertura/binary export, "skip" = startup
+only):** 5,000 headers **~680 ms → ~500 ms** warm (DIA parse fully skipped;
+cache file 4.5 MB, cold write costs ~30 ms once); 1 file **~270 ms → ~160 ms**.
+Full-run output is byte-identical with and without the cache. The remaining
+warm-run time is breakpoint planting, probe registration, and export — the DIA
+term is gone, so the next startup lever is the select-none floor (~185 ms:
+process/debugger setup and per-file selection).
 
 ### 5.2 Read the PDB line table without DIA
 

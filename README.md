@@ -67,6 +67,14 @@ For example, *MySourcePath* can be *MyProject*, if your sources are located in *
 See [Getting Started](https://github.com/OpenCppCoverage/OpenCppCoverage/wiki) for more information about the usage.
 You can also have a look at [Command-line reference](https://github.com/OpenCppCoverage/OpenCppCoverage/wiki/Command-line-reference).
 
+### PDB line-table cache
+
+Parsed PDB line tables are cached under `%LOCALAPPDATA%\OpenCppCoverage\PdbCache`,
+keyed by the PDB's GUID and age (the linker's exact identity), so repeated runs
+against unchanged binaries skip the debug-information parse entirely. A relink
+changes the key, so the cache can never return stale data. Use `--no_pdb_cache`
+to disable it.
+
 ## Branch coverage (experimental)
 
 In addition to line coverage, OpenCppCoverage can measure branch coverage: for every
