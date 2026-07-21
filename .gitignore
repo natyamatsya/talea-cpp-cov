@@ -16,3 +16,6 @@ vcpkg_installed/
 Build/ThirdParty/vcpkg
 
 .clang-format
+
+# Local reference material, not part of the fork
+/inspiration/
