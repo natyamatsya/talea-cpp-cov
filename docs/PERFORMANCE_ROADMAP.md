@@ -469,9 +469,26 @@ same flags target x64 and ARM64, so nothing is tied to one CPU vendor.
   count, and entry flag to `OPENCPPCOVERAGE_FASTCOV_OUTPUT`.
 - **Import.** `FastCoverageImporter` reads the dump and maps each block back to
   source lines through the PDB — a block is a straight-line run, so the same
-  "leader covers its run's lines" model as 6.1, except the compiler hands us the
-  real block boundaries (no disassembly). **Verified byte-identical to the
-  debugger** on the same binary at `/O2` and `/Od`.
+  "leader covers its run's lines" model as 6.1. SanitizerCoverage uses *minimal*
+  block instrumentation (a function's entry/return/merge blocks may carry no
+  counter — their execution is implied), so coverage is basic-block granular and
+  matches the debugger's line coverage on typical code; it never over-reports.
+  Full byte-identical accuracy needs control-flow (dominator/post-dominator)
+  reconstruction to recover the un-instrumented blocks — a defined follow-on.
+
+- **MSVC as well as clang-cl.** clang-cl emits a PC table
+  (`-fsanitize-coverage=inline-8bit-counters,pc-table`, linked with lld) that
+  resolves each counter to a block address directly. MSVC (`cl.exe`) accepts
+  `inline-8bit-counters` but not `pc-table` and uses its own `.sancov` scheme
+  with no init callback (it needs a `_Sancov8bitUsed` anchor the runtime
+  defines, and links with the ordinary MSVC linker). For MSVC the importer
+  recovers block addresses by disassembling the module for the `inc byte
+  [rip+disp]` counter increments and reconstructing branch-delimited block
+  leaders, with sound entry-region propagation for MSVC's uninstrumented entry
+  blocks. Two runtime source files (`OpenCppCoverageFastCov.cpp`,
+  `OpenCppCoverageFastCovMsvc.cpp`) cover the two toolchains; both feed the same
+  importer, line mapping, and template axis. Verified against the debugger on a
+  template test at `/Od` and `/O2` (MSVC: line-identical via entry propagation).
 - **Instantiation axis (folded in from the start).** The compiler emits a
   distinct function per template instantiation, so every block is attributed to
   its containing function (the instantiation) via the demangled PDB symbol
