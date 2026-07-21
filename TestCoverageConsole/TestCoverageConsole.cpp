@@ -78,6 +78,8 @@ int _tmain(int argc, _TCHAR* argv[])
 			DebugBreak();
 		else if (type == TestCoverageConsole::TestChildProcess)
 			TestCoverageConsole::RunChildProcesses(argc, argv);
+		else if (type == TestCoverageConsole::TestNestedChildProcess)
+			TestCoverageConsole::RunNestedChildProcess();
 		else if (type == TestCoverageConsole::TestFileInSeveralModules)
 			TestFileInSeveralModules();
 		else if (type == TestCoverageConsole::TestSpecialLineInfo)

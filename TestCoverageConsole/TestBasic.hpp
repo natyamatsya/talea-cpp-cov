@@ -23,6 +23,7 @@ namespace TestCoverageConsole
 {
 	void RunTestBasic();
 	void RunChildProcesses(int argc, _TCHAR* argv[]);
+	void RunNestedChildProcess();
 	void UnloadReloadDll();
 
 	//-------------------------------------------------------------------------

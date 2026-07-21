@@ -58,6 +58,20 @@ namespace TestCoverageConsole
 	}
 
 	//-------------------------------------------------------------------------
+	// Spawns a child that itself spawns a grandchild (ChildProcess TestBasic),
+	// so the tree is two levels deep - exercises recursive child coverage.
+	void RunNestedChildProcess()
+	{
+		auto outputBinaryPath = TestCoverageConsole::GetOutputBinaryPath();
+		auto handle = Poco::Process::launch(
+		    outputBinaryPath.string(),
+		    std::vector<std::string>{
+		        Tools::ToLocalString(TestCoverageConsole::TestChildProcess),
+		        Tools::ToLocalString(TestCoverageConsole::TestBasic)});
+		handle.wait();
+	}
+
+	//-------------------------------------------------------------------------
 	void UnloadReloadDll()
 	{
 		auto testHelper = L"TestHelper.dll";

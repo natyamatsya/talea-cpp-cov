@@ -129,6 +129,23 @@ namespace CppCoverageTest
 	}
 
 	//-------------------------------------------------------------------------
+	// Recursive child coverage: the root spawns a child that itself spawns a
+	// grandchild. The helper's CreateProcess hook propagates into each level,
+	// so the grandchild (running TestBasic) is covered too - matching the
+	// debugger's --cover_children across the whole tree.
+	TEST(VehCoverageEngineTest, NestedChildProcessMatchesDebugger)
+	{
+		auto args = VehArgs(TestCoverageConsole::TestNestedChildProcess);
+		args.coverChildren_ = true;
+
+		auto debuggerCoverage = TestTools::ComputeCoverageDataPatterns(args);
+		auto vehCoverage = TestTools::ComputeCoverageDataVeh(args);
+
+		TestHelper::CoverageDataComparer().AssertEquals(debuggerCoverage,
+		                                                vehCoverage);
+	}
+
+	//-------------------------------------------------------------------------
 	// A DLL is loaded and patched through the DLL-load notification, not the
 	// main module: the VEH engine must cover it exactly like the debugger.
 	TEST(VehCoverageEngineTest, DllMatchesDebugger)

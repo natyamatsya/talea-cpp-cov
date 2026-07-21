@@ -434,6 +434,10 @@ namespace
 		}
 	}
 
+	// Defined below with the child-process hook; hooks a newly loaded module's
+	// CreateProcess IAT slots (no-op until the hooks are armed).
+	void HookProcessCreationInModule(HMODULE module) noexcept;
+
 	//-------------------------------------------------------------------------
 	VOID CALLBACK OnDllLoaded(ULONG reason,
 	                          const LdrDllNotificationData* data,
@@ -446,15 +450,24 @@ namespace
 		PatchByName(data->baseDllName_->Buffer,
 		            data->baseDllName_->Length / sizeof(wchar_t),
 		            static_cast<const std::uint8_t*>(data->dllBase_));
+
+		// A module loaded after injection also needs its CreateProcess IAT
+		// hooked, so children it spawns are covered too.
+		HookProcessCreationInModule(
+		    static_cast<HMODULE>(const_cast<void*>(data->dllBase_)));
 	}
 
 	//-------------------------------------------------------------------------
-	// --- child-process coverage: hook CreateProcessW ------------------------
+	// --- child-process coverage: hook CreateProcess ------------------------
 	using CreateProcessWFn = BOOL(WINAPI*)(
 	    LPCWSTR, LPWSTR, LPSECURITY_ATTRIBUTES, LPSECURITY_ATTRIBUTES, BOOL,
 	    DWORD, LPVOID, LPCWSTR, LPSTARTUPINFOW, LPPROCESS_INFORMATION);
+	using CreateProcessAFn = BOOL(WINAPI*)(
+	    LPCSTR, LPSTR, LPSECURITY_ATTRIBUTES, LPSECURITY_ATTRIBUTES, BOOL,
+	    DWORD, LPVOID, LPCSTR, LPSTARTUPINFOA, LPPROCESS_INFORMATION);
 
 	CreateProcessWFn g_realCreateProcessW = nullptr;
+	CreateProcessAFn g_realCreateProcessA = nullptr;
 	HANDLE g_childPending = nullptr;
 	HANDLE g_childReady = nullptr;
 
@@ -478,8 +491,27 @@ namespace
 	}
 
 	//-------------------------------------------------------------------------
-	// Runs in the target when it spawns a child: force the child suspended,
-	// hand its pid to the host (which injects the helper into it), then resume.
+	// Hands a freshly spawned, still-suspended child to the host (which injects
+	// the helper into it) and then resumes it. One registration at a time: the
+	// section has a single pid slot and event pair; childLock serializes it.
+	// childLock is int32 in the header (no windows.h there), so cast to LONG*.
+	void RegisterChildWithHost(DWORD childPid,
+	                           HANDLE childThread,
+	                           bool forcedSuspend) noexcept
+	{
+		auto* lock = reinterpret_cast<volatile LONG*>(&g_header->childLock);
+		while (InterlockedCompareExchange(lock, 1, 0) != 0)
+			Sleep(0);
+		g_header->childPid = childPid;
+		SetEvent(g_childPending);
+		WaitForSingleObject(g_childReady, 30000);
+		InterlockedExchange(lock, 0);
+
+		if (forcedSuspend)
+			ResumeThread(childThread);
+	}
+
+	//-------------------------------------------------------------------------
 	BOOL WINAPI HookedCreateProcessW(
 	    LPCWSTR applicationName,
 	    LPWSTR commandLine,
@@ -493,7 +525,6 @@ namespace
 	    LPPROCESS_INFORMATION processInfo) noexcept
 	{
 		bool forcedSuspend = (creationFlags & CREATE_SUSPENDED) == 0;
-
 		auto ok = g_realCreateProcessW(applicationName,
 		                               commandLine,
 		                               processAttributes,
@@ -504,30 +535,49 @@ namespace
 		                               currentDirectory,
 		                               startupInfo,
 		                               processInfo);
-		if (!ok || !processInfo)
-			return ok;
-
-		// Register the child with the host one at a time: it has a single pid
-		// slot and a pair of events. childLock is int32 in the header (no
-		// windows.h there), so cast to LONG* for the interlocked ops.
-		auto* lock = reinterpret_cast<volatile LONG*>(&g_header->childLock);
-		while (InterlockedCompareExchange(lock, 1, 0) != 0)
-			Sleep(0);
-		g_header->childPid = processInfo->dwProcessId;
-		SetEvent(g_childPending);
-		WaitForSingleObject(g_childReady, 30000);
-		InterlockedExchange(lock, 0);
-
-		if (forcedSuspend)
-			ResumeThread(processInfo->hThread);
+		if (ok && processInfo)
+			RegisterChildWithHost(processInfo->dwProcessId,
+			                      processInfo->hThread,
+			                      forcedSuspend);
 		return ok;
 	}
 
 	//-------------------------------------------------------------------------
-	// Repoints every IAT slot that currently resolves to the real
-	// CreateProcessW at the hook. Matching by resolved address (not by import
-	// name) also catches bound imports and needs no name-table walk.
-	void HookIatInModule(HMODULE module) noexcept
+	BOOL WINAPI HookedCreateProcessA(
+	    LPCSTR applicationName,
+	    LPSTR commandLine,
+	    LPSECURITY_ATTRIBUTES processAttributes,
+	    LPSECURITY_ATTRIBUTES threadAttributes,
+	    BOOL inheritHandles,
+	    DWORD creationFlags,
+	    LPVOID environment,
+	    LPCSTR currentDirectory,
+	    LPSTARTUPINFOA startupInfo,
+	    LPPROCESS_INFORMATION processInfo) noexcept
+	{
+		bool forcedSuspend = (creationFlags & CREATE_SUSPENDED) == 0;
+		auto ok = g_realCreateProcessA(applicationName,
+		                               commandLine,
+		                               processAttributes,
+		                               threadAttributes,
+		                               inheritHandles,
+		                               creationFlags | CREATE_SUSPENDED,
+		                               environment,
+		                               currentDirectory,
+		                               startupInfo,
+		                               processInfo);
+		if (ok && processInfo)
+			RegisterChildWithHost(processInfo->dwProcessId,
+			                      processInfo->hThread,
+			                      forcedSuspend);
+		return ok;
+	}
+
+	//-------------------------------------------------------------------------
+	// Repoints every IAT slot in module that resolves to target at hook.
+	// Matching by resolved address (not by import name) also catches bound
+	// imports and needs no name-table walk.
+	void HookIatSlots(HMODULE module, ULONG_PTR target, void* hook) noexcept
 	{
 		auto* base = reinterpret_cast<std::uint8_t*>(module);
 		auto* dosHeader = reinterpret_cast<IMAGE_DOS_HEADER*>(base);
@@ -542,7 +592,6 @@ namespace
 		if (directory.VirtualAddress == 0)
 			return;
 
-		auto target = reinterpret_cast<ULONG_PTR>(g_realCreateProcessW);
 		for (auto* import = reinterpret_cast<IMAGE_IMPORT_DESCRIPTOR*>(
 		         base + directory.VirtualAddress);
 		     import->Name != 0;
@@ -561,8 +610,8 @@ namespace
 				                   PAGE_READWRITE,
 				                   &oldProtect))
 				{
-					thunk->u1.Function = reinterpret_cast<ULONGLONG>(
-					    &HookedCreateProcessW);
+					thunk->u1.Function =
+					    reinterpret_cast<ULONGLONG>(hook);
 					VirtualProtect(&thunk->u1.Function,
 					               sizeof(void*),
 					               oldProtect,
@@ -573,9 +622,26 @@ namespace
 	}
 
 	//-------------------------------------------------------------------------
-	// Hooks CreateProcessW in every currently-loaded module. Safe under the
-	// loader lock: it only reads the loader's module list and patches IAT
-	// memory (no allocation, no loader calls).
+	// Hooks both CreateProcessW and CreateProcessA in one module. A no-op until
+	// the hooks are armed (g_realCreateProcessW set), so the DLL-load callback
+	// can call it unconditionally.
+	void HookProcessCreationInModule(HMODULE module) noexcept
+	{
+		if (!g_realCreateProcessW)
+			return;
+		HookIatSlots(module,
+		             reinterpret_cast<ULONG_PTR>(g_realCreateProcessW),
+		             reinterpret_cast<void*>(&HookedCreateProcessW));
+		if (g_realCreateProcessA)
+			HookIatSlots(module,
+			             reinterpret_cast<ULONG_PTR>(g_realCreateProcessA),
+			             reinterpret_cast<void*>(&HookedCreateProcessA));
+	}
+
+	//-------------------------------------------------------------------------
+	// Hooks every currently-loaded module. Safe under the loader lock: it only
+	// reads the loader's module list and patches IAT memory (no allocation, no
+	// loader calls). Modules loaded later are hooked from OnDllLoaded.
 	void HookAllLoadedModules() noexcept
 	{
 		auto* peb = NtCurrentTeb()->ProcessEnvironmentBlock;
@@ -587,20 +653,24 @@ namespace
 			auto* entry = CONTAINING_RECORD(
 			    cursor, LDR_DATA_TABLE_ENTRY, InMemoryOrderLinks);
 			if (entry->DllBase)
-				HookIatInModule(static_cast<HMODULE>(entry->DllBase));
+				HookProcessCreationInModule(
+				    static_cast<HMODULE>(entry->DllBase));
 		}
 	}
 
 	//-------------------------------------------------------------------------
-	// If the host asked for child coverage, resolve the real CreateProcessW,
-	// open the host's registration events, and install the IAT hooks.
+	// If the host asked for child coverage, resolve the real CreateProcess
+	// functions, open the host's registration events, and install the hooks.
 	void InstallChildProcessHook() noexcept
 	{
 		if (!g_header->coverChildren)
 			return;
 
-		g_realCreateProcessW = reinterpret_cast<CreateProcessWFn>(GetProcAddress(
-		    GetModuleHandleW(L"kernel32.dll"), "CreateProcessW"));
+		auto* kernel32 = GetModuleHandleW(L"kernel32.dll");
+		g_realCreateProcessW = reinterpret_cast<CreateProcessWFn>(
+		    GetProcAddress(kernel32, "CreateProcessW"));
+		g_realCreateProcessA = reinterpret_cast<CreateProcessAFn>(
+		    GetProcAddress(kernel32, "CreateProcessA"));
 		if (!g_realCreateProcessW)
 			return;
 
@@ -613,6 +683,7 @@ namespace
 		if (!g_childPending || !g_childReady)
 		{
 			g_realCreateProcessW = nullptr; // stay dormant if setup failed
+			g_realCreateProcessA = nullptr;
 			return;
 		}
 

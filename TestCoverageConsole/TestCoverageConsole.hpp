@@ -48,7 +48,7 @@ namespace TestCoverageConsole
 	//-------------------------------------------------------------------------
 	inline int GetTestCoverageConsoleCppMainReturnLine()
 	{
-		return GetTestCoverageConsoleCppMainStartLine() + 41;
+		return GetTestCoverageConsoleCppMainStartLine() + 43;
 	}
 
 	const std::wstring TestBasic = L"TestBasic";
@@ -60,6 +60,7 @@ namespace TestCoverageConsole
 	const std::wstring TestThrowUnHandledSEHException = L"TestThrowUnHandledSEHException";
 	const std::wstring TestBreakPoint = L"TestBreakPoint";
 	const std::wstring TestChildProcess = L"ChildProcess";
+	const std::wstring TestNestedChildProcess = L"NestedChildProcess";
 	const std::wstring TestFileInSeveralModules = L"FileInSeveralModules";
 	const std::wstring TestSpecialLineInfo = L"TestSpecialLineInfo";
 	const std::wstring TestUnloadReloadDll = L"TestUnloadReloadDll";

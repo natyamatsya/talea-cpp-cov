@@ -839,25 +839,40 @@ namespace CppCoverage
 
 		//---------------------------------------------------------------------
 		// A child process the host injected into, held until its coverage is
-		// read back after it exits.
+		// read back after it exits. pending/ready are this child's own
+		// registration events when it in turn covers its children.
 		struct ChildCoverage
 		{
 			HANDLE process = nullptr;
 			HANDLE mapping = nullptr;
 			void* view = nullptr;
 			std::vector<ModuleProbes> modules;
+			HANDLE pending = nullptr;
+			HANDLE ready = nullptr;
 		};
+
+		//---------------------------------------------------------------------
+		HANDLE MakeChildEvent(const wchar_t* prefix, DWORD pid)
+		{
+			return CreateEventW(nullptr,
+			                    FALSE,
+			                    FALSE,
+			                    (std::wstring{prefix} + std::to_wstring(pid))
+			                        .c_str());
+		}
 
 		//---------------------------------------------------------------------
 		// Sets up a child the parent's hook force-suspended: compute its probes
 		// offline, lay out its shared section, and inject the helper into the
-		// still-suspended child. The parent's hook resumes it once the host
-		// releases the ready event.
+		// still-suspended child. When coverChildren is set the child gets its
+		// own registration events so its grandchildren are covered too. The
+		// parent's hook resumes it once the host releases the ready event.
 		void SetupChildProcess(DWORD childPid,
 		                       ICoverageFilterManager& filterManager,
 		                       const RunCoverageSettings& settings,
 		                       std::shared_ptr<PdbLineTableCache> pdbLineTableCache,
 		                       const std::filesystem::path& helperDllPath,
+		                       bool coverChildren,
 		                       ChildCoverage& out)
 		{
 			out.process = OpenProcess(PROCESS_ALL_ACCESS, FALSE, childPid);
@@ -882,18 +897,107 @@ namespace CppCoverage
 			if (out.modules.empty())
 				return;
 
-			// Spike: the child's own section leaves child hooking off (no
-			// grandchildren yet).
 			if (!CreateSharedSection(childPid,
 			                         out.modules,
-			                         /*coverChildren*/ false,
+			                         coverChildren,
 			                         out.mapping,
 			                         out.view))
 				return;
 
+			// The child's helper opens these in its own Initialize, so they
+			// must exist before it is injected.
+			if (coverChildren)
+			{
+				out.pending = MakeChildEvent(
+				    VehCoverage::ChildPendingEventPrefix, childPid);
+				out.ready = MakeChildEvent(
+				    VehCoverage::ChildReadyEventPrefix, childPid);
+			}
+
 			if (InjectHelper(out.process, helperDllPath))
 				WaitForHelperReady(
 				    static_cast<VehCoverage::SharedHeader*>(out.view));
+		}
+
+		//---------------------------------------------------------------------
+		// One process being watched for child spawns: its section header (the
+		// childPid slot) and its registration event pair.
+		struct RegSlot
+		{
+			VehCoverage::SharedHeader* header;
+			HANDLE pending;
+			HANDLE ready;
+		};
+
+		//---------------------------------------------------------------------
+		// Single registration loop for the whole process tree. Waits on the
+		// pending events of every injected process at once; when one fires, it
+		// injects into that process's freshly suspended child, and - if that
+		// child covers children too - adds the child as another watched slot,
+		// so grandchildren are handled by the same loop. stopEvent breaks it.
+		void RunRegistrationLoop(
+		    HANDLE stopEvent,
+		    const RegSlot& root,
+		    ICoverageFilterManager& filterManager,
+		    const RunCoverageSettings& settings,
+		    std::shared_ptr<PdbLineTableCache> pdbLineTableCache,
+		    const std::filesystem::path& helperDllPath,
+		    std::vector<ChildCoverage>& children)
+		{
+			std::vector<RegSlot> slots;
+			slots.push_back(root);
+
+			bool warnedCap = false;
+			std::vector<HANDLE> waitHandles;
+			for (;;)
+			{
+				waitHandles.clear();
+				waitHandles.push_back(stopEvent);
+				for (const auto& slot : slots)
+				{
+					if (waitHandles.size() >= MAXIMUM_WAIT_OBJECTS)
+						break;
+					waitHandles.push_back(slot.pending);
+				}
+
+				auto result = WaitForMultipleObjects(
+				    static_cast<DWORD>(waitHandles.size()),
+				    waitHandles.data(),
+				    FALSE,
+				    INFINITE);
+				if (result < WAIT_OBJECT_0 + 1 ||
+				    result >= WAIT_OBJECT_0 + waitHandles.size())
+					break; // stopEvent (index 0) or a wait failure
+
+				auto& slot = slots[(result - WAIT_OBJECT_0) - 1];
+				ChildCoverage child;
+				SetupChildProcess(slot.header->childPid,
+				                  filterManager,
+				                  settings,
+				                  pdbLineTableCache,
+				                  helperDllPath,
+				                  /*coverChildren*/ true,
+				                  child);
+
+				if (child.pending && child.ready && child.view)
+				{
+					if (slots.size() + 1 < MAXIMUM_WAIT_OBJECTS)
+						slots.push_back(
+						    {static_cast<VehCoverage::SharedHeader*>(
+						         child.view),
+						     child.pending,
+						     child.ready});
+					else if (!warnedCap)
+					{
+						LOG_WARNING << L"VEH: watching the maximum number of "
+						               L"processes for child spawns; deeper "
+						               L"descendants are not instrumented.";
+						warnedCap = true;
+					}
+				}
+				children.push_back(std::move(child));
+				SetEvent(slot.ready);
+			}
 		}
 	}
 
@@ -994,11 +1098,11 @@ namespace CppCoverage
 
 		HANDLE mapping = nullptr;
 		void* view = nullptr;
-		HANDLE childPending = nullptr;
-		HANDLE childReady = nullptr;
+		HANDLE rootPending = nullptr;
+		HANDLE rootReady = nullptr;
+		HANDLE stopEvent = nullptr;
 		std::thread registrationThread;
 		std::vector<ChildCoverage> children;
-		std::mutex childrenMutex;
 
 		if (!modules.empty())
 		{
@@ -1011,43 +1115,27 @@ namespace CppCoverage
 				auto* header = static_cast<VehCoverage::SharedHeader*>(view);
 
 				// The registration events must exist before the helper is
-				// injected (its InstallChildProcessHook opens them). The
-				// thread services one force-suspended child at a time.
+				// injected (its InstallChildProcessHook opens them). One loop
+				// watches the whole tree (see RunRegistrationLoop).
 				if (coverChildren)
 				{
 					auto rootPid = processInfo.dwProcessId;
-					childPending = CreateEventW(
-					    nullptr, FALSE, FALSE,
-					    (std::wstring{VehCoverage::ChildPendingEventPrefix} +
-					     std::to_wstring(rootPid))
-					        .c_str());
-					childReady = CreateEventW(
-					    nullptr, FALSE, FALSE,
-					    (std::wstring{VehCoverage::ChildReadyEventPrefix} +
-					     std::to_wstring(rootPid))
-					        .c_str());
-					if (childPending && childReady)
+					rootPending = MakeChildEvent(
+					    VehCoverage::ChildPendingEventPrefix, rootPid);
+					rootReady = MakeChildEvent(
+					    VehCoverage::ChildReadyEventPrefix, rootPid);
+					stopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+					if (rootPending && rootReady && stopEvent)
 					{
-						registrationThread = std::thread([&, header] {
-							for (;;)
-							{
-								WaitForSingleObject(childPending, INFINITE);
-								if (header->stopChildThread)
-									break;
-								ChildCoverage child;
-								SetupChildProcess(header->childPid,
-								                  filterManager,
-								                  settings,
-								                  pdbLineTableCache,
-								                  helperDllPath,
-								                  child);
-								{
-									std::lock_guard<std::mutex> lock(
-									    childrenMutex);
-									children.push_back(std::move(child));
-								}
-								SetEvent(childReady);
-							}
+						RegSlot rootSlot{header, rootPending, rootReady};
+						registrationThread = std::thread([&, rootSlot] {
+							RunRegistrationLoop(stopEvent,
+							                    rootSlot,
+							                    filterManager,
+							                    settings,
+							                    pdbLineTableCache,
+							                    helperDllPath,
+							                    children);
 						});
 					}
 				}
@@ -1067,12 +1155,11 @@ namespace CppCoverage
 		ResumeThread(processInfo.hThread);
 		WaitForSingleObject(processInfo.hProcess, INFINITE);
 
-		// Wake and stop the child-registration thread now that no more child
-		// spawns can arrive from the (exited) root.
+		// Stop the registration loop now that the whole tree rooted here has
+		// exited (children were waited on by their parents).
 		if (registrationThread.joinable())
 		{
-			static_cast<VehCoverage::SharedHeader*>(view)->stopChildThread = 1;
-			SetEvent(childPending);
+			SetEvent(stopEvent);
 			registrationThread.join();
 		}
 
@@ -1129,12 +1216,18 @@ namespace CppCoverage
 				CloseHandle(child.mapping);
 			if (child.process)
 				CloseHandle(child.process);
+			if (child.pending)
+				CloseHandle(child.pending);
+			if (child.ready)
+				CloseHandle(child.ready);
 		}
 
-		if (childPending)
-			CloseHandle(childPending);
-		if (childReady)
-			CloseHandle(childReady);
+		if (rootPending)
+			CloseHandle(rootPending);
+		if (rootReady)
+			CloseHandle(rootReady);
+		if (stopEvent)
+			CloseHandle(stopEvent);
 
 		CloseHandle(processInfo.hThread);
 		CloseHandle(processInfo.hProcess);
