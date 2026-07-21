@@ -65,7 +65,7 @@ toward DATA.
 | In-process VEH servicing | 3 | ✅ shipped | hit-heavy 5,500 → 1,060 ms; DLLs |
 | Compiler-instrumentation fast mode | 2+3 | ✅ shipped | near-native; clang-cl **+ MSVC** |
 | DIA-free raw PDB reader (raw_pdb) | 1 | ✅ shipped | cold parse ~4×; parses compilands in parallel |
-| Parallelism (export / merge) | 1 | ⬜ open | multi-core export + merge |
+| Parallelism (HTML export) | 1 | ⏳ tried | I/O+alloc bound — no win; thread-local template cache kept |
 | Columnar `.cov` v2 + bitmap-OR merge | — | ⬜ open | scale `--input_coverage` shards |
 | VEH: child processes / branch coverage | 3 | ⬜ open | feature parity with debugger |
 | Fast mode: multi-module / ARM64 validation | 2+3 | ⬜ open | breadth + portability proof |
@@ -208,11 +208,22 @@ have given us, without the lock-in).
 ### A. Parallelism — the rest of the immutable pipeline
 
 PDB parsing already goes parallel per-compiland inside the raw_pdb reader
-(§3.1). The remaining parallel-safe, immutable-data work: **per-file HTML
-generation**, **`.cov` merge** as a parallel bitmap reduce, and **filter scans**
-over the frozen table — all lock-free. (The `WaitForDebugEvent` loop itself is
-single-threaded by OS contract; don't fight it. Pre-parsing the exe's import
-closure *before* `CreateProcess` is a further raw_pdb win.) Use the parallel STL
+(§3.1) — the one part that is genuinely CPU-bound and scaled. A thread-local
+`ctemplate` template cache was also added (each HTML worker resolves the
+immutable template once instead of taking ctemplate's global mutex per file).
+
+**HTML generation was tried and reverted:** parallelizing the per-file loop was
+a wash to a slight regression even on 32 cores with large files, because HTML
+generation is bound by string allocation (the page buffers contending on the
+heap lock) and disk writes, not CPU. Lesson: parallelism only pays where the
+work is CPU/data-bound.
+
+So the remaining parallel opportunity is the **`.cov` merge as a bitmap-OR
+reduce** — but that is CPU/data-bound only once the format is columnar, so it is
+really part of B. **Filter scans** over the frozen table are already fast.
+Pre-parsing the exe's import closure *before* `CreateProcess` is a further
+raw_pdb win. (The `WaitForDebugEvent` loop itself is single-threaded by OS
+contract; don't fight it.) When parallelism is warranted, use the parallel STL
 (`std::for_each(std::execution::par, …)`), not stdexec — fork-join over
 independent items, no sender/receiver graph, zero new dependency, and MSVC's
 weakest support is stdexec's, not the parallel STL's.
