@@ -8,8 +8,9 @@ work into one place.*
 > **Status (July 2026).** The data-oriented core, the startup path, and **three
 > collection engines** (debugger + run-merging, in-process VEH, compiler
 > instrumentation) are **shipped and measured**. Intel PT was dropped (hardware
-> lock-in). What remains is a DIA-free PDB reader, parallelism, a columnar merge
-> format, and a few feature extensions — see [§4](#4-open-work-prioritized).
+> lock-in); the DIA-free PDB reader and the columnar `.cov` v2 / bitmap-OR merge
+> are now shipped too. What remains is mostly feature extensions and a
+> portability proof — see [§4](#4-open-work-prioritized).
 
 ---
 
@@ -66,7 +67,8 @@ toward DATA.
 | Compiler-instrumentation fast mode | 2+3 | ✅ shipped | near-native; clang-cl **+ MSVC** |
 | DIA-free raw PDB reader (raw_pdb) | 1 | ✅ shipped | cold parse ~4×; parses compilands in parallel |
 | Parallelism (HTML export) | 1 | ⏳ tried | I/O+alloc bound — no win; thread-local template cache kept |
-| Columnar `.cov` v2 + bitmap-OR merge | — | ⬜ open | scale `--input_coverage` shards |
+| Columnar `.cov` v2 + bitmap-OR merge | — | ✅ shipped | 30-shard merge 1360 → 655 ms (~2×); `.cov` −35% |
+| Parallelism (shard parse/merge) | — | ⏳ tried | alloc-bound — no win; serial columnar kept |
 | VEH: child processes / branch coverage | 3 | ⬜ open | feature parity with debugger |
 | Fast mode: multi-module / ARM64 validation | 2+3 | ⬜ open | breadth + portability proof |
 | TinyInst-style binary rewriting | 3 | ⬜ open | binary-only "data" mode (~15–20%) |
@@ -218,26 +220,32 @@ generation is bound by string allocation (the page buffers contending on the
 heap lock) and disk writes, not CPU. Lesson: parallelism only pays where the
 work is CPU/data-bound.
 
-So the remaining parallel opportunity is the **`.cov` merge as a bitmap-OR
-reduce** — but that is CPU/data-bound only once the format is columnar, so it is
-really part of B. **Filter scans** over the frozen table are already fast.
-Pre-parsing the exe's import closure *before* `CreateProcess` is a further
-raw_pdb win. (The `WaitForDebugEvent` loop itself is single-threaded by OS
-contract; don't fight it.) When parallelism is warranted, use the parallel STL
-(`std::for_each(std::execution::par, …)`), not stdexec — fork-join over
-independent items, no sender/receiver graph, zero new dependency, and MSVC's
-weakest support is stdexec's, not the parallel STL's.
+The `.cov` **merge as a bitmap-OR reduce** shipped (§B) and is the third
+measured parallelism negative result: parsing shards concurrently
+(`std::execution::par`) was a wash-to-slight-regression (30 shards 671 vs 655 ms
+serial), because building each shard's per-file `FileData` is thousands of small
+vector/map allocations contending on the heap lock — allocation-bound, like HTML
+export. The serial columnar merge is what shipped. **Filter scans** over the
+frozen table are already fast. Pre-parsing the exe's import closure *before*
+`CreateProcess` is a further raw_pdb win. (The `WaitForDebugEvent` loop itself is
+single-threaded by OS contract; don't fight it.) Standing lesson across three
+tries (HTML, merge parse, and the one win — PDB compiland parse): parallelism
+pays **only where the work is CPU-bound, not allocation- or I/O-bound**; when it
+is warranted, use the parallel STL, not stdexec.
 
-### B. Columnar `.cov` v2 + merge-as-bitmap-OR
+### B. Columnar `.cov` v2 + merge-as-bitmap-OR — ✅ shipped
 
-Give the binary format a columnar layout (version byte for back-compat): module
-table, interned path blob, then per (module,file) a delta-varint line column +
-a hit bitmap. **Merge becomes sorted-array union + bitwise-OR** — O(n+m)
-streaming, mmap-friendly — instead of rebuilding map-of-map hierarchies, so
-`--input_coverage` scales to many shards. The `executed` bitset from the
-columnar probe table (§3.2) feeds this directly. Optionally emit the **drcov v2**
-format so BB output is consumable by Lighthouse (IDA / Binary Ninja / Ghidra).
-Self-contained, low risk, fully testable.
+Shipped: the binary format is now columnar (`OCC2` magic + version for
+back-compat; legacy protobuf v1 still read via magic sniffing). Per (module,file)
+it stores the line numbers as delta-varints and a packed `executed` bitmap, plus
+a sparse branch side-table, behind an interned path table. `--input_coverage`
+merges through `ColumnarCoverageMerger`, which reads each v2 shard straight into
+an accumulator: same-build shards share an identical line array, so the merge is
+a word-wise OR of the bitmaps; different builds fall back to a sorted line union.
+Output stays sorted by module/file/line, so exports are unchanged. Measured on 30
+shards of 5,000 files: merge **1360 → 655 ms (~2×)**, `.cov` **1436 → 934 KB
+(−35%)**. Remaining option: emit the **drcov v2** format so BB output is
+consumable by Lighthouse (IDA / Binary Ninja / Ghidra).
 
 ### C. Feature extensions to the shipped engines
 
