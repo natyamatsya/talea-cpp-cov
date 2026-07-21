@@ -44,7 +44,8 @@ namespace CppCoverage
 		                      std::shared_ptr<ICoverageFilterManager>,
 		                      std::unique_ptr<DebugInformationEnumerator>,
 		                      std::shared_ptr<FilterAssistant>,
-		                      std::shared_ptr<BranchCoverageManager> = nullptr);
+		                      std::shared_ptr<BranchCoverageManager> = nullptr,
+		                      bool enableLineMerging = false);
 		~MonitoredLineRegister();
 
 		bool RegisterLineToMonitor(const std::filesystem::path& modulePath,
@@ -55,6 +56,8 @@ namespace CppCoverage
 		bool IsSourceFileSelected(const std::filesystem::path&) override;
 		void OnSourceFile(const std::filesystem::path&,
 		                  const std::vector<Line>&) override;
+		void OnModuleFunctions(
+		    const std::vector<FunctionRange>&) override;
 
 		using LineNumberByAddress =
 		    std::unordered_map<DWORD64, std::vector<int>>;
@@ -73,6 +76,11 @@ namespace CppCoverage
 		                      HANDLE hProcess,
 		                      const std::vector<SelectedLine>&);
 
+		void RegisterPendingLines();
+		void RestoreOriginalBytes(HANDLE hProcess,
+		                          DWORD64 startAddress,
+		                          std::vector<unsigned char>& buffer) const;
+
 		const FileFilter::ModuleInfo& GetModuleInfo() const;
 
 		std::unique_ptr<FileFilter::ModuleInfo> moduleInfo_;
@@ -84,5 +92,20 @@ namespace CppCoverage
 		const std::shared_ptr<FilterAssistant> filterAssistant_;
 		const std::shared_ptr<BranchCoverageManager> branchCoverageManager_;
 		std::unique_ptr<BranchDisassembler> branchDisassembler_;
+
+		// Straight-line run merging: selected lines are collected per module
+		// and registered afterwards with one breakpoint per run leader.
+		const bool enableLineMerging_;
+		bool is64BitModule_ = true;
+		struct PendingLine
+		{
+			DWORD64 address_;
+			unsigned long length_;
+			unsigned int lineNumber_;
+			size_t fileIndex_;
+		};
+		std::vector<PendingLine> pendingLines_;
+		std::vector<std::filesystem::path> pendingFiles_;
+		std::vector<FunctionRange> functionRanges_;
 	};
 }

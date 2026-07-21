@@ -91,6 +91,10 @@ namespace CppCoverage
 				(ProgramOptions::NoPdbCacheOption.c_str(),
 					"Disable the PDB line-table cache (in memory and on disk). "
 					"The cache is keyed by the exact PDB identity, so it never returns stale data.")
+				(ProgramOptions::NoLineMergingOption.c_str(),
+					"Place one breakpoint per source line instead of one per straight-line "
+					"run of lines. Merging is a pure performance optimization; coverage "
+					"results are identical.")
 				(ProgramOptions::ExcludedLineRegexOption.c_str(), po::value<T_Strings>()->composing(),
 					"Exclude all lines match the regular expression. Regular expression must match the whole line.")
 				(ProgramOptions::SubstitutePdbSourcePathOption.c_str(), po::value<T_Strings>()->composing(),
@@ -137,6 +141,7 @@ namespace CppCoverage
     const std::string ProgramOptions::StopOnAssertOption = "stop_on_assert";
 	const std::string ProgramOptions::BranchCoverageOption = "branch_coverage";
 	const std::string ProgramOptions::NoPdbCacheOption = "no_pdb_cache";
+	const std::string ProgramOptions::NoLineMergingOption = "no_line_merging";
 
 	//-------------------------------------------------------------------------
 	ProgramOptions::ProgramOptions(

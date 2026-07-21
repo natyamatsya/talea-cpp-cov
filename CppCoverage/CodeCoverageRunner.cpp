@@ -83,6 +83,12 @@ namespace CppCoverage
 			    PdbLineTableCache::GetDefaultDiskCacheDirectory());
 		}
 
+		// Run merging relies on the debug-build property that a line's code
+		// range is contiguous; optimized builds fall back to per-line
+		// breakpoints.
+		auto enableLineMerging = settings.IsLineMergingEnabled() &&
+		                         !settings.GetOptimizedBuildSupport();
+
 		monitoredLineRegister_ = std::make_unique<MonitoredLineRegister>(
 		    breakpoint_,
 		    executedAddressManager_,
@@ -92,7 +98,8 @@ namespace CppCoverage
 		        settings.GetOptimizedBuildSupport(),
 		        pdbLineTableCache),
 			filterAssistant_,
-			branchCoverageManager_);
+			branchCoverageManager_,
+			enableLineMerging);
 
 		const auto& startInfo = settings.GetStartInfo();
 		int exitCode = debugger.Debug(startInfo, *this);

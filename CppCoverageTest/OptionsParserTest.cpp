@@ -156,6 +156,17 @@ namespace CppCoverageTest
 			->IsNoPdbCacheModeEnabled());
 		ASSERT_FALSE(TestTools::Parse(parser, {})->IsNoPdbCacheModeEnabled());
 	}
+
+	//-------------------------------------------------------------------------
+	TEST(OptionsParserTest, NoLineMerging)
+	{
+		cov::OptionsParser parser;
+
+		ASSERT_TRUE(TestTools::Parse(parser,
+		{ TestTools::GetOptionPrefix() + cov::ProgramOptions::NoLineMergingOption })
+			->IsNoLineMergingModeEnabled());
+		ASSERT_FALSE(TestTools::Parse(parser, {})->IsNoLineMergingModeEnabled());
+	}
     
     //-------------------------------------------------------------------------
 	TEST(OptionsParserTest, WorkingDirectory)

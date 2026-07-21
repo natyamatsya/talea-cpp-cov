@@ -36,6 +36,7 @@ namespace CppCoverage
 	      optimizedBuildSupport_{false},
 	      branchCoverage_{false},
 	      pdbCacheEnabled_{true},
+	      lineMergingEnabled_{true},
 	      excludedLineRegexes_{excludedLineRegexes},
 	      substitutePdbSourcePath_{substitutePdbSourcePath}
 	{
@@ -81,6 +82,12 @@ namespace CppCoverage
 	void RunCoverageSettings::SetPdbCacheEnabled(bool pdbCacheEnabled)
 	{
 		pdbCacheEnabled_ = pdbCacheEnabled;
+	}
+
+	//-------------------------------------------------------------------------
+	void RunCoverageSettings::SetLineMergingEnabled(bool lineMergingEnabled)
+	{
+		lineMergingEnabled_ = lineMergingEnabled;
 	}
 
 	//-------------------------------------------------------------------------
@@ -141,6 +148,12 @@ namespace CppCoverage
 	bool RunCoverageSettings::IsPdbCacheEnabled() const
 	{
 		return pdbCacheEnabled_;
+	}
+
+	//-------------------------------------------------------------------------
+	bool RunCoverageSettings::IsLineMergingEnabled() const
+	{
+		return lineMergingEnabled_;
 	}
 
 	//-------------------------------------------------------------------------

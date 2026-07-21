@@ -105,6 +105,7 @@
     <ClCompile Include="CppCliTest.cpp" />
     <ClCompile Include="DebugInformationEnumeratorTest.cpp" />
     <ClCompile Include="FilterAssistantTest.cpp" />
+    <ClCompile Include="LineRunScannerTest.cpp" />
     <ClCompile Include="UnifiedDiffCoverageFilterManagerTest.cpp" />
     <ClCompile Include="OptionsParserUnifiedDiffTest.cpp" />
     <ClCompile Include="WildcardCoverageFilterTest.cpp" />
