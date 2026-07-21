@@ -142,7 +142,10 @@ namespace CppCoverage
 				auto exitCode = OnExitProcess(debugEvent, hProcess, hThread, debugEventsHandler);
 				return ProcessStatus{exitCode, std::nullopt};
 			}
-			case EXIT_THREAD_DEBUG_EVENT: OnExitThread(dwThreadId); break;
+			case EXIT_THREAD_DEBUG_EVENT:
+				debugEventsHandler.OnExitThread(dwThreadId);
+				OnExitThread(dwThreadId);
+				break;
 			case LOAD_DLL_DEBUG_EVENT:
 			{
 				const auto& loadDll = debugEvent.u.LoadDll;

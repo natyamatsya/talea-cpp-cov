@@ -250,12 +250,14 @@ namespace CppCoverage
 	    bool needSymbolIndex,
 	    std::shared_ptr<PdbLineTableCache> lineTableCache,
 	    bool needFunctionNames,
-	    bool useRawPdb)
+	    bool useRawPdb,
+	    bool rawPdbOnly)
 		: substitutePdbSourcePaths_{ substitutePdbSourcePaths }
 		, needSymbolIndex_{ needSymbolIndex }
 		, lineTableCache_{ std::move(lineTableCache) }
 		, needFunctionNames_{ needFunctionNames }
 		, useRawPdb_{ useRawPdb }
+		, rawPdbOnly_{ rawPdbOnly }
 	{
 	}
 
@@ -317,6 +319,11 @@ namespace CppCoverage
 			auto lineTable = std::make_shared<ModuleLineTable>();
 			if (RawPdbReader::TryRead(path, *lineTable))
 				return lineTable;
+			// The parallel pre-parse must not touch COM-bound DIA from a worker
+			// thread, so skip the module rather than fall back; the on-load
+			// parse (serialized in the debug loop) handles it later.
+			if (rawPdbOnly_)
+				return nullptr;
 		}
 
 		auto sourcePtr = LoadDataForExe(path);

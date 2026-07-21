@@ -96,7 +96,8 @@ namespace CppCoverage
 					        /*needSymbolIndex*/ false,
 					        cache,
 					        /*needFunctionNames*/ false,
-					        /*useRawPdb*/ true};
+					        /*useRawPdb*/ true,
+					        /*rawPdbOnly*/ true};
 					    PreparseHandler handler;
 					    enumerator.Enumerate(modulePath, handler);
 				    }
@@ -223,6 +224,15 @@ namespace CppCoverage
 		executedAddressManager_->OnExitProcess(hProcess);
 		if (branchCoverageManager_)
 			branchCoverageManager_->OnExitProcess(hProcess);
+	}
+
+	//-------------------------------------------------------------------------
+	void CodeCoverageRunner::OnExitThread(DWORD threadId)
+	{
+		// Drop any pending branch single-step re-arm owned by the exiting
+		// thread so a later thread reusing the id cannot be mistaken for it.
+		if (branchCoverageManager_)
+			branchCoverageManager_->OnExitThread(threadId);
 	}
 
 	//-------------------------------------------------------------------------

@@ -60,6 +60,7 @@ namespace CppCoverage
 		bool OnSingleStep(HANDLE hProcess, HANDLE hThread, const BreakPoint&);
 
 		void OnExitProcess(HANDLE hProcess);
+		void OnExitThread(DWORD threadId);
 		void OnUnloadModule(HANDLE hProcess, void* dllBaseOfImage);
 
 		void DecorateCoverageData(Plugin::CoverageData&) const;

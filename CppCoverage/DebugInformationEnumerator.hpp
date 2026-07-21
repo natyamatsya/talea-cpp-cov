@@ -100,7 +100,8 @@ namespace CppCoverage
 		    bool needSymbolIndex = false,
 		    std::shared_ptr<PdbLineTableCache> lineTableCache = nullptr,
 		    bool needFunctionNames = false,
-		    bool useRawPdb = true);
+		    bool useRawPdb = true,
+		    bool rawPdbOnly = false);
 		bool Enumerate(const std::filesystem::path&,
 		               IDebugInformationHandler&);
 
@@ -120,5 +121,9 @@ namespace CppCoverage
 		const std::shared_ptr<PdbLineTableCache> lineTableCache_;
 		const bool needFunctionNames_;
 		const bool useRawPdb_;
+		// When set, a module raw_pdb cannot read is skipped rather than parsed
+		// with DIA. Used by the parallel import pre-parse, where COM-bound DIA
+		// must not run concurrently across worker threads.
+		const bool rawPdbOnly_;
 	};
 }

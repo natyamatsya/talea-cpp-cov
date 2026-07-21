@@ -230,6 +230,15 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
+	void BranchCoverageManager::OnExitThread(DWORD threadId)
+	{
+		// A thread that exits mid-cycle (after a branch hit but before its
+		// single-step) leaves a stale entry; drop it so a later thread reusing
+		// the id is not mistaken for a pending re-arm.
+		pendingReArms_.erase(threadId);
+	}
+
+	//-------------------------------------------------------------------------
 	void BranchCoverageManager::OnUnloadModule(HANDLE hProcess,
 	                                           void* dllBaseOfImage)
 	{
