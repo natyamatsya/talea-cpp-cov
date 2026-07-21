@@ -24,13 +24,18 @@
 #include <string>
 #include <system_error>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
 #include "tools/Log.hpp"
 #include "Tools/WarningManager.hpp"
 
+#include <map>
+
 #include "Address.hpp"
+#include "BranchDisassembler.hpp"
+#include "BranchInstruction.hpp"
 #include "CppCoverageException.hpp"
 #include "CoverageFilterManager.hpp"
 #include "DebugInformationEnumerator.hpp"
@@ -45,7 +50,13 @@
 #include "FileFilter/FileInfo.hpp"
 #include "FileFilter/LineInfo.hpp"
 
+#include "Plugin/Exporter/CoverageData.hpp"
+#include "Plugin/Exporter/ModuleCoverage.hpp"
+#include "Plugin/Exporter/FileCoverage.hpp"
+#include "Plugin/Exporter/LineCoverage.hpp"
+
 #include "VehCoverageHelper/VehProtocol.hpp"
+#include "VehCoverageHelper/VehBranchEval.hpp"
 
 namespace CppCoverage
 {
@@ -70,6 +81,16 @@ namespace CppCoverage
 		// One instrumented module: the probe leader RVAs the helper patches,
 		// and, aligned with them, the (file, line)s each leader covers, so the
 		// coverage data can be built from the hit bitmap after the run.
+		struct ModuleBranch
+		{
+			std::uint32_t rva_;
+			std::uint8_t originalByte_;
+			VehCoverage::BranchCondition condition_;
+			std::wstring filePath_;
+			unsigned int lineNumber_;
+			unsigned int branchIndex_;
+		};
+
 		struct ModuleProbes
 		{
 			std::filesystem::path path_;
@@ -77,7 +98,41 @@ namespace CppCoverage
 			std::vector<std::uint32_t> probeRvas_;
 			std::vector<std::vector<std::pair<std::wstring, unsigned int>>>
 			    probeLines_;
+			std::vector<ModuleBranch> branches_; // sorted by rva_, may be empty
 		};
+
+		//---------------------------------------------------------------------
+		// Maps the debugger engine's branch-condition enum onto the shared one
+		// the helper evaluates. An explicit switch, so a reordering of either
+		// enum becomes a compile error rather than a silent mismatch.
+		VehCoverage::BranchCondition ToVehCondition(BranchCondition condition)
+		{
+			using Src = BranchCondition;
+			using Dst = VehCoverage::BranchCondition;
+			switch (condition)
+			{
+				case Src::Overflow: return Dst::Overflow;
+				case Src::NoOverflow: return Dst::NoOverflow;
+				case Src::Below: return Dst::Below;
+				case Src::AboveOrEqual: return Dst::AboveOrEqual;
+				case Src::Zero: return Dst::Zero;
+				case Src::NotZero: return Dst::NotZero;
+				case Src::BelowOrEqual: return Dst::BelowOrEqual;
+				case Src::Above: return Dst::Above;
+				case Src::Sign: return Dst::Sign;
+				case Src::NoSign: return Dst::NoSign;
+				case Src::Parity: return Dst::Parity;
+				case Src::NoParity: return Dst::NoParity;
+				case Src::Less: return Dst::Less;
+				case Src::GreaterOrEqual: return Dst::GreaterOrEqual;
+				case Src::LessOrEqual: return Dst::LessOrEqual;
+				case Src::Greater: return Dst::Greater;
+				case Src::CxZero: return Dst::CxZero;
+				case Src::EcxZero: return Dst::EcxZero;
+				case Src::RcxZero: return Dst::RcxZero;
+			}
+			THROW("Invalid branch condition");
+		}
 
 		//---------------------------------------------------------------------
 		std::wstring ToLowerAscii(const std::wstring& value)
@@ -285,6 +340,63 @@ namespace CppCoverage
 		}
 
 		//---------------------------------------------------------------------
+		// Disassembles each selected line's code range (from the PE file, no
+		// live process) to find its conditional jumps, and records a branch
+		// probe per distinct Jcc. Mirrors the debugger's RegisterBranches,
+		// minus the process: same Zydis discovery, same per-line branch index.
+		void DiscoverBranches(const std::filesystem::path& modulePath,
+		                      const std::vector<SelectedLine>& selectedLines,
+		                      ModuleProbes& out)
+		{
+			auto reader = PeImageFileReader::TryCreate(modulePath);
+			if (!reader)
+				return;
+
+			BranchDisassembler disassembler{/*is64BitCode*/ true};
+
+			std::map<std::pair<std::wstring, unsigned int>, unsigned int>
+			    branchIndexByLine;
+			std::unordered_set<std::uint32_t> seenRvas; // first Jcc wins
+
+			for (const auto& line : selectedLines)
+			{
+				if (line.length_ == 0)
+					continue;
+				auto buffer = reader->ReadCode(line.rva_, line.length_);
+				if (buffer.empty())
+					continue;
+
+				auto branches = disassembler.FindConditionalBranches(
+				    buffer.data(), buffer.size(), line.rva_);
+				for (const auto& branch : branches)
+				{
+					auto rva =
+					    static_cast<std::uint32_t>(branch.virtualAddress_);
+					if (!seenRvas.insert(rva).second)
+						continue;
+
+					auto key =
+					    std::make_pair(line.filePath_, line.lineNumber_);
+					auto branchIndex = branchIndexByLine[key]++;
+					out.branches_.push_back(
+					    ModuleBranch{rva,
+					                 buffer[rva - line.rva_],
+					                 ToVehCondition(branch.condition_),
+					                 line.filePath_,
+					                 line.lineNumber_,
+					                 branchIndex});
+				}
+			}
+
+			// The helper binary-searches the branch table by RVA.
+			std::sort(out.branches_.begin(),
+			          out.branches_.end(),
+			          [](const ModuleBranch& lhs, const ModuleBranch& rhs) {
+				          return lhs.rva_ < rhs.rva_;
+			          });
+		}
+
+		//---------------------------------------------------------------------
 		// Computes the probe spec for one module from its PDB and file, offline.
 		// Returns nullopt when the module has no debug information or no
 		// selected line to instrument.
@@ -314,6 +426,10 @@ namespace CppCoverage
 			            probes);
 			if (probes.probeRvas_.empty())
 				return std::nullopt;
+
+			if (settings.GetBranchCoverage())
+				DiscoverBranches(
+				    modulePath, collector.GetSelectedLines(), probes);
 			return probes;
 		}
 
@@ -499,6 +615,8 @@ namespace CppCoverage
 			{
 				totalSize += VehCoverage::ModuleArraysSize(
 				    static_cast<std::uint32_t>(module.probeRvas_.size()));
+				totalSize += VehCoverage::BranchArraysSize(
+				    static_cast<std::uint32_t>(module.branches_.size()));
 			}
 
 			auto mappingName = std::wstring{VehCoverage::MappingNamePrefix} +
@@ -557,11 +675,17 @@ namespace CppCoverage
 				            count,
 				            descriptor.baseName_);
 
+				auto branchCount =
+				    static_cast<std::uint32_t>(module.branches_.size());
+
 				descriptor.probeCount_ = probeCount;
 				descriptor.rvaOffset_ =
 				    static_cast<std::uint32_t>(arrayOffset);
 				descriptor.hitOffset_ = static_cast<std::uint32_t>(
 				    arrayOffset + probeCount * sizeof(std::uint32_t));
+				descriptor.branchCount_ = branchCount;
+				descriptor.branchOffset_ = static_cast<std::uint32_t>(
+				    arrayOffset + VehCoverage::ModuleArraysSize(probeCount));
 				descriptor.loaded_ = 0;
 
 				auto* rvaArray = reinterpret_cast<std::uint32_t*>(
@@ -572,7 +696,21 @@ namespace CppCoverage
 				auto* hitArray = base + descriptor.hitOffset_;
 				std::fill_n(hitArray, probeCount, std::uint8_t{0});
 
-				arrayOffset += VehCoverage::ModuleArraysSize(probeCount);
+				auto* branchArray = reinterpret_cast<VehCoverage::BranchProbe*>(
+				    base + descriptor.branchOffset_);
+				for (std::uint32_t b = 0; b < branchCount; ++b)
+				{
+					const auto& source = module.branches_[b];
+					branchArray[b].rva_ = source.rva_;
+					branchArray[b].originalByte_ = source.originalByte_;
+					branchArray[b].condition_ =
+					    static_cast<std::uint8_t>(source.condition_);
+					branchArray[b].outcome_ = 0;
+					branchArray[b].reserved_ = 0;
+				}
+
+				arrayOffset += VehCoverage::ModuleArraysSize(probeCount) +
+				               VehCoverage::BranchArraysSize(branchCount);
 			}
 
 			mappingOut = mapping;
@@ -606,6 +744,89 @@ namespace CppCoverage
 					manager.RegisterAddress(address, filePath, lineNumber, 0);
 				if (hits[i])
 					manager.MarkAddressAsExecuted(address);
+			}
+		}
+
+		//---------------------------------------------------------------------
+		// A branch outcome read back from the shared section, tagged with where
+		// it belongs in the coverage data.
+		struct BranchResult
+		{
+			std::wstring modulePath_;
+			std::wstring filePath_;
+			unsigned int lineNumber_;
+			unsigned int branchIndex_;
+			std::uint8_t outcome_;
+		};
+
+		//---------------------------------------------------------------------
+		void CollectBranchResults(const ModuleProbes& module,
+		                          const VehCoverage::ModuleDescriptor& descriptor,
+		                          const std::uint8_t* base,
+		                          std::vector<BranchResult>& out)
+		{
+			if (descriptor.branchCount_ == 0)
+				return;
+			std::wstring modulePath =
+			    (descriptor.loadedPath_[0]) ? descriptor.loadedPath_
+			                                : module.path_.wstring();
+			const auto* branchArray =
+			    reinterpret_cast<const VehCoverage::BranchProbe*>(
+			        base + descriptor.branchOffset_);
+			for (std::size_t b = 0; b < module.branches_.size(); ++b)
+			{
+				// Every discovered branch is reported, even one never reached
+				// (outcome 0 => neither direction taken), matching the debugger
+				// engine which lists registered branches regardless of hits.
+				const auto& branch = module.branches_[b];
+				out.push_back(BranchResult{modulePath,
+				                           branch.filePath_,
+				                           branch.lineNumber_,
+				                           branch.branchIndex_,
+				                           branchArray[b].outcome_});
+			}
+		}
+
+		//---------------------------------------------------------------------
+		// Attaches the recorded branch outcomes to the built coverage data,
+		// matching the debugger's BranchCoverageManager::DecorateCoverageData.
+		void DecorateBranches(Plugin::CoverageData& coverageData,
+		                      const std::vector<BranchResult>& results)
+		{
+			if (results.empty())
+				return;
+
+			std::unordered_map<
+			    std::wstring,
+			    std::unordered_map<std::wstring, Plugin::FileCoverage*>>
+			    filesByModule;
+			for (const auto& module : coverageData.GetModules())
+			{
+				auto& files = filesByModule[module->GetPath().wstring()];
+				for (const auto& file : module->GetFiles())
+					files[file->GetPath().wstring()] = file.get();
+			}
+
+			for (const auto& result : results)
+			{
+				auto moduleIt = filesByModule.find(result.modulePath_);
+				if (moduleIt == filesByModule.end())
+					continue;
+				auto fileIt = moduleIt->second.find(result.filePath_);
+				if (fileIt == moduleIt->second.end())
+					continue;
+
+				auto* file = fileIt->second;
+				if (!(*file)[result.lineNumber_])
+					continue; // the line was filtered out; skip its branch
+
+				file->AddBranch(
+				    result.lineNumber_,
+				    Plugin::BranchCoverage{
+				        result.branchIndex_,
+				        (result.outcome_ & VehCoverage::BranchTaken) != 0,
+				        (result.outcome_ & VehCoverage::BranchFallThrough) !=
+				            0});
 			}
 		}
 	}
@@ -730,6 +951,7 @@ namespace CppCoverage
 		GetExitCodeProcess(processInfo.hProcess, &exitCode);
 
 		ExecutedAddressManager manager;
+		std::vector<BranchResult> branchResults;
 		if (view)
 		{
 			auto* header = static_cast<VehCoverage::SharedHeader*>(view);
@@ -747,6 +969,8 @@ namespace CppCoverage
 				                     i + 1,
 				                     hits,
 				                     manager);
+				CollectBranchResults(
+				    modules[i], descriptors[i], base, branchResults);
 			}
 			UnmapViewOfFile(view);
 		}
@@ -756,7 +980,9 @@ namespace CppCoverage
 		CloseHandle(processInfo.hThread);
 		CloseHandle(processInfo.hProcess);
 
-		return manager.CreateCoverageData(coverageName,
-		                                  static_cast<int>(exitCode));
+		auto coverageData = manager.CreateCoverageData(
+		    coverageName, static_cast<int>(exitCode));
+		DecorateBranches(coverageData, branchResults);
+		return coverageData;
 	}
 }

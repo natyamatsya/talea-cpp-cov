@@ -34,6 +34,7 @@
 #include <winternl.h>
 
 #include "VehProtocol.hpp"
+#include "VehBranchEval.hpp"
 
 namespace
 {
@@ -61,9 +62,27 @@ namespace
 		std::uint8_t* hits_;
 		std::uint8_t* originalBytes_;
 		std::uint32_t probeCount_;
+		VehCoverage::BranchProbe* branches_; // sorted by rva_, or null
+		std::uint32_t branchCount_;
 	};
 
 	constexpr std::uint32_t MaxActiveModules = 4096;
+
+	// --- Per-thread pending branch re-arm ------------------------------------
+	// A branch probe is fire-many: when it hits, the helper restores the Jcc,
+	// single-steps over it (trap flag), and re-plants the int3 on the following
+	// single-step. This table remembers, per thread, which branch address to
+	// re-plant. Fixed-size and lock-free so the handler never allocates; a
+	// thread has at most one pending re-arm at a time (the single-step follows
+	// the breakpoint immediately). If it overflows, that branch is simply not
+	// re-armed - best-effort, like the line probes.
+	struct PendingRearm
+	{
+		volatile LONG threadId_; // 0 = free slot
+		std::uint8_t* address_;  // branch's absolute address to re-plant
+	};
+	constexpr int MaxPendingRearms = 256;
+	PendingRearm g_pending[MaxPendingRearms];
 
 	VehCoverage::SharedHeader* g_header = nullptr;
 	VehCoverage::ModuleDescriptor* g_descriptors = nullptr;
@@ -113,9 +132,139 @@ namespace
 	}
 
 	//-------------------------------------------------------------------------
+	// Index of rva in a module's sorted BranchProbe array, or -1.
+	std::int32_t FindBranchProbe(const VehCoverage::BranchProbe* branches,
+	                             std::uint32_t branchCount,
+	                             std::uint32_t rva) noexcept
+	{
+		std::uint32_t low = 0;
+		std::uint32_t high = branchCount;
+		while (low < high)
+		{
+			auto mid = low + (high - low) / 2;
+			auto value = branches[mid].rva_;
+			if (value < rva)
+				low = mid + 1;
+			else if (value > rva)
+				high = mid;
+			else
+				return static_cast<std::int32_t>(mid);
+		}
+		return -1;
+	}
+
+	//-------------------------------------------------------------------------
+	// Remembers that this thread must re-plant address on its next single step.
+	void RememberPendingRearm(LONG threadId, std::uint8_t* address) noexcept
+	{
+		for (int i = 0; i < MaxPendingRearms; ++i)
+		{
+			if (InterlockedCompareExchange(
+			        &g_pending[i].threadId_, threadId, 0) == 0)
+			{
+				g_pending[i].address_ = address;
+				return;
+			}
+		}
+		// Table full: skip the re-arm. The int3 stays removed, so this branch
+		// simply stops reporting further outcomes (best-effort).
+	}
+
+	//-------------------------------------------------------------------------
+	// Consumes and returns this thread's pending re-arm address, or null.
+	std::uint8_t* TakePendingRearm(LONG threadId) noexcept
+	{
+		for (int i = 0; i < MaxPendingRearms; ++i)
+		{
+			if (g_pending[i].threadId_ == threadId)
+			{
+				auto* address = g_pending[i].address_;
+				g_pending[i].address_ = nullptr;
+				InterlockedExchange(&g_pending[i].threadId_, 0);
+				return address;
+			}
+		}
+		return nullptr;
+	}
+
+	//-------------------------------------------------------------------------
+	// Services a branch probe: evaluate the jump direction from the trapped
+	// thread's flags, restore the Jcc, and either retire it (both directions
+	// seen) or single-step over it so the int3 can be re-planted. Returns true
+	// if the address was a branch of this module.
+	bool ServiceBranch(const ActiveModule& module,
+	                   std::uint8_t* address,
+	                   std::uint32_t rva,
+	                   EXCEPTION_POINTERS* exceptionInfo) noexcept
+	{
+#ifndef _WIN64
+		// Branch coverage is 64-bit only (the host injects the helper only into
+		// 64-bit targets); the context has no Rcx/Rip to read here on 32-bit.
+		(void)module;
+		(void)address;
+		(void)rva;
+		(void)exceptionInfo;
+		return false;
+#else
+		auto branchIndex =
+		    FindBranchProbe(module.branches_, module.branchCount_, rva);
+		if (branchIndex < 0)
+			return false;
+
+		auto& branch = module.branches_[branchIndex];
+		auto* context = exceptionInfo->ContextRecord;
+
+		bool taken = VehCoverage::IsBranchTaken(
+		    static_cast<VehCoverage::BranchCondition>(branch.condition_),
+		    static_cast<std::uint32_t>(context->EFlags),
+		    static_cast<std::uint64_t>(context->Rcx));
+		branch.outcome_ |= taken ? VehCoverage::BranchTaken
+		                         : VehCoverage::BranchFallThrough;
+
+		// If this address is also a line probe, mark the line executed.
+		auto lineIndex = FindProbe(module.rvas_, module.probeCount_, rva);
+		if (lineIndex >= 0)
+			module.hits_[lineIndex] = 1;
+
+		// Restore the real Jcc and rewind so it re-executes.
+		*address = branch.originalByte_;
+		FlushInstructionCache(GetCurrentProcess(), address, 1);
+		context->Rip = reinterpret_cast<DWORD64>(address);
+
+		// Once both directions are seen the probe is retired (byte stays
+		// restored). Otherwise single-step over the Jcc and re-arm afterwards.
+		if ((branch.outcome_ &
+		     (VehCoverage::BranchTaken | VehCoverage::BranchFallThrough)) !=
+		    (VehCoverage::BranchTaken | VehCoverage::BranchFallThrough))
+		{
+			RememberPendingRearm(
+			    static_cast<LONG>(GetCurrentThreadId()), address);
+			context->EFlags |= 0x100; // trap flag: fault after the next insn
+		}
+		return true;
+#endif
+	}
+
+	//-------------------------------------------------------------------------
 	LONG CALLBACK OnVectoredException(EXCEPTION_POINTERS* exceptionInfo) noexcept
 	{
 		auto* record = exceptionInfo->ExceptionRecord;
+
+		// A single-step is ours only if this thread has a pending branch
+		// re-arm; otherwise it belongs to the app and must pass through.
+		if (record->ExceptionCode == EXCEPTION_SINGLE_STEP)
+		{
+			auto* address =
+			    TakePendingRearm(static_cast<LONG>(GetCurrentThreadId()));
+			if (!address)
+				return EXCEPTION_CONTINUE_SEARCH;
+
+			*address = 0xCC; // re-arm the branch probe
+			FlushInstructionCache(GetCurrentProcess(), address, 1);
+			exceptionInfo->ContextRecord->EFlags &= ~0x100u; // clear trap flag
+			return EXCEPTION_CONTINUE_EXECUTION;
+		}
+
 		if (record->ExceptionCode != EXCEPTION_BREAKPOINT)
 			return EXCEPTION_CONTINUE_SEARCH;
 
@@ -133,6 +282,14 @@ namespace
 
 			auto rva =
 			    static_cast<std::uint32_t>(address - module.base_);
+
+			// Branch probes are checked first: an address that is both a line
+			// leader and a Jcc is serviced as a branch (which also marks the
+			// line), matching the debugger engine.
+			if (module.branchCount_ &&
+			    ServiceBranch(module, address, rva, exceptionInfo))
+				return EXCEPTION_CONTINUE_EXECUTION;
+
 			auto index =
 			    FindProbe(module.rvas_, module.probeCount_, rva);
 			if (index < 0)
@@ -186,10 +343,21 @@ namespace
 		    sectionBase + descriptor.rvaOffset_);
 		auto* hits = sectionBase + descriptor.hitOffset_;
 
+		auto branchCount = descriptor.branchCount_;
+		auto* branches =
+		    branchCount ? reinterpret_cast<VehCoverage::BranchProbe*>(
+		                      sectionBase + descriptor.branchOffset_)
+		                : nullptr;
+
 		auto* originalBytes = static_cast<std::uint8_t*>(
 		    HeapAlloc(GetProcessHeap(), 0, probeCount));
 		if (!originalBytes)
 			return;
+
+		// The active range must cover both line probes and branch probes.
+		auto maxRva = rvas[probeCount - 1];
+		if (branchCount && branches[branchCount - 1].rva_ > maxRva)
+			maxRva = branches[branchCount - 1].rva_;
 
 		// Publish the active entry before planting any int3, so the handler
 		// can service a probe the instant it is planted.
@@ -198,11 +366,13 @@ namespace
 			return;
 
 		g_active[slot].base_ = moduleBase;
-		g_active[slot].end_ = moduleBase + rvas[probeCount - 1] + 1;
+		g_active[slot].end_ = moduleBase + maxRva + 1;
 		g_active[slot].rvas_ = rvas;
 		g_active[slot].hits_ = hits;
 		g_active[slot].originalBytes_ = originalBytes;
 		g_active[slot].probeCount_ = probeCount;
+		g_active[slot].branches_ = branches;
+		g_active[slot].branchCount_ = branchCount;
 		MemoryBarrier();
 		g_activeReady[slot] = 1;
 
@@ -221,6 +391,20 @@ namespace
 				continue;
 			}
 			originalBytes[i] = *address;
+			*address = 0xCC;
+		}
+
+		// Plant the branch probes. Their original byte comes from the host, so
+		// a branch sharing an address with a line probe (already 0xCC) is not
+		// corrupted by re-reading the patched byte.
+		for (std::uint32_t i = 0; i < branchCount; ++i)
+		{
+			auto* address =
+			    const_cast<std::uint8_t*>(moduleBase) + branches[i].rva_;
+			DWORD oldProtect = 0;
+			if (!VirtualProtect(
+			        address, 1, PAGE_EXECUTE_READWRITE, &oldProtect))
+				continue;
 			*address = 0xCC;
 		}
 		FlushInstructionCache(GetCurrentProcess(), nullptr, 0);

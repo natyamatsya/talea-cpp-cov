@@ -78,6 +78,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="VehProtocol.hpp" />
+    <ClInclude Include="VehBranchEval.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="VehCoverageHelper.cpp" />

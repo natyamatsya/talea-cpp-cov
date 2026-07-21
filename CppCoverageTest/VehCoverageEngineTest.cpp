@@ -88,6 +88,29 @@ namespace CppCoverageTest
 	}
 
 	//-------------------------------------------------------------------------
+	// Branch coverage: the VEH engine discovers the same Jcc offline and, via
+	// its in-process trap-flag single-step re-arm, records the same outcome the
+	// debugger does through the debug loop.
+	TEST(VehCoverageEngineTest, BranchMatchesDebugger)
+	{
+		// Both the taken (1) and the fall-through (0) direction, so the
+		// in-process condition evaluation is checked for each outcome.
+		for (const auto* conditionValue : {L"1", L"0"})
+		{
+			auto args = VehArgs(TestCoverageConsole::TestBranch);
+			args.arguments_.push_back(conditionValue);
+			args.branchCoverage_ = true;
+
+			auto debuggerCoverage =
+			    TestTools::ComputeCoverageDataPatterns(args);
+			auto vehCoverage = TestTools::ComputeCoverageDataVeh(args);
+
+			TestHelper::CoverageDataComparer().AssertEquals(debuggerCoverage,
+			                                                vehCoverage);
+		}
+	}
+
+	//-------------------------------------------------------------------------
 	// A DLL is loaded and patched through the DLL-load notification, not the
 	// main module: the VEH engine must cover it exactly like the debugger.
 	TEST(VehCoverageEngineTest, DllMatchesDebugger)

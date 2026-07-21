@@ -33,7 +33,7 @@
 namespace VehCoverage
 {
 	constexpr std::uint32_t ProtocolMagic = 0x43484556;   // "VEHC"
-	constexpr std::uint32_t ProtocolVersion = 2;
+	constexpr std::uint32_t ProtocolVersion = 3;
 
 	// Maximum wide chars (including the null) for a module's base name in the
 	// descriptor. Base names longer than this are not instrumented.
@@ -52,11 +52,25 @@ namespace VehCoverage
 		Error = 2,
 	};
 
+	// One conditional-branch probe (only present when --branch_coverage is on).
+	// The host supplies the original opcode byte and the jump condition; the
+	// helper single-steps the Jcc and records which directions were seen in
+	// outcome_. rva_-sorted within a module so the helper can binary-search it.
+	struct BranchProbe
+	{
+		std::uint32_t rva_;
+		std::uint8_t originalByte_;      // the Jcc's first byte, from the host
+		std::uint8_t condition_;         // VehCoverage::BranchCondition value
+		volatile std::uint8_t outcome_;  // helper writes: bit0 taken, bit1 fall-through
+		std::uint8_t reserved_;
+	};
+
 	// One instrumented module. rvaOffset / hitOffset are byte offsets from the
 	// start of the shared section to this module's uint32 rva[probeCount] and
-	// uint8 hit[probeCount] arrays. The helper sets loaded = 1 when it patches
-	// the module, so the host reports coverage only for modules that actually
-	// mapped.
+	// uint8 hit[probeCount] arrays. branchOffset points to BranchProbe
+	// [branchCount] (both zero when branch coverage is off). The helper sets
+	// loaded = 1 when it patches the module, so the host reports coverage only
+	// for modules that actually mapped.
 	struct ModuleDescriptor
 	{
 		wchar_t baseName_[MaxModuleNameChars]; // lowercased, e.g. "mylib.dll"
@@ -64,6 +78,8 @@ namespace VehCoverage
 		std::uint32_t probeCount_;
 		std::uint32_t rvaOffset_;
 		std::uint32_t hitOffset_;
+		std::uint32_t branchCount_;
+		std::uint32_t branchOffset_;
 		volatile std::uint32_t loaded_;
 	};
 
@@ -111,6 +127,13 @@ namespace VehCoverage
 	{
 		return static_cast<std::size_t>(probeCount) * sizeof(std::uint32_t) +
 		       static_cast<std::size_t>(probeCount);
+	}
+
+	//-------------------------------------------------------------------------
+	// Byte size of a module's BranchProbe[] array.
+	inline std::size_t BranchArraysSize(std::uint32_t branchCount)
+	{
+		return static_cast<std::size_t>(branchCount) * sizeof(BranchProbe);
 	}
 
 	// The file-mapping name is this prefix followed by the target's decimal
