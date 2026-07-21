@@ -69,7 +69,8 @@ toward DATA.
 | Parallelism (HTML export) | 1 | ⏳ tried | I/O+alloc bound — no win; thread-local template cache kept |
 | Columnar `.cov` v2 + bitmap-OR merge | — | ✅ shipped | 30-shard merge 1360 → 655 ms (~2×); `.cov` −35% |
 | Parallelism (shard parse/merge) | — | ⏳ tried | alloc-bound — no win; serial columnar kept |
-| VEH: child processes / branch coverage | 3 | ⬜ open | feature parity with debugger |
+| VEH: branch coverage | 3 | ✅ shipped | in-process trap-flag re-arm; matches debugger |
+| VEH: child processes | 3 | ⬜ open | in-process CreateProcess hook or host registrar |
 | Fast mode: multi-module / ARM64 validation | 2+3 | ⬜ open | breadth + portability proof |
 | TinyInst-style binary rewriting | 3 | ⬜ open | binary-only "data" mode (~15–20%) |
 | Intel PT | 4 | ❌ dropped | Intel-only; portability lock-in |
@@ -252,11 +253,21 @@ consumable by Lighthouse (IDA / Binary Ninja / Ghidra).
 - **VEH child processes** — the debugger engine covers children; VEH does not.
   Needs the helper to propagate into `CreateProcess` descendants (inject on
   child creation, or a shared registrar).
-- **VEH branch coverage** — the debugger engine has it (Zydis-based Jcc
-  discovery + trap-flag re-arm); VEH would need the in-process handler to do the
-  single-step re-arm.
-- **Fast mode: broader module discovery** — currently the main executable; walk
-  the import closure / instrument DLLs, like the VEH engine does.
+- **VEH branch coverage** — ✅ shipped. Branch discovery is offline (same
+  Zydis-based `BranchDisassembler` over the PE file); the protocol carries a
+  per-module `BranchProbe` table (Jcc rva + original byte + condition), and the
+  in-process handler evaluates the jump direction from the trapped thread's
+  flags, then restores the Jcc and single-steps over it (trap flag) to re-arm —
+  the in-process analogue of the debugger's `OnSingleStep`, with a fixed-size
+  lock-free per-thread pending table. `VehCoverageEngineTest.BranchMatchesDebugger`
+  asserts byte-for-byte parity with the debugger. 64-bit only (the engine
+  already injects only into 64-bit targets).
+- **Fast mode: broader module discovery** — the importer and the clang runtime
+  are already multi-module; only the **MSVC runtime** hardcodes the main
+  executable (`GetModuleHandleW(nullptr)`). Adding a module enumeration
+  (`EnumProcessModules` / PEB walk) that emits a raw region per module with a
+  `.sancov` section is the remaining work — the dump format and importer need no
+  change.
 - **Fast mode: ARM64 validation** — the flags and the CFG reconstruction are
   arch-agnostic by construction, but the disassembly (Zydis, x86-only) and the
   MSVC `inc byte [rip+disp]` recognition are x64-specific. An ARM64 backend needs
