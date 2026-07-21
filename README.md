@@ -75,6 +75,16 @@ against unchanged binaries skip the debug-information parse entirely. A relink
 changes the key, so the cache can never return stale data. Use `--no_pdb_cache`
 to disable it.
 
+### Import-closure pre-parse (optional)
+
+`--preparse_imports` parses the executable and its imported DLLs' PDBs in
+parallel before the program starts, warming the line-table cache so each module
+then loads without a per-module parse stalling the debug loop. It is a pure
+performance optimization — coverage results are identical — and its benefit
+scales with the number and size of the imported DLLs (measured ~11% faster cold
+startup on an 8-DLL target). Off by default because the payoff is
+target-dependent.
+
 ### Straight-line run merging
 
 Instead of one breakpoint per source line, one breakpoint is placed per
@@ -94,22 +104,33 @@ services each breakpoint inside the process. This replaces the cross-process
 debug-event round trip (~50 µs per first hit) with an in-process exception
 dispatch, so hit-heavy runs speed up several-fold (measured ~5× on a
 fully-executed 100k-line program) while producing exactly the same coverage as
-the debugger. It instruments the main 64-bit executable and DLLs found under
-its directory; child processes and branch coverage are not supported.
+the debugger. It covers the main executable, filter-matching DLLs, branch
+coverage (`--branch_coverage`), and child processes (`--cover_children`,
+recursive across the whole process tree). It is 64-bit only.
 
 ### Compiler-instrumentation fast mode (experimental)
 
 For the lowest possible overhead, build the target with SanitizerCoverage so
 each basic block increments an inline counter — no debugger, no per-hit kernel
 round trip — and import the resulting dump with `--input_fastcov`. Coverage is
-byte-identical to the debugger. Because the compiler emits a distinct function
-per template instantiation, `--fastcov_template_report` additionally writes a
-per-template report showing, for every instantiation, which lines it covered —
-and the lines covered in some but not all instantiations (a line exercised for
-`foo<int>` but never for `foo<double>`), which plain line coverage hides. It is
-a *mode*, not the default (it needs the recompile), and is architecture-agnostic
-(x64 and ARM64). See [CoverageRuntime/README.md](CoverageRuntime/README.md) for
-the build and run steps.
+byte-identical to the debugger. Both **clang-cl** and **MSVC (`cl.exe`)** are
+supported, and the runtime covers the executable and its instrumented DLLs, not
+just the main module. Because the compiler emits a distinct function per template
+instantiation, `--fastcov_template_report` additionally writes a per-template
+report showing, for every instantiation, which lines it covered — and the lines
+covered in some but not all instantiations (a line exercised for `foo<int>` but
+never for `foo<double>`), which plain line coverage hides. It is a *mode*, not
+the default (it needs the recompile), and is architecture-agnostic (x64 and
+ARM64). See [CoverageRuntime/README.md](CoverageRuntime/README.md) for the build
+and run steps.
+
+### Performance and benchmarks
+
+The collection engines above (debugger + run merging, in-process VEH, and the
+compiler-instrumentation fast mode) all produce identical coverage; which one is
+fastest depends on your workload. For how they work, when to use each, the
+measured benchmarks, and the columnar `.cov` aggregation format, see
+[docs/PERFORMANCE.md](docs/PERFORMANCE.md).
 
 ## Branch coverage (experimental)
 

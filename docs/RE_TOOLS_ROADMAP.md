@@ -1,10 +1,10 @@
 # Coverage for binary / reverse-engineering consumers
 
-> **Status: parked / not the current focus.** Split out of the performance
-> roadmap ([docs/PERFORMANCE_ROADMAP.md](PERFORMANCE_ROADMAP.md)) because it is a
-> different *product* direction — coverage consumed by binary tooling and
-> fuzzers rather than rendered against source. Captured here so the analysis
-> isn't lost; nothing below is scheduled.
+> **Status: parked / not the current focus.** Split out of the performance work
+> ([docs/PERFORMANCE.md](PERFORMANCE.md)) because it is a different *product*
+> direction — coverage consumed by binary tooling and fuzzers rather than
+> rendered against source. Captured here so the analysis isn't lost; nothing
+> below is scheduled.
 
 OpenCppCoverage today maps coverage back to **source** (cobertura / HTML / line
 %, branch taken-or-not). A separate audience consumes coverage at the **binary**
