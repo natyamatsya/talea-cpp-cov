@@ -64,8 +64,8 @@ toward DATA.
 | Run merging (block-leader probes) | 2 | ✅ shipped | full run 4,990 → 290 ms (1 file) |
 | In-process VEH servicing | 3 | ✅ shipped | hit-heavy 5,500 → 1,060 ms; DLLs |
 | Compiler-instrumentation fast mode | 2+3 | ✅ shipped | near-native; clang-cl **+ MSVC** |
-| DIA-free raw PDB reader | 1 | ⬜ open | removes residual per-record COM |
-| Parallelism (parse / export / merge) | 1 | ⬜ open | multi-core startup + export |
+| DIA-free raw PDB reader (raw_pdb) | 1 | ✅ shipped | cold parse ~4×; parses compilands in parallel |
+| Parallelism (export / merge) | 1 | ⬜ open | multi-core export + merge |
 | Columnar `.cov` v2 + bitmap-OR merge | — | ⬜ open | scale `--input_coverage` shards |
 | VEH: child processes / branch coverage | 3 | ⬜ open | feature parity with debugger |
 | Fast mode: multi-module / ARM64 validation | 2+3 | ⬜ open | breadth + portability proof |
@@ -111,6 +111,22 @@ reloads) and a disk layer under `%LOCALAPPDATA%\OpenCppCoverage\PdbCache`
 table stores *raw* PDB names and *all* files, so source selection and
 `--substitute_pdb_source_path` apply at replay time and one table is valid under
 any filter. **Warm startup 745 → ~240 ms; `--no_pdb_cache` disables it.**
+
+**DIA-free raw PDB reader** (`RawPdbReader`, on the vendored **raw_pdb**). The
+default parse path now memory-maps the PDB and scans the columnar CodeView
+streams directly instead of paying DIA's ≥6 COM calls per line record — and,
+because raw_pdb streams are lock-free immutable memory, it parses each
+compiland's line stream **in parallel** (`std::execution::par`; this is why
+raw_pdb over COM-bound DIA, and where parallel STL beats a sender/receiver
+graph). It produces the same `ModuleLineTable` as DIA (raw names, RVA + code
+length, sorted function ranges — validated byte-for-byte by `RawPdbReaderTest`),
+so the cache and all downstream are unchanged; DIA remains the fallback for
+`/DEBUG:FASTLINK`, a missing/mismatched PDB, and the DIA-only data
+(`--optimized_build` symbol indexes, fast-mode demangled names). This attacks
+the *cold* parse the cache only hides on a warm run — the first run of every CI
+job. **Cold parse (no cache): 5,000 headers 434 → 244 ms, 100k lines/1 file
+275 → 146 ms whole-run; the parse component itself ~4×. `--no_raw_pdb` forces
+DIA.**
 
 ### 3.2 The data-oriented core
 
@@ -189,31 +205,19 @@ have given us, without the lock-in).
 
 ## 4. Open work (prioritized)
 
-### A. DIA-free raw PDB reader — the last startup lever
+### A. Parallelism — the rest of the immutable pipeline
 
-DIA still costs ≥6 COM calls per line record on a cold parse. The on-disk
-CodeView **C13 format is already columnar**: `DEBUG_S_LINES` subsections are
-packed 8-byte records, `DEBUG_S_FILECHKSMS` maps file indices to the string
-table. So "enumerate all (RVA, fileId, line)" becomes **mmap the PDB and
-memcpy-scan flat arrays**. Reader of choice: **raw_pdb** (Molecular Matters, BSD,
-memory-mapped, concurrency-friendly, "orders of magnitude faster than DIA"). It
-is already behind `IDebugInformationHandler`/`ParseModule`, so ship it as the
-fast path and **keep DIA as the fallback** for `/DEBUG:FASTLINK` and older
-formats. *Payoff:* collapses the cold-parse term the PDB cache only hides on a
-warm run — the first run of every CI job. *Risk:* medium-high (PDB format
-surface). Records come grouped by function contribution, so
-`ReleaseCoverageFilter`'s per-symbol grouping falls out for free.
+PDB parsing already goes parallel per-compiland inside the raw_pdb reader
+(§3.1). The remaining parallel-safe, immutable-data work: **per-file HTML
+generation**, **`.cov` merge** as a parallel bitmap reduce, and **filter scans**
+over the frozen table — all lock-free. (The `WaitForDebugEvent` loop itself is
+single-threaded by OS contract; don't fight it. Pre-parsing the exe's import
+closure *before* `CreateProcess` is a further raw_pdb win.) Use the parallel STL
+(`std::for_each(std::execution::par, …)`), not stdexec — fork-join over
+independent items, no sender/receiver graph, zero new dependency, and MSVC's
+weakest support is stdexec's, not the parallel STL's.
 
-### B. Parallelism — the immutable data model unlocks it
-
-The `WaitForDebugEvent` loop is single-threaded by OS contract; don't fight it.
-But the rest is now immutable and parallel-safe: **PDB parsing** on a thread pool
-(pre-parse the main exe + its static import closure *before* `CreateProcess`),
-**per-file HTML generation**, **`.cov` merge** as a parallel bitmap reduce,
-**filter scans** over the frozen table. No locking — everything operates on
-immutable data. Best paired with A (raw_pdb streams are concurrency-friendly).
-
-### C. Columnar `.cov` v2 + merge-as-bitmap-OR
+### B. Columnar `.cov` v2 + merge-as-bitmap-OR
 
 Give the binary format a columnar layout (version byte for back-compat): module
 table, interned path blob, then per (module,file) a delta-varint line column +
@@ -224,7 +228,7 @@ columnar probe table (§3.2) feeds this directly. Optionally emit the **drcov v2
 format so BB output is consumable by Lighthouse (IDA / Binary Ninja / Ghidra).
 Self-contained, low risk, fully testable.
 
-### D. Feature extensions to the shipped engines
+### C. Feature extensions to the shipped engines
 
 - **VEH child processes** — the debugger engine covers children; VEH does not.
   Needs the helper to propagate into `CreateProcess` descendants (inject on
@@ -240,7 +244,7 @@ Self-contained, low risk, fully testable.
   a fixed-width decoder (much simpler than x86) and the ARM64 counter-increment
   form. Cannot be validated without ARM64 Windows hardware.
 
-### E. TinyInst-style selective binary rewriting — the binary-only "data" mode
+### D. TinyInst-style selective binary rewriting — the binary-only "data" mode
 
 Mark the target module non-executable, fault on first entry, JIT-rewrite basic
 blocks into a nearby region with inline coverage-recording instructions; only
