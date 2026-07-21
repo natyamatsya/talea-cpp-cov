@@ -156,6 +156,27 @@ namespace VehCoverage
 		return static_cast<std::size_t>(branchCount) * sizeof(BranchProbe);
 	}
 
+	//-------------------------------------------------------------------------
+	// Round n up to the next multiple of a (a is a power of two).
+	inline std::size_t AlignUp(std::size_t n, std::size_t a)
+	{
+		return (n + a - 1) & ~(a - 1);
+	}
+
+	//-------------------------------------------------------------------------
+	// Byte size of a module's whole region: rva[]+hit[] padded so the following
+	// BranchProbe[] (which holds a uint32) is aligned, then the branch array.
+	// AlignUp keeps the total a multiple of BranchProbe's alignment, so each
+	// module's rva[] and BranchProbe[] land on aligned addresses. The host must
+	// advance its layout cursor by exactly this, and set branchOffset_ to the
+	// padded boundary (see CreateSharedSection).
+	inline std::size_t ModuleRegionSize(std::uint32_t probeCount,
+	                                    std::uint32_t branchCount)
+	{
+		return AlignUp(ModuleArraysSize(probeCount), alignof(BranchProbe)) +
+		       BranchArraysSize(branchCount);
+	}
+
 	// The file-mapping name is this prefix followed by the target's decimal
 	// process id, in the session-local namespace (host and target share a
 	// session). Both sides derive the same name from the pid, so no other

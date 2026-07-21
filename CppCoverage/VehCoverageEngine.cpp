@@ -563,8 +563,15 @@ namespace CppCoverage
 					if (thread)
 					{
 						WaitForSingleObject(thread, INFINITE);
+						// The remote LoadLibraryW returns the loaded HMODULE
+						// (truncated to 32 bits in the thread exit code); 0 means
+						// the helper failed to load. Checking it makes a failed
+						// injection return promptly instead of letting
+						// WaitForHelperReady poll the full timeout.
+						DWORD threadExit = 0;
+						GetExitCodeThread(thread, &threadExit);
 						CloseHandle(thread);
-						success = true;
+						success = threadExit != 0;
 					}
 				}
 			}
@@ -617,9 +624,8 @@ namespace CppCoverage
 			        static_cast<std::uint32_t>(modules.size()));
 			for (const auto& module : modules)
 			{
-				totalSize += VehCoverage::ModuleArraysSize(
-				    static_cast<std::uint32_t>(module.probeRvas_.size()));
-				totalSize += VehCoverage::BranchArraysSize(
+				totalSize += VehCoverage::ModuleRegionSize(
+				    static_cast<std::uint32_t>(module.probeRvas_.size()),
 				    static_cast<std::uint32_t>(module.branches_.size()));
 			}
 
@@ -693,7 +699,10 @@ namespace CppCoverage
 				    arrayOffset + probeCount * sizeof(std::uint32_t));
 				descriptor.branchCount_ = branchCount;
 				descriptor.branchOffset_ = static_cast<std::uint32_t>(
-				    arrayOffset + VehCoverage::ModuleArraysSize(probeCount));
+				    arrayOffset +
+				    VehCoverage::AlignUp(
+				        VehCoverage::ModuleArraysSize(probeCount),
+				        alignof(VehCoverage::BranchProbe)));
 				descriptor.loaded_ = 0;
 
 				auto* rvaArray = reinterpret_cast<std::uint32_t*>(
@@ -717,8 +726,8 @@ namespace CppCoverage
 					branchArray[b].reserved_ = 0;
 				}
 
-				arrayOffset += VehCoverage::ModuleArraysSize(probeCount) +
-				               VehCoverage::BranchArraysSize(branchCount);
+				arrayOffset +=
+				    VehCoverage::ModuleRegionSize(probeCount, branchCount);
 			}
 
 			mappingOut = mapping;
@@ -1135,6 +1144,18 @@ namespace CppCoverage
 							                    helperDllPath,
 							                    children);
 						});
+					}
+					else
+					{
+						// Without the registration events there is no host to
+						// service children, so disable child hooking; otherwise
+						// every spawned child would block waiting on a ready
+						// signal that never comes. The header is read by the
+						// helper only after injection below.
+						LOG_WARNING << L"VEH: child-process registration "
+						               L"unavailable; child coverage disabled.";
+						header->coverChildren = 0;
+						coverChildren = false;
 					}
 				}
 
