@@ -70,7 +70,7 @@ toward DATA.
 | Columnar `.cov` v2 + bitmap-OR merge | — | ✅ shipped | 30-shard merge 1360 → 655 ms (~2×); `.cov` −35% |
 | Parallelism (shard parse/merge) | — | ⏳ tried | alloc-bound — no win; serial columnar kept |
 | VEH: branch coverage | 3 | ✅ shipped | in-process trap-flag re-arm; matches debugger |
-| VEH: child processes | 3 | ⬜ open | in-process CreateProcess hook or host registrar |
+| VEH: child processes | 3 | 🧪 spike | in-process CreateProcess hook; matches debugger; IAT-only |
 | Fast mode: instrumented-DLL discovery | 2+3 | ✅ shipped | runtime enumerates modules; exe + DLLs |
 | Fast mode: ARM64 validation | 2+3 | ⬜ open | needs ARM64 Windows hardware |
 | TinyInst-style binary rewriting | 3 | ⬜ open | binary-only "data" mode (~15–20%) |
@@ -251,9 +251,19 @@ consumable by Lighthouse (IDA / Binary Ninja / Ghidra).
 
 ### C. Feature extensions to the shipped engines
 
-- **VEH child processes** — the debugger engine covers children; VEH does not.
-  Needs the helper to propagate into `CreateProcess` descendants (inject on
-  child creation, or a shared registrar).
+- **VEH child processes** — 🧪 working spike. The injected helper hooks
+  `CreateProcessW` (IAT patch of every module mapped at injection, matched by
+  resolved address — no name walk or trampoline), force-suspends each child,
+  and hands its pid to the host over a shared slot + event pair; the host
+  computes the child's probes offline, lays out its section, injects the helper
+  into the still-suspended child, then the hook resumes it. Coverage is read back
+  per child after exit. `VehCoverageEngineTest.ChildProcessMatchesDebugger`
+  asserts byte-for-byte parity with the debugger's `--cover_children` (5/5, no
+  flakiness). **To productionize:** IAT hooking misses `CreateProcessA`,
+  dynamically resolved calls, and DLLs loaded after injection (upgrade to inline
+  hooking or hook-on-DLL-load + the A/`NtCreateUserProcess` variants); enable
+  recursive grandchildren (child sections currently set `coverChildren = 0`);
+  concurrent (not serialized) registration. 64-bit only, like the rest of VEH.
 - **VEH branch coverage** — ✅ shipped. Branch discovery is offline (same
   Zydis-based `BranchDisassembler` over the PE file); the protocol carries a
   per-module `BranchProbe` table (Jcc rva + original byte + condition), and the
