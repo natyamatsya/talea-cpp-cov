@@ -17,8 +17,7 @@
 #include "stdafx.h"
 #include "Wildcards.hpp"
 
-#include <boost/algorithm/string.hpp>
-
+#include "Tools/StringUtils.hpp"
 #include "Tools/Tool.hpp"
 
 namespace CppCoverage
@@ -37,12 +36,14 @@ namespace CppCoverage
 		for (auto c : EscapedChars)
 		{
 			std::wstring escapedString{ c };
-			boost::replace_all(str, escapedString, L"\\" + escapedString);
+			Tools::ReplaceAll(str,
+			                  std::wstring_view{escapedString},
+			                  std::wstring_view{L"\\" + escapedString});
 		}
-		
-		// remove useless * 
-		boost::trim_if(str, [](wchar_t c){ return c == L'*';});
-		boost::replace_all(str, L"*", L".*");
+
+		// remove useless *
+		Tools::TrimIf(str, [](wchar_t c){ return c == L'*';});
+		Tools::ReplaceAll(str, std::wstring_view{L"*"}, std::wstring_view{L".*"});
 		wildcars_.assign(str, flags);
 	}
 

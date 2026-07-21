@@ -27,7 +27,7 @@
 #include <memory>
 #include <optional>
 #include <unordered_map>
-#include <boost/algorithm/string.hpp>
+#include "Tools/StringUtils.hpp"
 
 #include "tools/Log.hpp"
 
@@ -511,7 +511,7 @@ namespace CppCoverage
 		{
 			auto pdbStartPath = paths.GetPdbStartPath().wstring();
 
-			if (boost::istarts_with(filenameStr, pdbStartPath))
+			if (Tools::IStartsWith(filenameStr, std::wstring_view{pdbStartPath}))
 			{
 				auto startIndex = pdbStartPath.size();
 				if (startIndex < filenameStr.size() && filenameStr[startIndex] == '\\')

@@ -16,7 +16,6 @@
 
 #include "stdafx.h"
 
-#include <boost/algorithm/string.hpp>
 
 #include "CoverageFilterManager.hpp"
 #include "UnifiedDiffCoverageFilterManager.hpp"

@@ -20,7 +20,7 @@
 #include <filesystem>
 
 #include <optional>
-#include <boost/algorithm/string.hpp>
+#include "Tools/StringUtils.hpp"
 
 #include <unordered_map>
 #include <map>
@@ -37,7 +37,7 @@ namespace FileFilter
 		//---------------------------------------------------------------------
 		fs::path NormalizePath(const fs::path& path)
 		{
-			fs::path lowerPath = boost::algorithm::to_lower_copy(path.wstring());
+			fs::path lowerPath = Tools::ToLowerCopy(path.wstring());
 			lowerPath.make_preferred();
 
 			return lowerPath;
@@ -82,10 +82,10 @@ namespace FileFilter
 			{
 				auto postFixPath = NormalizePath(pathData.postFixPath_.GetPath());
 
-				if (boost::algorithm::ends_with(normalizedPath.wstring(), postFixPath.wstring()))
+				if (normalizedPath.wstring().ends_with(postFixPath.wstring()))
 				{
-					if (pathData.matchedPath_ && 
-						!boost::algorithm::equals(pathData.matchedPath_->wstring(), normalizedPath.wstring()))
+					if (pathData.matchedPath_ &&
+						pathData.matchedPath_->wstring() != normalizedPath.wstring())
 					{
 						throw AmbiguousPathException(postFixPath,
 							*pathData.matchedPath_, normalizedPath);

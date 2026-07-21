@@ -95,6 +95,7 @@
     <ClInclude Include="ScopedAction.hpp" />
     <ClInclude Include="ToolsExport.hpp" />
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="StringUtils.hpp" />
     <ClInclude Include="Tool.hpp" />
     <ClInclude Include="UniquePath.hpp" />
     <ClInclude Include="WarningManager.hpp" />

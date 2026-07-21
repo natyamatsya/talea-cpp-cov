@@ -25,9 +25,7 @@
 #include <vector>
 #include <filesystem>
 
-#include <boost/algorithm/string/split.hpp>
-#include <boost/algorithm/string/classification.hpp>
-
+#include "Tools/StringUtils.hpp"
 #include "Tools/Tool.hpp"
 #include "CppCoverage/Patterns.hpp"
 
@@ -64,7 +62,9 @@ namespace CppCoverage
 
 			// Do not iterate over path: path{"Folder\\"}.filename() == '.'
 			std::vector<std::string> parts;
-			boost::split(parts, value, [](char c) { return c == '\\'; });
+			Tools::Split(parts, std::string_view{value}, [](char c) {
+				return c == '\\';
+			});
 
 			for (const auto& part : parts)
 			{

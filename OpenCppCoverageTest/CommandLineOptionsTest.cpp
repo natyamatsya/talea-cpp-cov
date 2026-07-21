@@ -17,7 +17,7 @@
 #include "stdafx.h"
 
 #include <filesystem>
-#include <boost/algorithm/string/predicate.hpp >
+#include "Tools/StringUtils.hpp"
 #include "TestHelper/TemporaryPath.hpp"
 #include "CppCoverage/OptionsParser.hpp"
 #include "CppCoverage/ProgramOptions.hpp"
@@ -47,7 +47,7 @@ namespace OpenCppCoverageTest
 			{
 				const auto& path = it->path();
 
-				if (boost::iequals(path.filename().stem().wstring(), filename))
+				if (Tools::IEquals(path.filename().stem().wstring(), std::wstring_view{filename}))
 					return true;
 			}
 

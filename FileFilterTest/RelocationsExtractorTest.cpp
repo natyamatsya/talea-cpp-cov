@@ -17,7 +17,7 @@
 #include "stdafx.h"
 #include <windows.h>
 #include <regex>
-#include <boost/algorithm/string.hpp>
+#include "Tools/StringUtils.hpp"
 
 #include "FileFilter/RelocationsExtractor.hpp"
 #include "TestCoverageOptimizedBuild/TestCoverageOptimizedBuild.hpp"
@@ -36,7 +36,7 @@ namespace FileFilterTest
 
 		const auto it = std::find_if(fs::recursive_directory_iterator(msvc), end,
 			[](const fs::directory_entry& entry) {
-			return boost::iequals(entry.path().filename().string(), "dumpbin.exe");
+			return Tools::IEquals(entry.path().filename().string(), std::string_view{"dumpbin.exe"});
 		});
 		if (it == end)
 			throw std::runtime_error("Cannot find dumpbin.exe");

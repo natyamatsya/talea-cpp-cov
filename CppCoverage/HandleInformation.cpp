@@ -18,7 +18,7 @@
 #include "HandleInformation.hpp"
 
 #include <Psapi.h>
-#include <boost/algorithm/string.hpp>
+#include "Tools/StringUtils.hpp"
 #include "CppCoverageException.hpp"
 #include "Handle.hpp"
 
@@ -142,9 +142,12 @@ namespace CppCoverage
 			const auto& deviceName = queryDosDeviceMapping.first;
 			const auto& logicalDrive = queryDosDeviceMapping.second;
 
-			if (boost::algorithm::istarts_with(mappedFileName, deviceName))
+			if (Tools::IStartsWith(mappedFileName,
+			                       std::wstring_view{deviceName}))
 			{
-				boost::algorithm::ireplace_first(mappedFileName, deviceName, logicalDrive);
+				Tools::IReplaceFirst(mappedFileName,
+				                     std::wstring_view{deviceName},
+				                     std::wstring_view{logicalDrive});
 				return mappedFileName;
 			}
 		}

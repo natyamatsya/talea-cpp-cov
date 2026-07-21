@@ -18,7 +18,6 @@
 
 #include <Windows.h>
 #include <filesystem>
-#include <boost/algorithm/string/predicate.hpp>
 
 #include "TestCoverageConsole/TestCoverageConsole.hpp"
 #include "OpenCppCoverage/OpenCppCoverage.hpp"
@@ -167,16 +166,16 @@ namespace OpenCppCoverageTest
 	//-------------------------------------------------------------------------
 	TEST(OpenCppCoverageConsoleTest, FilterAssistantNoModules)
 	{
-		ASSERT_TRUE(boost::algorithm::contains(
-		    GetOutput({cov::ProgramOptions::SelectedModulesOption, "No match"}),
-		    cov::FilterAssistant::NoModulesSelectedMsg));
+		ASSERT_TRUE(
+		    GetOutput({cov::ProgramOptions::SelectedModulesOption, "No match"})
+		        .contains(cov::FilterAssistant::NoModulesSelectedMsg));
 	}
 
 	//-------------------------------------------------------------------------
 	TEST(OpenCppCoverageConsoleTest, FilterAssistantNoSourceFiles)
 	{
-		ASSERT_TRUE(boost::algorithm::contains(
-		    GetOutput({cov::ProgramOptions::SelectedSourcesOption, "No match"}),
-		    cov::FilterAssistant::NoSourceFilesSelectedMsg));
+		ASSERT_TRUE(
+		    GetOutput({cov::ProgramOptions::SelectedSourcesOption, "No match"})
+		        .contains(cov::FilterAssistant::NoSourceFilesSelectedMsg));
 	}
 }

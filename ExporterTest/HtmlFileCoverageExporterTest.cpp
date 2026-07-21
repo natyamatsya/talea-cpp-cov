@@ -18,7 +18,7 @@
 
 #include <fstream>
 
-#include <boost/algorithm/string.hpp>
+#include "Tools/StringUtils.hpp"
 #include "Plugin/Exporter/FileCoverage.hpp"
 #include "Exporter/Html/HtmlFileCoverageExporter.hpp"
 #include "TestHelper/TemporaryPath.hpp"
@@ -74,7 +74,9 @@ namespace ExporterTest
 
 			std::wstring exportedString = ostr.str();
 			std::vector<std::wstring> lines;
-			boost::split(lines, exportedString, boost::is_any_of("\n"));
+			Tools::Split(lines, std::wstring_view{exportedString}, [](wchar_t c) {
+			return c == L'\n';
+		});
 
 			// First line is always empty
 			lines.erase(lines.begin());

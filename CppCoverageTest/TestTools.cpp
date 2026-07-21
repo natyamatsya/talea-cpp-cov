@@ -18,7 +18,7 @@
 #include "TestTools.hpp"
 
 #include <filesystem>
-#include <boost/algorithm/string.hpp>
+#include "Tools/StringUtils.hpp"
 
 #include "CppCoverage/StartInfo.hpp"
 #include "CppCoverage/Debugger.hpp"
@@ -125,13 +125,13 @@ namespace CppCoverageTest
 
 			for (auto modulePattern : args.modulePatternCollection_)
 			{
-				boost::to_lower(modulePattern);
+				Tools::ToLower(modulePattern);
 				modulePatterns.AddSelectedPatterns(modulePattern);
 			}
 
 			for (auto sourcePattern : args.sourcePatternCollection_)
 			{
-				boost::to_lower(sourcePattern);
+				Tools::ToLower(sourcePattern);
 				sourcePatterns.AddSelectedPatterns(sourcePattern);
 			}
 
@@ -169,13 +169,13 @@ namespace CppCoverageTest
 
 			for (auto modulePattern : args.modulePatternCollection_)
 			{
-				boost::to_lower(modulePattern);
+				Tools::ToLower(modulePattern);
 				modulePatterns.AddSelectedPatterns(modulePattern);
 			}
 
 			for (auto sourcePattern : args.sourcePatternCollection_)
 			{
-				boost::to_lower(sourcePattern);
+				Tools::ToLower(sourcePattern);
 				sourcePatterns.AddSelectedPatterns(sourcePattern);
 			}
 

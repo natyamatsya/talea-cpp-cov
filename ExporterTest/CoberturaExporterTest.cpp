@@ -20,7 +20,6 @@
 #include <fstream>
 #include <regex>
 
-#include <boost/algorithm/string.hpp>
 
 #include "Plugin/Exporter/CoverageData.hpp"
 #include "Plugin/Exporter/ModuleCoverage.hpp"
@@ -145,9 +144,9 @@ namespace ExporterTest
 		auto name = Tools::LocalToWString(reinterpret_cast<const char*>(u8"class name=\"\u00E9\u00E0\""));
 		auto filename = Tools::LocalToWString(reinterpret_cast<const char*>(u8"filename=\"\u00E9\u00E0\""));
 
-		ASSERT_TRUE(boost::algorithm::contains(result, packageName));
-		ASSERT_TRUE(boost::algorithm::contains(result, name));
-		ASSERT_TRUE(boost::algorithm::contains(result, filename));
+		ASSERT_TRUE(result.contains(packageName));
+		ASSERT_TRUE(result.contains(name));
+		ASSERT_TRUE(result.contains(filename));
 	}
 
 	//-------------------------------------------------------------------------

@@ -17,7 +17,7 @@
 #include "stdafx.h"
 #include "HtmlFolderStructure.hpp"
 
-#include <boost/algorithm/string.hpp>
+#include "Tools/StringUtils.hpp"
 
 #include "Exporter/ExporterException.hpp"
 
@@ -43,7 +43,9 @@ namespace Exporter
 				const auto& path = it->path();
 				std::string destination = path.string();
 				
-				boost::replace_first(destination, from.string(), to.string());
+				Tools::ReplaceFirst(destination,
+				                    std::string_view{from.string()},
+				                    std::string_view{to.string()});
 
 				if (fs::is_directory(path))
 					fs::create_directories(destination);

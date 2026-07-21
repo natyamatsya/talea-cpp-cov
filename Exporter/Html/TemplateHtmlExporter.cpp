@@ -20,7 +20,7 @@
 #include <fstream>
 #include <filesystem>
 #include <unordered_map>
-#include <boost/algorithm/string.hpp>
+#include "Tools/StringUtils.hpp"
 #include <boost/uuid/uuid_io.hpp>
 
 #include "CTemplate.hpp"
@@ -47,7 +47,7 @@ namespace Exporter
 		std::string ToHtmlPath(const fs::path& path)
 		{
 			auto htmlPath = path.wstring();
-			boost::algorithm::replace_all(htmlPath, L"\\", L"/");
+			Tools::ReplaceAll(htmlPath, std::wstring_view{L"\\"}, std::wstring_view{L"/"});
 			return ToString(htmlPath);
 		}
 

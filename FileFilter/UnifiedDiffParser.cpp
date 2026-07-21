@@ -20,7 +20,7 @@
 #include <sstream>
 #include <regex>
 #include <filesystem>
-#include <boost/algorithm/string.hpp>
+#include "Tools/StringUtils.hpp"
 
 #include "File.hpp"
 #include "UnifiedDiffParserException.hpp"
@@ -45,13 +45,13 @@ namespace FileFilter
 
 			auto isGitTarget = std::all_of(files.begin(), files.end(), [](const auto& file)
 			{
-				return boost::algorithm::starts_with(file.GetPath().wstring(), GitTargetPrefix);
+				return file.GetPath().wstring().starts_with(GitTargetPrefix);
 			});
 
 			auto isGitSource = std::all_of(sourceFileLines.begin(), sourceFileLines.end(),
 				[](const auto& line)
 			{
-				return boost::algorithm::starts_with(line, UnifiedDiffParser::FromFilePrefix + L"a/");
+				return line.starts_with(UnifiedDiffParser::FromFilePrefix + L"a/");
 			});
 
 			return isGitTarget && isGitSource;
@@ -70,9 +70,9 @@ namespace FileFilter
 				{
 					auto path = file.GetPath().wstring();
 
-					if (!boost::algorithm::starts_with(path, GitTargetPrefix))
+					if (!path.starts_with(GitTargetPrefix))
 						THROW(L"File should have the prefix: " + GitTargetPrefix);
-					boost::algorithm::erase_head(path, static_cast<int>(GitTargetPrefix.size()));
+					path.erase(0, GitTargetPrefix.size());
 					file.SetPath(path);
 				}
 			}
@@ -98,7 +98,7 @@ namespace FileFilter
 
 			EraseIf(sourceFileLines, [](const auto& line)
 			{
-				return boost::algorithm::starts_with(line, UnifiedDiffParser::FromFilePrefix + DevNull);
+				return line.starts_with(UnifiedDiffParser::FromFilePrefix + DevNull);
 			});
 		}
 	}
@@ -150,14 +150,14 @@ namespace FileFilter
 
 		while (stream.GetLine(line))
 		{
-			if (boost::algorithm::starts_with(line, L"diff --git"))
+			if (line.starts_with(L"diff --git"))
 				foundGitHeader = true;
-			else if (boost::algorithm::starts_with(line, FromFilePrefix))
+			else if (line.starts_with(FromFilePrefix))
 			{
 				sourceFileLines.push_back(line);
 				files.emplace_back(ExtractTargetFile(stream));
 			}
-			else if (boost::algorithm::starts_with(line, L"@@"))
+			else if (line.starts_with(L"@@"))
 				FillUpdatedLines(line, files, stream);
 		}
 		RemoveDevNull(files, sourceFileLines);
@@ -185,7 +185,7 @@ namespace FileFilter
 		if (!stream.GetLine(line))
 			ThrowError(stream, UnifiedDiffParserException::ErrorCannotReadLine);
 		
-		if (!boost::algorithm::starts_with(line, ToFilePrefix))
+		if (!line.starts_with(ToFilePrefix))
 			ThrowError(stream, UnifiedDiffParserException::ErrorExpectFromFilePrefix);
 
 		const auto startIndex = ToFilePrefix.size();
@@ -237,10 +237,10 @@ namespace FileFilter
 		std::vector<int> updatedLines;
 		while (currentLine < endLine && stream.GetLine(lineStr))
 		{
-			if (!boost::algorithm::starts_with(lineStr, "-") &&
-				!boost::algorithm::starts_with(lineStr, "\\")) // For: \ No newline at end of file
+			if (!lineStr.starts_with(L"-") &&
+				!lineStr.starts_with(L"\\")) // For: \ No newline at end of file
 			{
-				if (boost::algorithm::starts_with(lineStr, "+"))
+				if (lineStr.starts_with(L"+"))
 					updatedLines.push_back(currentLine);
 				++currentLine;
 			}

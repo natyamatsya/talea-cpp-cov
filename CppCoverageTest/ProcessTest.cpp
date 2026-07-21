@@ -16,7 +16,9 @@
 
 #include "stdafx.h"
 
-#include <boost/algorithm/string/predicate.hpp>
+#include <string_view>
+
+#include "Tools/Tool.hpp"
 
 #include "CppCoverage/StartInfo.hpp"
 #include "CppCoverage/Process.hpp"
@@ -48,8 +50,9 @@ namespace CppCoverageTest
 		TestHelper::AssertThrow<std::runtime_error>(
 		    [&]() { process.Start(0); },
 		    [](const auto& e) {
-			    ASSERT_TRUE(boost::algorithm::contains(
-			        e.what(), cov::Process::CheckIfValidExecutableMessage));
+			    ASSERT_TRUE(std::string_view{e.what()}.contains(
+			        Tools::ToLocalString(
+			            cov::Process::CheckIfValidExecutableMessage)));
 		    });
 	}
 
@@ -62,8 +65,8 @@ namespace CppCoverageTest
 		TestHelper::AssertThrow<std::runtime_error>(
 		    [&]() { process.Start(0); },
 		    [](const auto& e) {
-			    return boost::algorithm::contains(
-			        e.what(), cov::Process::CannotFindPathMessage);
+			    return std::string_view{e.what()}.contains(
+			        Tools::ToLocalString(cov::Process::CannotFindPathMessage));
 		    });
 	}
 

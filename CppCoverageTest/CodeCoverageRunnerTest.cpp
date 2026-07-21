@@ -17,7 +17,7 @@
 #include "stdafx.h"
 
 #include <filesystem>
-#include <boost/algorithm/string.hpp>
+#include "Tools/StringUtils.hpp"
 #include <boost/range/algorithm/count_if.hpp>
 
 #include <boost/log/trivial.hpp>
@@ -449,7 +449,7 @@ namespace CppCoverageTest
 		auto coverageData = ComputeCoverageData(
 			TestCoverageConsole::TestSpecialLineInfo, specialLineInfoFilename);
 		auto& file = GetFirstFileCoverage(coverageData);
-		ASSERT_TRUE(boost::algorithm::iequals(specialLineInfoFilename, file.GetPath().filename().wstring()));
+		ASSERT_TRUE(Tools::IEquals(specialLineInfoFilename, std::wstring_view{file.GetPath().filename().wstring()}));
 		for (const auto& lineInfo : file.GetLines())
 			ASSERT_TRUE(lineInfo.HasBeenExecuted());
 	}
@@ -486,7 +486,7 @@ namespace CppCoverageTest
 		auto coverageData = ComputeCoverageDataPatterns(args);
 		const auto& file = GetFirstFileCoverage(coverageData);
 		auto filename = file.GetPath().filename().wstring();
-		ASSERT_TRUE(boost::algorithm::iequals(fileWithSpecialChars.wstring(), filename));
+		ASSERT_TRUE(Tools::IEquals(fileWithSpecialChars.wstring(), std::wstring_view{filename}));
 	}
 
 	//-------------------------------------------------------------------------
@@ -500,7 +500,7 @@ namespace CppCoverageTest
 			unloadDllFilename);
 		const auto& file = GetFirstFileCoverage(coverageData);
 		auto filename = file.GetPath().filename().wstring();
-		ASSERT_TRUE(boost::algorithm::iequals(unloadDllFilename, filename));
+		ASSERT_TRUE(Tools::IEquals(unloadDllFilename, std::wstring_view{filename}));
 		ASSERT_NE(0, CountExecutedLines(file));
 	}
 

@@ -25,7 +25,7 @@
 #include <fstream>
 #include <filesystem>
 #include <vector>
-#include <boost/algorithm/string.hpp>
+#include "Tools/StringUtils.hpp"
 
 namespace fs = std::filesystem;
 
@@ -200,7 +200,7 @@ namespace TestHelper
 		std::vector<std::string> args = {
 		    "-latest", "-format", "value", "-property", "installationPath"};
 		std::string value = RunProcess(vswhere, args);
-		boost::trim(value);
+		Tools::Trim(value);
 		fs::path installerPath{value};
 
 		if (!Tools::FileExists(installerPath))

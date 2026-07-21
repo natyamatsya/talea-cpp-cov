@@ -15,7 +15,6 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
-#include <boost/algorithm/string/predicate.hpp>
 
 #include "OpenCppCoverageTestTools.hpp"
 #include "TestCoverageConsole/TestCoverageConsole.hpp"
@@ -54,7 +53,7 @@ namespace OpenCppCoverageTest
 		               arguments,
 		               &stdOut);
 		auto output = Tools::LocalToWString(stdOut);
-		ASSERT_TRUE(boost::algorithm::contains(
-		    output, OptionsParser::GetTooLongCommandLineMessage()));
+		ASSERT_TRUE(
+		    output.contains(OptionsParser::GetTooLongCommandLineMessage()));
 	}
 }
