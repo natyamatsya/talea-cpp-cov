@@ -20,6 +20,7 @@
 #include <Windows.h>
 
 #include <algorithm>
+#include <format>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -622,8 +623,8 @@ namespace CppCoverage
 				    static_cast<std::uint32_t>(module.branches_.size()));
 			}
 
-			auto mappingName = std::wstring{VehCoverage::MappingNamePrefix} +
-			                   std::to_wstring(processId);
+			auto mappingName = std::format(
+			    L"{}{}", VehCoverage::MappingNamePrefix, processId);
 			auto mapping = CreateFileMappingW(
 			    INVALID_HANDLE_VALUE,
 			    nullptr,
@@ -854,11 +855,8 @@ namespace CppCoverage
 		//---------------------------------------------------------------------
 		HANDLE MakeChildEvent(const wchar_t* prefix, DWORD pid)
 		{
-			return CreateEventW(nullptr,
-			                    FALSE,
-			                    FALSE,
-			                    (std::wstring{prefix} + std::to_wstring(pid))
-			                        .c_str());
+			auto name = std::format(L"{}{}", prefix, pid);
+			return CreateEventW(nullptr, FALSE, FALSE, name.c_str());
 		}
 
 		//---------------------------------------------------------------------

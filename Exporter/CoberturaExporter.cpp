@@ -17,13 +17,18 @@
 #include "stdafx.h"
 
 #include <chrono>
+#include <concepts>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <limits>
 #include <locale>
 #include <sstream>
 #include <string>
 #include <unordered_set>
+
+#include <fmt/format.h>
+#include <fmt/xchar.h>
 
 #include "CoberturaExporter.hpp"
 #include "Plugin/Exporter/CoverageData.hpp"
@@ -94,7 +99,7 @@ namespace Exporter
 		std::wstring GetPercentString(int covered, int total)
 		{
 			auto percent = (total == 0) ? 0 : (100 * covered) / total;
-			return std::to_wstring(percent) + L"%";
+			return fmt::format(L"{}%", percent);
 		}
 
 		//---------------------------------------------------------------------
@@ -116,6 +121,21 @@ namespace Exporter
 			void Attr(const std::wstring& name, const std::wstring& value)
 			{
 				ostr_ << L' ' << name << L"=\"" << Escape(value) << L"\"";
+			}
+
+			// Integer attributes are the hot path (one per source line). Their
+			// decimal text never contains a character that needs escaping, so we
+			// format straight into the stream and skip both the std::to_wstring
+			// and the Escape allocation. fmt is locale-independent, so the output
+			// matches std::to_wstring byte-for-byte. Constrained to integral
+			// types so string-literal values still pick the overload above.
+			template <std::integral T>
+			void Attr(const std::wstring& name, T value)
+			{
+				fmt::format_to(std::ostreambuf_iterator<wchar_t>{ostr_},
+				               L" {}=\"{}\"",
+				               name,
+				               value);
 			}
 
 			// Close the opening tag as a self-closed, empty element.
@@ -184,9 +204,11 @@ namespace Exporter
 
 			writer.Attr(L"branch", L"true");
 			writer.Attr(L"condition-coverage",
-			            GetPercentString(coveredOutcomes, totalOutcomes) + L" (" +
-			                std::to_wstring(coveredOutcomes) + L"/" +
-			                std::to_wstring(totalOutcomes) + L")");
+			            fmt::format(L"{} ({}/{})",
+			                        GetPercentString(coveredOutcomes,
+			                                         totalOutcomes),
+			                        coveredOutcomes,
+			                        totalOutcomes));
 			writer.CloseWithChildren();
 
 			writer.OpenTag(L"conditions");
@@ -194,8 +216,7 @@ namespace Exporter
 			for (const auto& branch : branches)
 			{
 				writer.OpenTag(L"condition");
-				writer.Attr(L"number",
-				            std::to_wstring(branch.GetBranchIndex()));
+				writer.Attr(L"number", branch.GetBranchIndex());
 				writer.Attr(L"type", L"jump");
 				writer.Attr(
 				    L"coverage",
@@ -235,9 +256,8 @@ namespace Exporter
 				for (const auto& [lineNumber, line] : lines)
 				{
 					writer.OpenTag(L"line");
-					writer.Attr(L"number", std::to_wstring(lineNumber));
-					writer.Attr(L"hits",
-					            line.HasBeenExecuted() ? L"1" : L"0");
+					writer.Attr(L"number", lineNumber);
+					writer.Attr(L"hits", line.HasBeenExecuted() ? 1 : 0);
 
 					const auto& branches = line.GetBranches();
 					if (branches.empty())
@@ -351,14 +371,13 @@ namespace Exporter
 			writer.OpenTag(L"coverage");
 			WriteCoverageAttributes(writer, coverageRate);
 			writer.Attr(L"branches-covered",
-			            std::to_wstring(coverageRate.GetCoveredBranchCount()));
+			            coverageRate.GetCoveredBranchCount());
 			writer.Attr(L"branches-valid",
-			            std::to_wstring(coverageRate.GetTotalBranchCount()));
-			writer.Attr(L"timestamp", std::to_wstring(timestamp));
+			            coverageRate.GetTotalBranchCount());
+			writer.Attr(L"timestamp", timestamp);
 			writer.Attr(L"lines-covered",
-			            std::to_wstring(coverageRate.GetExecutedLinesCount()));
-			writer.Attr(L"lines-valid",
-			            std::to_wstring(coverageRate.GetTotalLinesCount()));
+			            coverageRate.GetExecutedLinesCount());
+			writer.Attr(L"lines-valid", coverageRate.GetTotalLinesCount());
 			writer.Attr(L"version", L"0");
 			writer.CloseWithChildren();
 

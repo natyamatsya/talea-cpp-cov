@@ -204,7 +204,9 @@ Two harnesses live under `Benchmarks/`:
 
 - **`Benchmarks.exe`** (google-benchmark) — in-process micro-benchmarks: the
   in-memory merge, the columnar `.cov` shard merge (`MergeColumnarShards/<N>`),
-  serialize/deserialize round-trip, Cobertura export, and the branch
+  serialize/deserialize round-trip, Cobertura export, the per-line Cobertura
+  formatting pair (`CoberturaLine_Current` vs `CoberturaLine_StdFormat`, guarding
+  the ~4× `std::format` win in the exporter's hot inner loop), and the branch
   disassembler. Run e.g. `Benchmarks.exe --benchmark_filter=Merge`.
 - **`run_engine_benchmark.ps1`** — the whole-run numbers google-benchmark can't
   represent (spawning a real target, parsing real PDBs): debugger vs.

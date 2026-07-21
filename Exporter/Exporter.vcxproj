@@ -56,6 +56,11 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>EXPORTER_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <!-- fmt (used by the Cobertura exporter hot path) requires /utf-8 for its
+           Unicode support. All sources in this project are pure ASCII, so the
+           flag is safe here; it is deliberately not enabled tree-wide because
+           other projects contain non-UTF-8 source files. -->
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -76,6 +81,11 @@
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>EXPORTER_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader>Use</PrecompiledHeader>
+      <!-- fmt (used by the Cobertura exporter hot path) requires /utf-8 for its
+           Unicode support. All sources in this project are pure ASCII, so the
+           flag is safe here; it is deliberately not enabled tree-wide because
+           other projects contain non-UTF-8 source files. -->
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>

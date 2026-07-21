@@ -17,8 +17,15 @@
 #include <benchmark/benchmark.h>
 
 #include <filesystem>
+#include <format>
+#include <iterator>
 #include <sstream>
+#include <string>
+#include <utility>
 #include <vector>
+
+#include <fmt/format.h>
+#include <fmt/xchar.h>
 
 #include "Plugin/Exporter/CoverageData.hpp"
 #include "Plugin/Exporter/ModuleCoverage.hpp"
@@ -123,6 +130,105 @@ namespace
 	}
 
 	//-------------------------------------------------------------------------
+	// --- Cobertura per-line formatting: wostringstream vs std::format vs fmt -
+	// The Cobertura exporter's hot inner loop writes a <line/> element per
+	// source line. These benchmarks format 100k such lines the pre-modernization
+	// way (wostringstream + to_wstring + per-value XML escape) versus a single
+	// format_to into a wide buffer. Both {}-formatters are ~4x faster than the
+	// stream; fmt is a further ~10% over std::format, which is why the exporter
+	// uses fmt. This trio guards against regressing.
+	constexpr int LineFormatCount = 100000;
+
+	//---------------------------------------------------------------------
+	// The exporter escapes every attribute value; replicated so the current
+	// baseline pays the same cost it does today.
+	std::wstring EscapeXml(const std::wstring& value)
+	{
+		std::wstring result;
+		result.reserve(value.size());
+		for (auto c : value)
+		{
+			switch (c)
+			{
+				case L'&': result += L"&amp;"; break;
+				case L'<': result += L"&lt;"; break;
+				case L'>': result += L"&gt;"; break;
+				case L'\'': result += L"&apos;"; break;
+				case L'"': result += L"&quot;"; break;
+				default: result += c; break;
+			}
+		}
+		return result;
+	}
+
+	//---------------------------------------------------------------------
+	std::vector<std::pair<int, bool>> MakeLines()
+	{
+		std::vector<std::pair<int, bool>> lines;
+		lines.reserve(LineFormatCount);
+		for (int i = 1; i <= LineFormatCount; ++i)
+			lines.emplace_back(i, i % 2 == 0);
+		return lines;
+	}
+
+	//---------------------------------------------------------------------
+	void CoberturaLine_Current(benchmark::State& state)
+	{
+		auto lines = MakeLines();
+		for (auto _ : state)
+		{
+			std::wostringstream ostr;
+			for (const auto& [number, executed] : lines)
+			{
+				for (int i = 0; i < 8; ++i)
+					ostr << L' ';
+				ostr << L'<' << L"line";
+				ostr << L' ' << L"number" << L"=\""
+				     << EscapeXml(std::to_wstring(number)) << L"\"";
+				ostr << L' ' << L"hits" << L"=\""
+				     << EscapeXml(executed ? L"1" : L"0") << L"\"";
+				ostr << L"/>\n";
+			}
+			auto result = ostr.str();
+			benchmark::DoNotOptimize(result);
+		}
+	}
+
+	//---------------------------------------------------------------------
+	void CoberturaLine_StdFormat(benchmark::State& state)
+	{
+		auto lines = MakeLines();
+		for (auto _ : state)
+		{
+			std::wstring buffer;
+			for (const auto& [number, executed] : lines)
+				std::format_to(
+				    std::back_inserter(buffer),
+				    L"        <line number=\"{}\" hits=\"{}\"/>\n",
+				    number,
+				    executed ? 1 : 0);
+			benchmark::DoNotOptimize(buffer);
+		}
+	}
+
+	//---------------------------------------------------------------------
+	void CoberturaLine_Fmt(benchmark::State& state)
+	{
+		auto lines = MakeLines();
+		for (auto _ : state)
+		{
+			std::wstring buffer;
+			for (const auto& [number, executed] : lines)
+				fmt::format_to(
+				    std::back_inserter(buffer),
+				    L"        <line number=\"{}\" hits=\"{}\"/>\n",
+				    number,
+				    executed ? 1 : 0);
+			benchmark::DoNotOptimize(buffer);
+		}
+	}
+
+	//-------------------------------------------------------------------------
 	void ExportCobertura(benchmark::State& state)
 	{
 		auto coverageData = CreateCoverageData();
@@ -140,3 +246,6 @@ BENCHMARK(MergeCoverageData);
 BENCHMARK(MergeColumnarShards)->Arg(2)->Arg(10)->Arg(30);
 BENCHMARK(SerializeAndDeserializeCoverageData);
 BENCHMARK(ExportCobertura);
+BENCHMARK(CoberturaLine_Current);
+BENCHMARK(CoberturaLine_StdFormat);
+BENCHMARK(CoberturaLine_Fmt);

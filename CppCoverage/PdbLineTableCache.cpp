@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <format>
 #include <fstream>
 
 #include <mio/mmap.hpp>
@@ -343,7 +344,7 @@ namespace CppCoverage
 		auto finalPath =
 		    GetCacheFilePath(signature, table.hasSymbolIndexes_);
 		auto tempPath = finalPath;
-		tempPath += L"." + std::to_wstring(GetCurrentProcessId()) + L".tmp";
+		tempPath += std::format(L".{}.tmp", GetCurrentProcessId());
 
 		{
 			std::ofstream ofs{tempPath,

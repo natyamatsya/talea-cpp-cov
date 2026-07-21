@@ -17,6 +17,7 @@
 #include "stdafx.h"
 #include "OptionsParser.hpp"
 
+#include <format>
 #include <string>
 #include <vector>
 #include <sstream>
@@ -511,11 +512,11 @@ namespace CppCoverage
 	//-------------------------------------------------------------------------
 	std::wstring OptionsParser::GetTooLongCommandLineMessage()
 	{
-		return L"You have a very long command line. It might be truncated "
-		       "as DOS maximum command line size is " +
-		       std::to_wstring(DosCommandLineMaxSize) +
-		       L". Please consider using --" +
-		       Tools::LocalToWString(ProgramOptions::ConfigFileOption) +
-		       L" instead.";
+		return std::format(
+		    L"You have a very long command line. It might be truncated as DOS "
+		    L"maximum command line size is {}. Please consider using --{} "
+		    L"instead.",
+		    DosCommandLineMaxSize,
+		    Tools::LocalToWString(ProgramOptions::ConfigFileOption));
 	}
 }

@@ -16,6 +16,9 @@
 
 #include "stdafx.h"
 #include "PEFileHeader.hpp"
+
+#include <format>
+
 #include "ProcessMemory.hpp"
 #include "ToolsException.hpp"
 
@@ -43,7 +46,7 @@ namespace Tools
 			handler.OnNtHeader64(hProcess, baseOfImage, *ntHeader64);
 		}
 		else
-			THROW(L"PE file header machine is not supported: " +
-			      std::to_wstring(machine));
+			THROW(std::format(
+			    L"PE file header machine is not supported: {}", machine));
 	}
 }

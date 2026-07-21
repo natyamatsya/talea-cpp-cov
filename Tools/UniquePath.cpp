@@ -17,6 +17,7 @@
 #include "stdafx.h"
 #include "UniquePath.hpp"
 
+#include <format>
 #include <string>
 #include <filesystem>
 
@@ -30,7 +31,10 @@ namespace Tools
 
 		for (int i = 2; existingPathSet_.count(uniquePath) != 0; ++i)
 		{
-			auto filename = filenameWithoutExtension.wstring() + std::to_wstring(i) + path.extension().wstring();
+			auto filename = std::format(L"{}{}{}",
+			                            filenameWithoutExtension.wstring(),
+			                            i,
+			                            path.extension().wstring());
 			uniquePath = path.parent_path() / filename;
 		}
 		existingPathSet_.insert(uniquePath);

@@ -17,6 +17,7 @@
 #include "stdafx.h"
 #include "HtmlExporter.hpp"
 
+#include <format>
 #include <optional>
 #include <sstream>
 #include <iomanip>
@@ -48,7 +49,9 @@ namespace Exporter
 			auto exitCode = coverageData.GetExitCode();
 
 			if (exitCode)
-				return HtmlExporter::WarningExitCodeMessage + std::to_wstring(exitCode);
+				return std::format(L"{}{}",
+				                   HtmlExporter::WarningExitCodeMessage,
+				                   exitCode);
 			return L"";
 		}
 	}

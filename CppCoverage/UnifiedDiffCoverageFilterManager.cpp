@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <format>
 #include <sstream>
 
 #include "UnifiedDiffCoverageFilterManager.hpp"
@@ -150,8 +151,9 @@ namespace CppCoverage
 		if (!unmatchPaths.empty())
 		{
 			messageLines.push_back(Tools::GetSeparatorLine());
-			messageLines.push_back(L"You have " + std::to_wstring(unmatchPaths.size())
-				+ L" path(s) inside unified diff file(s) that were ignored");
+			messageLines.push_back(std::format(
+				L"You have {} path(s) inside unified diff file(s) that were ignored",
+				unmatchPaths.size()));
 			messageLines.push_back(L"because they did not match any path from pdb files.");
 			messageLines.push_back(L"To see all files use --" + 
 				Tools::LocalToWString(ProgramOptions::VerboseOption));
