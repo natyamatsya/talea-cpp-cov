@@ -19,6 +19,7 @@
 
 #include <fstream>
 #include <filesystem>
+#include <unordered_map>
 #include <boost/algorithm/string.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
@@ -66,9 +67,26 @@ namespace Exporter
 			const ctemplate::TemplateDictionary& templateDictionary,
 			const fs::path& templatePath)
 		{
-			std::string output;
+			// The parsed template is immutable and identical for every source
+			// file, so cache the resolved Template* per thread: each worker
+			// resolves it once instead of taking ctemplate's global template
+			// -cache mutex on every file. (Parallel HTML export otherwise
+			// serializes threads on that mutex per page.)
+			thread_local std::unordered_map<std::string, ctemplate::Template*>
+				templateCache;
 
-			if (!ctemplate::ExpandTemplate(templatePath.string(), ctemplate::DO_NOT_STRIP, &templateDictionary, &output))
+			auto key = templatePath.string();
+			auto& cached = templateCache[key];
+			if (!cached)
+			{
+				cached = ctemplate::Template::GetTemplate(
+					key, ctemplate::DO_NOT_STRIP);
+				if (!cached)
+					THROW(L"Cannot load template " + templatePath.wstring());
+			}
+
+			std::string output;
+			if (!cached->Expand(&output, &templateDictionary))
 				THROW(L"Cannot generate output for " + templatePath.wstring());
 
 			return output;

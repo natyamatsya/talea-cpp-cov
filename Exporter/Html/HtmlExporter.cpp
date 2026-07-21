@@ -34,6 +34,7 @@
 #include "TemplateHtmlExporter.hpp"
 #include "HtmlFileCoverageExporter.hpp"
 #include "HtmlFolderStructure.hpp"
+#include "HtmlFile.hpp"
 namespace cov = CppCoverage;
 
 namespace Exporter
@@ -126,47 +127,52 @@ namespace Exporter
 	void HtmlExporter::ExportFiles(
 		cov::CoverageRateComputer& coverageRateComputer,
 		const Plugin::ModuleCoverage& module,
-		const HtmlFolderStructure& htmlFolderStructure, 
+		const HtmlFolderStructure& htmlFolderStructure,
 		ctemplate::TemplateDictionary& moduleTemplateDictionary)
 	{
 		exporter_.AddFileSectionToDictionary(
 			module.GetPath(),
 			coverageRateComputer.GetCoverageRate(module),
 			true,
-			nullptr, 
+			nullptr,
 			moduleTemplateDictionary);
 
-		for (const auto& file : coverageRateComputer.SortFilesByCoverageRate(module))
+		// HTML generation is dominated by string allocation (the page buffers)
+		// and disk writes, not CPU, so parallelizing the per-file loop was
+		// measured to be a wash to a slight regression (heap-lock contention
+		// outweighs any highlighting speedup even on many cores). It stays
+		// serial; the win is the thread-local template cache in
+		// TemplateHtmlExporter, which avoids ctemplate's global cache mutex on
+		// every file.
+		for (const auto* file : coverageRateComputer.SortFilesByCoverageRate(module))
 		{
-			const auto& fileCoverageRate = coverageRateComputer.GetCoverageRate(*file);
-			std::optional<fs::path> generatedOutput = ExportFile(htmlFolderStructure, *file);
+			auto htmlFile = htmlFolderStructure.GetHtmlFilePath(file->GetPath());
+			auto link = GenerateFileHtml(*file, htmlFile);
 			exporter_.AddFileSectionToDictionary(
 				file->GetPath(),
-				fileCoverageRate,
+				coverageRateComputer.GetCoverageRate(*file),
 				false,
-				generatedOutput ? &*generatedOutput : nullptr,
+				link ? &*link : nullptr,
 				moduleTemplateDictionary);
 		}
 	}
 
 	//---------------------------------------------------------------------
-	std::optional<fs::path> HtmlExporter::ExportFile(
-		const HtmlFolderStructure& htmlFolderStructure,
-		const Plugin::FileCoverage& fileCoverage) const
+	std::optional<fs::path> HtmlExporter::GenerateFileHtml(
+		const Plugin::FileCoverage& fileCoverage,
+		const HtmlFile& htmlFile) const
 	{
-		auto htmlFilePath = htmlFolderStructure.GetHtmlFilePath(fileCoverage.GetPath());
-		std::wostringstream ostr;
-		
 		if (!Tools::FileExists(fileCoverage.GetPath()))
 			return std::optional<fs::path>();
 
+		std::wostringstream ostr;
 		auto enableCodePrettify = fileCoverageExporter_.Export(fileCoverage, ostr);
 
 		auto title = fileCoverage.GetPath().filename().wstring();
 		exporter_.GenerateSourceTemplate(
-			title, ostr.str(), enableCodePrettify, htmlFilePath.GetAbsolutePath());
+			title, ostr.str(), enableCodePrettify, htmlFile.GetAbsolutePath());
 
-		return htmlFilePath.GetRelativeLinkPath();
-	}	
+		return htmlFile.GetRelativeLinkPath();
+	}
 }
 

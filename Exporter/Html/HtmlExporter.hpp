@@ -44,6 +44,7 @@ namespace boost
 namespace Exporter
 {
 	class HtmlFolderStructure;
+	class HtmlFile;
 
 	class EXPORTER_DLL HtmlExporter: public IExporter
 	{
@@ -60,9 +61,13 @@ namespace Exporter
 		HtmlExporter(const HtmlExporter&) = delete;
 		HtmlExporter& operator=(const HtmlExporter&) = delete;
 
-		std::optional<std::filesystem::path> ExportFile(
-			const HtmlFolderStructure& htmlFolderStructure,
-			const Plugin::FileCoverage& fileCoverage) const;
+		// Reads a source file, syntax-highlights it, and writes its HTML page
+		// to htmlFile's (already unique) output path. Thread-safe: it touches
+		// only immutable state and a distinct output file, so the per-file
+		// pages of a module are generated in parallel.
+		std::optional<std::filesystem::path> GenerateFileHtml(
+			const Plugin::FileCoverage& fileCoverage,
+			const HtmlFile& htmlFile) const;
 
 		void ExportFiles(
 			CppCoverage::CoverageRateComputer&,
