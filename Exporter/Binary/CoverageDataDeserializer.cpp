@@ -35,6 +35,7 @@
 #include "Tools/Tool.hpp"
 
 #include "CoverageDataSerializer.hpp"
+#include "ColumnarCoverage.hpp"
 #include "ProtoBuff.hpp"
 
 namespace covpb = ProtoBuff;
@@ -128,6 +129,11 @@ namespace Exporter
 		const std::filesystem::path& path, 
 		const std::string& errorIfNotCorrectFormat) const
 	{
+		// New files use the columnar v2 format; older files are protobuf v1.
+		// The leading magic tells them apart.
+		if (ColumnarBinary::IsColumnarFile(path))
+			return ColumnarBinary::Read(path);
+
 		std::ifstream ifs(path.string(), std::ios::binary);
 
 		if (!ifs)

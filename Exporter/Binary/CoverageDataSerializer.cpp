@@ -23,118 +23,31 @@
 #include "CoverageDataSerializer.hpp"
 #include <fstream>
 
-#include "CoverageData.pb.hpp"
-
 #include "Plugin/Exporter/CoverageData.hpp"
-#include "Plugin/Exporter/ModuleCoverage.hpp"
-#include "Plugin/Exporter/FileCoverage.hpp"
-#include "Plugin/Exporter/LineCoverage.hpp"
-
-#include "../ExporterException.hpp"
 
 #include "Tools/Tool.hpp"
 
-#include "ProtoBuff.hpp"
+#include "ColumnarCoverage.hpp"
 #include "../InvalidOutputFileException.hpp"
-
-namespace covpb = ProtoBuff;
 
 namespace Exporter
 {
-	namespace
-	{
-		//---------------------------------------------------------------------
-		void InitializeProtoBuffFrom(
-			const Plugin::FileCoverage& file,
-			covpb::FileCoverage& fileProtoBuff)
-		{
-			fileProtoBuff.set_path(Tools::ToUtf8String(file.GetPath().wstring()));
-
-			for (const auto& [lineNumber, line] : file.GetLineCollection())
-			{
-				auto lineProtoBuff = fileProtoBuff.add_lines();
-
-				lineProtoBuff->set_linenumber(lineNumber);
-				lineProtoBuff->set_hasbeenexecuted(line.HasBeenExecuted());
-
-				for (const auto& branch : line.GetBranches())
-				{
-					auto branchProtoBuff = lineProtoBuff->add_branches();
-
-					branchProtoBuff->set_branchindex(branch.GetBranchIndex());
-					branchProtoBuff->set_hasbeentaken(branch.HasBeenTaken());
-					branchProtoBuff->set_hasbeenfallenthrough(
-					    branch.HasBeenFallenThrough());
-				}
-			}
-		}
-
-		//---------------------------------------------------------------------
-		void InitializeModuleProtoBuffFrom(
-			const Plugin::ModuleCoverage& module,
-			covpb::ModuleCoverage& moduleProtoBuff)
-		{
-			moduleProtoBuff.set_path(Tools::ToUtf8String(module.GetPath().wstring()));
-			
-			for (const auto& file : module.GetFiles())
-			{
-				auto fileProtoBuff = moduleProtoBuff.add_files();
-				InitializeProtoBuffFrom(*file, *fileProtoBuff);
-			}
-		}
-
-		//---------------------------------------------------------------------
-		void FillCoverageDataProtoBuffFrom(
-			const Plugin::CoverageData& coverageData,
-			covpb::CoverageData& coverageDataProtoBuff)
-		{
-			coverageDataProtoBuff.set_name(Tools::ToUtf8String(coverageData.GetName()));
-			coverageDataProtoBuff.set_exitcode(coverageData.GetExitCode());
-			coverageDataProtoBuff.set_modulecount(coverageData.GetModules().size());			
-		}
-
-		//---------------------------------------------------------------------
-		void WriteMessage(
-			const google::protobuf::MessageLite& message, 
-			google::protobuf::io::CodedOutputStream& output)
-		{
-			output.WriteVarint64(message.ByteSizeLong());
-			if (!message.SerializeToCodedStream(&output))
-				THROW(L"Cannot serialize message to stream");
-		}
-	}
-
 	//-------------------------------------------------------------------------
+	// Kept for the legacy v1 (protobuf) magic the deserializer still accepts;
+	// new files are written in the columnar v2 format below.
 	const unsigned int CoverageDataSerializer::FileTypeId = 1351727964; // random number
-	
+
 	//-------------------------------------------------------------------------
 	void CoverageDataSerializer::Serialize(
 		const Plugin::CoverageData& coverageData,
 		const std::filesystem::path& output) const
-	{		
-		covpb::CoverageData coverageDataProtoBuff;
+	{
 		Tools::CreateParentFolderIfNeeded(output);
 
 		std::ofstream ofs(output.string(), std::ios::binary);
 		if (!ofs)
 			throw InvalidOutputFileException(output, "binary");
 
-		google::protobuf::io::OstreamOutputStream outputStream(&ofs);
-		google::protobuf::io::CodedOutputStream codedOutputStream(&outputStream);
-
-		codedOutputStream.WriteVarint32(CoverageDataSerializer::FileTypeId);
-
-		FillCoverageDataProtoBuffFrom(coverageData, coverageDataProtoBuff);
-		WriteMessage(coverageDataProtoBuff, codedOutputStream);
-				 			
-		// Here we serialize manually modules because protobuff's limit.
-		// See https://developers.google.com/protocol-buffers/docs/techniques#large-data
-		for (const auto& module : coverageData.GetModules())
-		{
-			covpb::ModuleCoverage moduleProtoBuff;
-			InitializeModuleProtoBuffFrom(*module, moduleProtoBuff);
-
-			WriteMessage(moduleProtoBuff, codedOutputStream);
-		}
+		ColumnarBinary::Write(coverageData, ofs);
 	}
 }

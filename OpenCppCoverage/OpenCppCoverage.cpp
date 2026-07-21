@@ -37,6 +37,7 @@
 #include "Exporter/CoberturaExporter.hpp"
 #include "Exporter/Binary/BinaryExporter.hpp"
 #include "Exporter/Binary/CoverageDataDeserializer.hpp"
+#include "Exporter/Binary/ColumnarCoverage.hpp"
 #include "Exporter/Plugin/ExporterPluginManager.hpp"
 #include "Exporter/Plugin/PluginLoader.hpp"
 
@@ -121,19 +122,27 @@ namespace OpenCppCoverage
 		}
 
 		//-----------------------------------------------------------------------------
-		std::vector<Plugin::CoverageData> LoadInputCoverageDatas(const cov::Options& options)
+		// Loads every --input_coverage file into the columnar merger. Columnar
+		// v2 files are read straight into the accumulator and OR-ed together
+		// (no intermediate CoverageData per shard); legacy protobuf files fall
+		// back to full deserialization.
+		void LoadInputCoverageDatas(
+		    const cov::Options& options,
+		    Exporter::ColumnarCoverageMerger& merger)
 		{
-			std::vector<Plugin::CoverageData> coverageDatas;
 			Exporter::CoverageDataDeserializer coverageDataDeserializer;
 
 			for (const auto& path : options.GetInputCoveragePaths())
 			{
-				auto errorMsg = "Cannot extract coverage data from " + path.string();
-
 				LOG_INFO << L"Load coverage file: " << path.wstring();
-				coverageDatas.push_back(coverageDataDeserializer.Deserialize(path, errorMsg));
+				if (!merger.AddColumnarFile(path))
+				{
+					auto errorMsg =
+					    "Cannot extract coverage data from " + path.string();
+					merger.Add(
+					    coverageDataDeserializer.Deserialize(path, errorMsg));
+				}
 			}
-			return coverageDatas;
 		}
 
 		//-----------------------------------------------------------------------------
@@ -200,7 +209,13 @@ namespace OpenCppCoverage
 		{
 			InitLogger(options);
 
-			auto coveraDatas = LoadInputCoverageDatas(options);
+			// The merger accumulates input shards first, then fastcov imports,
+			// then the live run below - the same order the old vector-based
+			// merge saw, so the merged name/exit-code stay identical.
+			Exporter::ColumnarCoverageMerger merger;
+			LoadInputCoverageDatas(options, merger);
+
+			std::vector<Plugin::CoverageData> coveraDatas;
 			LoadFastCovCoverageDatas(options, coveraDatas);
 			const auto* startInfo = options.GetStartInfo();
 			
@@ -258,12 +273,17 @@ namespace OpenCppCoverage
 				exitCode = coverageData->GetExitCode();
 				coveraDatas.push_back(std::move(*coverageData));
 			}
-			cov::CoverageDataMerger	coverageDataMerger;
 
-			auto coverageData = coverageDataMerger.Merge(coveraDatas);
+			for (const auto& coveraData : coveraDatas)
+				merger.Add(coveraData);
+
+			auto coverageData = merger.ToCoverageData();
 
 			if (options.IsAggregateByFileModeEnabled())
+			{
+				cov::CoverageDataMerger coverageDataMerger;
 				coverageDataMerger.MergeFileCoverage(coverageData);
+			}
 
 			Export(options, exporterPluginManager, coverageData);
 			LOG_INFO << L"The code coverage report is not what you expect? See the FAQ "
