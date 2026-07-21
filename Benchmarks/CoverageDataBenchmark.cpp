@@ -27,6 +27,7 @@
 #include "CppCoverage/CoverageDataMerger.hpp"
 #include "Exporter/Binary/CoverageDataSerializer.hpp"
 #include "Exporter/Binary/CoverageDataDeserializer.hpp"
+#include "Exporter/Binary/ColumnarCoverage.hpp"
 #include "Exporter/CoberturaExporter.hpp"
 
 namespace
@@ -98,6 +99,30 @@ namespace
 	}
 
 	//-------------------------------------------------------------------------
+	// The columnar `.cov` v2 shard merge that ships for --input_coverage: read
+	// N same-build shards straight into the accumulator and OR their bitmaps.
+	// The shard count is the benchmark argument.
+	void MergeColumnarShards(benchmark::State& state)
+	{
+		auto coverageData = CreateCoverageData();
+		auto path = std::filesystem::temp_directory_path() /
+		            "OpenCppCoverageColumnarBenchmark.cov";
+		// The serializer writes the columnar v2 format.
+		Exporter::CoverageDataSerializer{}.Serialize(coverageData, path);
+
+		const auto shardCount = state.range(0);
+		for (auto _ : state)
+		{
+			Exporter::ColumnarCoverageMerger merger;
+			for (std::int64_t i = 0; i < shardCount; ++i)
+				merger.AddColumnarFile(path);
+			auto merged = merger.ToCoverageData();
+			benchmark::DoNotOptimize(merged);
+		}
+		std::filesystem::remove(path);
+	}
+
+	//-------------------------------------------------------------------------
 	void ExportCobertura(benchmark::State& state)
 	{
 		auto coverageData = CreateCoverageData();
@@ -112,5 +137,6 @@ namespace
 }
 
 BENCHMARK(MergeCoverageData);
+BENCHMARK(MergeColumnarShards)->Arg(2)->Arg(10)->Arg(30);
 BENCHMARK(SerializeAndDeserializeCoverageData);
 BENCHMARK(ExportCobertura);

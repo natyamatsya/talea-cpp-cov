@@ -198,6 +198,20 @@ spreading allocations across threads just moves the contention.
   [rip+disp]` recognition are x64-specific. Needs ARM64 Windows hardware to
   validate; not otherwise blocked.
 
+## Reproducing the numbers
+
+Two harnesses live under `Benchmarks/`:
+
+- **`Benchmarks.exe`** (google-benchmark) — in-process micro-benchmarks: the
+  in-memory merge, the columnar `.cov` shard merge (`MergeColumnarShards/<N>`),
+  serialize/deserialize round-trip, Cobertura export, and the branch
+  disassembler. Run e.g. `Benchmarks.exe --benchmark_filter=Merge`.
+- **`run_engine_benchmark.ps1`** — the whole-run numbers google-benchmark can't
+  represent (spawning a real target, parsing real PDBs): debugger vs.
+  `--experimental_veh`, and cold-cache startup with/without `--preparse_imports`.
+  Point it at a representative target (hit-heavy, many/large import DLLs) —
+  a trivial program shows every engine within noise.
+
 ## References
 
 - raw_pdb (DIA-free PDB reader): https://github.com/MolecularMatters/raw_pdb
