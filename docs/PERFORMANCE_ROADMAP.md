@@ -70,7 +70,7 @@ toward DATA.
 | Columnar `.cov` v2 + bitmap-OR merge | — | ✅ shipped | 30-shard merge 1360 → 655 ms (~2×); `.cov` −35% |
 | Parallelism (shard parse/merge) | — | ⏳ tried | alloc-bound — no win; serial columnar kept |
 | VEH: branch coverage | 3 | ✅ shipped | in-process trap-flag re-arm; matches debugger |
-| VEH: child processes | 3 | 🧪 spike | in-process CreateProcess hook; matches debugger; IAT-only |
+| VEH: child processes | 3 | ✅ shipped | CreateProcess A/W hook, recursive tree; matches debugger |
 | Fast mode: instrumented-DLL discovery | 2+3 | ✅ shipped | runtime enumerates modules; exe + DLLs |
 | Fast mode: ARM64 validation | 2+3 | ⬜ open | needs ARM64 Windows hardware |
 | TinyInst-style binary rewriting | 3 | ⬜ open | binary-only "data" mode (~15–20%) |
@@ -251,19 +251,22 @@ consumable by Lighthouse (IDA / Binary Ninja / Ghidra).
 
 ### C. Feature extensions to the shipped engines
 
-- **VEH child processes** — 🧪 working spike. The injected helper hooks
-  `CreateProcessW` (IAT patch of every module mapped at injection, matched by
-  resolved address — no name walk or trampoline), force-suspends each child,
-  and hands its pid to the host over a shared slot + event pair; the host
+- **VEH child processes** — ✅ shipped. The injected helper hooks
+  `CreateProcessW` **and `CreateProcessA`** (IAT patch of every module — matched
+  by resolved address, no name walk or trampoline — including modules loaded
+  after injection, re-hooked from the DLL-load notification), force-suspends each
+  child, and hands its pid to the host over a shared slot + event pair; the host
   computes the child's probes offline, lays out its section, injects the helper
-  into the still-suspended child, then the hook resumes it. Coverage is read back
-  per child after exit. `VehCoverageEngineTest.ChildProcessMatchesDebugger`
-  asserts byte-for-byte parity with the debugger's `--cover_children` (5/5, no
-  flakiness). **To productionize:** IAT hooking misses `CreateProcessA`,
-  dynamically resolved calls, and DLLs loaded after injection (upgrade to inline
-  hooking or hook-on-DLL-load + the A/`NtCreateUserProcess` variants); enable
-  recursive grandchildren (child sections currently set `coverChildren = 0`);
-  concurrent (not serialized) registration. 64-bit only, like the rest of VEH.
+  into the still-suspended child, then the hook resumes it. **Recursive:** each
+  injected process gets its own event pair and a section with `coverChildren`
+  set, and a single host loop (`RunRegistrationLoop`) waits on the whole tree's
+  pending events at once (`WaitForMultipleObjects`), adding each new child as a
+  watched slot — so grandchildren and deeper are covered (bounded by
+  `MAXIMUM_WAIT_OBJECTS`, logged on reaching). `ChildProcessMatchesDebugger` and
+  `NestedChildProcessMatchesDebugger` assert byte-for-byte parity with the
+  debugger's `--cover_children` (5/5, no flakiness). Remaining edges:
+  `NtCreateUserProcess`-only launchers (rare), registration serialized by the
+  single loop, 64-bit only.
 - **VEH branch coverage** — ✅ shipped. Branch discovery is offline (same
   Zydis-based `BranchDisassembler` over the PE file); the protocol carries a
   per-module `BranchProbe` table (Jcc rva + original byte + condition), and the
