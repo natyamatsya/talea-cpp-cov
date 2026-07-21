@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "CppCoverage/GlazeCli.hpp"
+#include "CppCoverage/OptionsSpec.hpp"
 
 namespace
 {
@@ -132,5 +133,64 @@ namespace CppCoverage
 		Spec spec;
 		EXPECT_TRUE(Parse(spec, {"--help"}).help);
 		EXPECT_NE(std::string::npos, glzcli::help<Spec>().find("--flag"));
+	}
+
+	//-------------------------------------------------------------------------
+	// The real OptionsSpec: a representative command line and JSON round-trip.
+	TEST(OptionsSpecTest, ParsesRepresentativeCommandLine)
+	{
+		OptionsSpec spec;
+		std::vector<std::string> args = {"--sources",
+		                                 "MyProject",
+		                                 "--modules",
+		                                 "a.dll,b.dll",
+		                                 "--branch_coverage",
+		                                 "-q",
+		                                 "--export_type",
+		                                 "cobertura:out.xml",
+		                                 "--input_coverage",
+		                                 "old.cov",
+		                                 "--working_dir",
+		                                 "C:\\work"};
+		auto result =
+		    glzcli::parse(spec, std::span<const std::string>{args});
+
+		ASSERT_FALSE(result.error.has_value());
+		ASSERT_EQ(1u, spec.sources.size());
+		EXPECT_EQ("MyProject", spec.sources[0]);
+		ASSERT_EQ(2u, spec.modules.size());
+		EXPECT_EQ("b.dll", spec.modules[1]);
+		EXPECT_TRUE(spec.branch_coverage);
+		EXPECT_TRUE(spec.quiet);
+		EXPECT_FALSE(spec.verbose);
+		ASSERT_EQ(1u, spec.export_type.size());
+		EXPECT_EQ("cobertura:out.xml", spec.export_type[0]);
+		ASSERT_EQ(1u, spec.input_coverage.size());
+		ASSERT_TRUE(spec.working_dir.has_value());
+		EXPECT_EQ("C:\\work", *spec.working_dir);
+	}
+
+	TEST(OptionsSpecTest, JsonConfigRoundTrips)
+	{
+		OptionsSpec written;
+		written.branch_coverage = true;
+		written.experimental_veh = true;
+		written.sources = {"src"};
+		written.export_type = {"html:report"};
+		written.working_dir = "C:\\w";
+
+		std::string json;
+		ASSERT_FALSE(glz::write_json(written, json));
+
+		OptionsSpec read;
+		ASSERT_FALSE(glz::read_json(read, json));
+		EXPECT_TRUE(read.branch_coverage);
+		EXPECT_TRUE(read.experimental_veh);
+		ASSERT_EQ(1u, read.sources.size());
+		EXPECT_EQ("src", read.sources[0]);
+		ASSERT_EQ(1u, read.export_type.size());
+		EXPECT_EQ("html:report", read.export_type[0]);
+		ASSERT_TRUE(read.working_dir.has_value());
+		EXPECT_EQ("C:\\w", *read.working_dir);
 	}
 }
