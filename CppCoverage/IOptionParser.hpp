@@ -18,27 +18,19 @@
 
 #include "CppCoverageExport.hpp"
 
-namespace boost
-{
-	namespace program_options
-	{
-		class options_description;
-	}
-}
-
 namespace CppCoverage
 {
 	class Options;
-	class ProgramOptionsVariablesMap;
+	struct OptionsSpec;
 
+	// Post-processes an already-parsed OptionsSpec into the Options object.
+	// Options are declared as fields of OptionsSpec; an IOptionParser only
+	// interprets the ones with non-trivial semantics (e.g. --export_type).
 	class CPPCOVERAGE_DLL IOptionParser
 	{
 	  public:
 		virtual ~IOptionParser() = default;
 
-		virtual void ParseOption(const ProgramOptionsVariablesMap&,
-		                         Options&) = 0;
-		virtual void
-		AddOption(boost::program_options::options_description&) = 0;
+		virtual void ParseOption(const OptionsSpec&, Options&) = 0;
 	};
 }

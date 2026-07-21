@@ -18,10 +18,15 @@
 
 #include <fstream>
 #include <optional>
+#include <span>
+#include <string>
+#include <vector>
 
 #include "CppCoverage/ProgramOptions.hpp"
 #include "CppCoverage/Options.hpp"
 #include "CppCoverage/OptionsParser.hpp"
+#include "CppCoverage/OptionsSpec.hpp"
+#include "CppCoverage/GlazeCli.hpp"
 
 #include "CppCoverageTest/TestTools.hpp"
 
@@ -34,23 +39,43 @@ namespace CppCoverageTest
 {
 	namespace
 	{
-		//-------------------------------------------------------------------------	
+		//---------------------------------------------------------------------
+		// Writes the config file as JSON (the format since the glaze port),
+		// built from (option, value) pairs by parsing them into an OptionsSpec
+		// and serializing it, then parses it with the given command line on top.
 		std::optional<cov::Options> MutipleSourceParse(
 			const std::vector<std::pair<std::string, std::wstring>>& configArguments,
 			const std::vector<std::pair<std::string, std::wstring>>& commandLineArguments)
 		{
 			cov::OptionsParser parser;
 			TestHelper::TemporaryPath path;
-			std::wofstream ofs(path.GetPath().string().c_str());
 
+			cov::OptionsSpec configSpec;
+			std::vector<std::string> configTokens;
 			for (const auto& argument : configArguments)
-				ofs << Tools::LocalToWString(argument.first) << L"=" << argument.second << std::endl;
+			{
+				configTokens.push_back("--" + argument.first);
+				configTokens.push_back(Tools::ToLocalString(argument.second));
+			}
+			glzcli::parse(configSpec,
+			              std::span<const std::string>{configTokens});
 
-			std::vector<std::string> arguments{ "--" + cov::ProgramOptions::ConfigFileOption, path.GetPath().string() };
+			std::string json;
+			[[maybe_unused]] auto writeError =
+			    glz::write_json(configSpec, json);
+			{
+				std::ofstream ofs(path.GetPath().string(), std::ios::binary);
+				ofs << json;
+			}
+
+			std::vector<std::string> arguments{
+				"--" + cov::ProgramOptions::ConfigFileOption,
+				path.GetPath().string()};
 
 			for (const auto& argumentValue : commandLineArguments)
 			{
-				arguments.push_back(TestTools::GetOptionPrefix() + argumentValue.first);
+				arguments.push_back(TestTools::GetOptionPrefix() +
+				                    argumentValue.first);
 				arguments.push_back(Tools::ToLocalString(argumentValue.second));
 			}
 
@@ -79,7 +104,7 @@ namespace CppCoverageTest
 	{
 		TestHelper::TemporaryPath directory1{ TestHelper::TemporaryPathOption::CreateAsFolder };
 		TestHelper::TemporaryPath directory2{ TestHelper::TemporaryPathOption::CreateAsFolder };
-		
+
 		auto options = MutipleSourceParse(
 		{ { cov::ProgramOptions::WorkingDirectoryOption, directory1.GetPath().wstring() } },
 		{ { cov::ProgramOptions::WorkingDirectoryOption, directory2.GetPath().wstring() } });
@@ -101,16 +126,27 @@ namespace CppCoverageTest
 		{ { cov::ProgramOptions::SelectedSourcesOption, source1 } },
 		{ { cov::ProgramOptions::SelectedSourcesOption, source2 } });
 		ASSERT_TRUE(static_cast<bool>(options));
+		// The config file is the base; command-line values are appended.
 		const auto& sourcePatterns = options->GetSourcePatterns().GetSelectedPatterns();
 		ASSERT_EQ(2, sourcePatterns.size());
-		ASSERT_EQ(source2, sourcePatterns[0]);
-		ASSERT_EQ(source1, sourcePatterns[1]);
+		ASSERT_EQ(source1, sourcePatterns[0]);
+		ASSERT_EQ(source2, sourcePatterns[1]);
 	}
 
 	//-------------------------------------------------------------------------
-	TEST(OptionsParserConfigTest, ConfigurationFileInvalidOption)
+	TEST(OptionsParserConfigTest, InvalidConfigFile)
 	{
-		auto options = MutipleSourceParse({ { cov::ProgramOptions::ConfigFileOption, L"." } }, {});
+		cov::OptionsParser parser;
+		TestHelper::TemporaryPath path;
+		{
+			std::ofstream ofs(path.GetPath().string(), std::ios::binary);
+			ofs << "this is not valid json";
+		}
+
+		auto options = TestTools::Parse(
+			parser,
+			{ "--" + cov::ProgramOptions::ConfigFileOption,
+			  path.GetPath().string() });
 
 		ASSERT_FALSE(static_cast<bool>(options));
 	}

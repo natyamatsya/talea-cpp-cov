@@ -18,8 +18,9 @@
 
 #include <optional>
 #include <iosfwd>
-#include <map>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "CppCoverageExport.hpp"
 
@@ -28,21 +29,11 @@ namespace Tools
 	class WarningManager;
 }
 
-namespace boost
-{
-	namespace program_options
-	{
-		class variables_map;
-	}
-}
-
 namespace CppCoverage
 {
 	class Options;
-	class ProgramOptions;
 	enum class OptionsExportType;
 	class IOptionParser;
-	class ProgramOptionsVariablesMap;
 
 	class CPPCOVERAGE_DLL OptionsParser
 	{
@@ -67,8 +58,7 @@ namespace CppCoverage
 
 		std::optional<Options> Parse(int argc, const char** argv) const;
 		void ShowExplanation(std::wostream* emptyOptionsExplanation, const char* message) const;
-		
-		std::unique_ptr<ProgramOptions> programOptions_;
+
 		std::shared_ptr<Tools::WarningManager> optionalWarningManager_;
 		std::vector<std::unique_ptr<IOptionParser>> optionParsers_;
 	};

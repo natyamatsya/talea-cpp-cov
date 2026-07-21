@@ -115,7 +115,6 @@
     <ClInclude Include="PdbLineTableCache.hpp" />
     <ClInclude Include="PdbSignature.hpp" />
     <ClInclude Include="PeImageFileReader.hpp" />
-    <ClInclude Include="ProgramOptionsVariablesMap.hpp" />
     <ClInclude Include="VehCoverageEngine.hpp" />
     <ClInclude Include="RunCoverageSettings.hpp" />
     <ClInclude Include="SubstitutePdbSourcePath.hpp" />
@@ -138,6 +137,7 @@
     <ClInclude Include="Options.hpp" />
     <ClInclude Include="OptionsExport.hpp" />
     <ClInclude Include="GlazeCli.hpp" />
+    <ClInclude Include="OptionsSpec.hpp" />
     <ClInclude Include="OptionsParser.hpp" />
     <ClInclude Include="Patterns.hpp" />
     <ClInclude Include="Process.hpp" />

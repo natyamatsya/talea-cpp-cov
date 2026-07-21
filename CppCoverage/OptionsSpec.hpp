@@ -73,9 +73,17 @@ namespace CppCoverage
 		std::vector<std::string> substitute_pdb_source_path;
 		std::vector<std::string> export_type;
 
+		// --- positionals: the program to run and its arguments ---
+		// Filled from bare tokens (no "--") or from the tokens after a "--"
+		// separator (handled by OptionsParser). Not shown in help.
+		std::string program_to_run;
+		std::vector<std::string> program_args;
+
 		static constexpr std::array shorts = {
 		    std::pair{'v', std::string_view{"verbose"}},
 		    std::pair{'q', std::string_view{"quiet"}}};
+		static constexpr std::array<std::string_view, 2> positionals = {
+		    "program_to_run", "program_args"};
 
 		static constexpr std::array descriptions = {
 		    std::pair{std::string_view{"verbose"},
@@ -230,6 +238,10 @@ namespace glz
 		                                     "substitute_pdb_source_path",
 		                                     &T::substitute_pdb_source_path,
 		                                     "export_type",
-		                                     &T::export_type);
+		                                     &T::export_type,
+		                                     "program_to_run",
+		                                     &T::program_to_run,
+		                                     "program_args",
+		                                     &T::program_args);
 	};
 }

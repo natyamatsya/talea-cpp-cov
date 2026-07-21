@@ -16,14 +16,15 @@
 
 #pragma once
 
-#include <boost/program_options.hpp>
+#include <string>
 
 #include "CppCoverageExport.hpp"
 
 namespace CppCoverage
 {
-	class IOptionParser;
-
+	// The canonical option (long-flag) names. These match the field names in
+	// OptionsSpec's glz::meta exactly, so they are the single naming authority
+	// shared by the parser, the help text and the tests.
 	class CPPCOVERAGE_DLL ProgramOptions
 	{
 	public:
@@ -60,28 +61,8 @@ namespace CppCoverage
 		static const std::string InputFastCovValue;
 		static const std::string FastCovTemplateReportValue;
 
-		explicit ProgramOptions(const std::vector<std::unique_ptr<IOptionParser>>&);
-
-		void FillVariableMap(
-			int argc,
-			const char** argv,
-			boost::program_options::variables_map& variables) const;
-
-		void FillVariableMap(std::istream&, boost::program_options::variables_map& variables) const;
-				
-		friend CPPCOVERAGE_DLL std::wostream& operator<<(std::wostream&, const ProgramOptions&);
-
-	private:
-		ProgramOptions(const ProgramOptions&) = delete;
-		ProgramOptions& operator=(const ProgramOptions&) = delete;
-
-		boost::program_options::options_description genericOptions_;
-		boost::program_options::options_description configurationOptions_;
-		boost::program_options::options_description hiddenOptions_;
-
-		boost::program_options::options_description commandLineOptions_;
-		boost::program_options::options_description visibleOptions_;
-		boost::program_options::options_description configFileOptions_;
-		boost::program_options::positional_options_description positionalOptions_;		
+		// The version header + reflected option help, printed for --help and on
+		// a parse error (replaces the old boost operator<<).
+		static std::string GetHelpMessage();
 	};
 }

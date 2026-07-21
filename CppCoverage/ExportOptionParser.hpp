@@ -25,6 +25,8 @@
 
 namespace CppCoverage
 {
+	struct OptionsSpec;
+
 	class CPPCOVERAGE_DLL ExportOptionParser : public IOptionParser
 	{
 	  public:
@@ -39,8 +41,7 @@ namespace CppCoverage
 		ExportOptionParser(const ExportOptionParser&) = delete;
 		ExportOptionParser& operator=(const ExportOptionParser&) = delete;
 
-		void ParseOption(const ProgramOptionsVariablesMap&, Options&) override;
-		void AddOption(boost::program_options::options_description&) override;
+		void ParseOption(const OptionsSpec&, Options&) override;
 
 	  private:
 		std::wstring GetExportTypeText() const;

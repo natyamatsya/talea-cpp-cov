@@ -16,8 +16,7 @@
 
 #include "stdafx.h"
 #include "ExportOptionParser.hpp"
-#include <boost/program_options/options_description.hpp>
-#include "ProgramOptionsVariablesMap.hpp"
+#include "OptionsSpec.hpp"
 #include "Options.hpp"
 #include "Plugin/OptionsParserException.hpp"
 #include "ExportPluginDescription.hpp"
@@ -124,12 +123,14 @@ namespace CppCoverage
 	}
 
 	//----------------------------------------------------------------------------
-	void ExportOptionParser::ParseOption(
-	    const ProgramOptionsVariablesMap& variablesMap, Options& options)
+	void ExportOptionParser::ParseOption(const OptionsSpec& spec,
+	                                     Options& options)
 	{
-		auto exportTypeStrCollection =
-		    variablesMap.GetValue<std::vector<std::string>>(
-		        ExportOptionParser::ExportTypeOption);
+		// --export_type defaults to html when none is given.
+		std::vector<std::string> exportTypeStrCollection = spec.export_type;
+		if (exportTypeStrCollection.empty())
+			exportTypeStrCollection.push_back(
+			    ExportOptionParser::ExportTypeHtmlValue);
 
 		for (const auto& exportTypeStr : exportTypeStrCollection)
 		{
@@ -147,18 +148,6 @@ namespace CppCoverage
 				    " is not a valid export type.");
 			}
 		}
-	}
-
-	//----------------------------------------------------------------------------
-	void ExportOptionParser::AddOption(
-	    boost::program_options::options_description& options)
-	{
-		options.add_options()(
-		    ExportOptionParser::ExportTypeOption.c_str(),
-		    boost::program_options::value<std::vector<std::string>>()
-		        ->default_value({ExportOptionParser::ExportTypeHtmlValue},
-		                        ExportOptionParser::ExportTypeHtmlValue),
-		    Tools::ToLocalString(GetExportTypeText()).c_str());
 	}
 
 	//----------------------------------------------------------------------------

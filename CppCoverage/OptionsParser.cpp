@@ -18,10 +18,11 @@
 #include "OptionsParser.hpp"
 
 #include <format>
+#include <fstream>
+#include <span>
+#include <sstream>
 #include <string>
 #include <vector>
-#include <sstream>
-#include <fstream>
 #include <filesystem>
 
 #include <boost/algorithm/string/split.hpp>
@@ -31,17 +32,15 @@
 #include "CppCoverage/Patterns.hpp"
 
 #include "Options.hpp"
-#include "CppCoverageException.hpp"
+#include "GlazeCli.hpp"
+#include "OptionsSpec.hpp"
 #include "ProgramOptions.hpp"
-#include "OptionsExport.hpp"
-#include "ProgramOptionsVariablesMap.hpp"
 
 #include "Tools/WarningManager.hpp"
 #include "Tools/Log.hpp"
 #include "IOptionParser.hpp"
 #include "Plugin/OptionsParserException.hpp"
 
-namespace po = boost::program_options;
 namespace cov = CppCoverage;
 namespace fs = std::filesystem;
 
@@ -82,133 +81,78 @@ namespace CppCoverage
 		}
 
 		//---------------------------------------------------------------------
-		cov::Patterns
-		GetPatterns(const ProgramOptionsVariablesMap& variablesMap,
-		            const std::string& selected,
-		            const std::string& excluded)
+		// The selected patterns default to "*" when none is given.
+		cov::Patterns GetPatterns(const std::string& selectedName,
+		                          std::vector<std::string> selected,
+		                          const std::string& excludedName,
+		                          const std::vector<std::string>& excluded)
 		{
 			cov::Patterns patterns{false};
 
-			auto selectedPatterns =
-			    variablesMap.GetValue<std::vector<std::string>>(selected);
-			for (const auto& pattern : selectedPatterns)
+			if (selected.empty())
+				selected.push_back("*");
+
+			for (const auto& pattern : selected)
 			{
-				CheckPattern(selected, pattern);
+				CheckPattern(selectedName, pattern);
 				patterns.AddSelectedPatterns(Tools::LocalToWString(pattern));
 			}
-
-			auto excludedPatterns =
-			    variablesMap.GetOptionalValue<std::vector<std::string>>(
-			        excluded);
-			if (excludedPatterns)
+			for (const auto& pattern : excluded)
 			{
-				for (const auto& pattern : *excludedPatterns)
-				{
-					CheckPattern(excluded, pattern);
-					patterns.AddExcludedPatterns(
-					    Tools::LocalToWString(pattern));
-				}
+				CheckPattern(excludedName, pattern);
+				patterns.AddExcludedPatterns(Tools::LocalToWString(pattern));
 			}
-
 			return patterns;
 		}
 
 		//---------------------------------------------------------------------
-		std::optional<cov::StartInfo>
-		GetStartInfo(const ProgramOptionsVariablesMap& variablesMap)
+		std::optional<cov::StartInfo> GetStartInfo(const OptionsSpec& spec)
 		{
-			const auto* programToRun =
-			    variablesMap.GetOptionalValue<std::string>(
-			        ProgramOptions::ProgramToRunOption);
-
-			if (!programToRun)
+			if (spec.program_to_run.empty())
 				return std::nullopt;
 
-			cov::StartInfo startInfo{*programToRun};
+			cov::StartInfo startInfo{spec.program_to_run};
 
-			const auto* arguments =
-			    variablesMap.GetOptionalValue<std::vector<std::string>>(
-			        ProgramOptions::ProgramToRunArgOption);
-			if (arguments)
-			{
-				for (const auto& arg : *arguments)
-					startInfo.AddArgument(Tools::LocalToWString(arg));
-			}
+			for (const auto& arg : spec.program_args)
+				startInfo.AddArgument(Tools::LocalToWString(arg));
 
-			const auto* workingDirectory =
-			    variablesMap.GetOptionalValue<std::string>(
-			        ProgramOptions::WorkingDirectoryOption);
-
-			if (workingDirectory)
-				startInfo.SetWorkingDirectory(*workingDirectory);
+			if (spec.working_dir)
+				startInfo.SetWorkingDirectory(*spec.working_dir);
 			return startInfo;
 		}
 
-		//-------------------------------------------------------------------------
-		void ParseConfigFile(const ProgramOptions& programOptions,
-		                     ProgramOptionsVariablesMap& variablesMap,
-		                     const std::string& path)
-		{
-			std::ifstream ifs(path.c_str());
-
-			if (!ifs)
-				throw Plugin::OptionsParserException("Cannot open config file: " +
-				                             path);
-
-			programOptions.FillVariableMap(ifs, variablesMap.GetVariablesMap());
-		}
-
 		//---------------------------------------------------------------------
-		void AddInputCoverages(const ProgramOptionsVariablesMap& variablesMap,
-		                       Options& options)
+		void AddInputCoverages(const OptionsSpec& spec, Options& options)
 		{
-			auto inputCoveragePaths =
-			    variablesMap.GetOptionalValue<std::vector<std::string>>(
-			        ProgramOptions::InputCoverageValue);
-
-			if (inputCoveragePaths)
+			for (const auto& path : spec.input_coverage)
 			{
-				for (const auto& path : *inputCoveragePaths)
+				if (!Tools::FileExists(path))
 				{
-					if (!Tools::FileExists(path))
-					{
-						throw Plugin::OptionsParserException(
-						    "Argument of " +
-						    ProgramOptions::InputCoverageValue + " <" + path +
-						    "> does not exist.");
-					}
-
-					options.AddInputCoveragePath(path);
+					throw Plugin::OptionsParserException(
+					    "Argument of " + ProgramOptions::InputCoverageValue +
+					    " <" + path + "> does not exist.");
 				}
+				options.AddInputCoveragePath(path);
 			}
 		}
 
 		//---------------------------------------------------------------------
-		void AddInputFastCov(const ProgramOptionsVariablesMap& variablesMap,
-		                     Options& options)
+		void AddInputFastCov(const OptionsSpec& spec, Options& options)
 		{
-			auto paths =
-			    variablesMap.GetOptionalValue<std::vector<std::string>>(
-			        ProgramOptions::InputFastCovValue);
-			if (paths)
+			for (const auto& path : spec.input_fastcov)
 			{
-				for (const auto& path : *paths)
+				if (!Tools::FileExists(path))
 				{
-					if (!Tools::FileExists(path))
-					{
-						throw Plugin::OptionsParserException(
-						    "Argument of " +
-						    ProgramOptions::InputFastCovValue + " <" + path +
-						    "> does not exist.");
-					}
-					options.AddInputFastCovPath(path);
+					throw Plugin::OptionsParserException(
+					    "Argument of " + ProgramOptions::InputFastCovValue +
+					    " <" + path + "> does not exist.");
 				}
+				options.AddInputFastCovPath(path);
 			}
 
-			auto reportPath = variablesMap.GetOptionalValue<std::string>(
-			    ProgramOptions::FastCovTemplateReportValue);
-			if (reportPath)
-				options.SetFastCovTemplateReportPath(*reportPath);
+			if (spec.fastcov_template_report)
+				options.SetFastCovTemplateReportPath(
+				    *spec.fastcov_template_report);
 		}
 
 		//----------------------------------------------------------------------------
@@ -224,56 +168,40 @@ namespace CppCoverage
 		}
 
 		//----------------------------------------------------------------------------
-		void AddUnifiedDiff(const ProgramOptionsVariablesMap& variablesMap,
-		                    Options& options)
+		void AddUnifiedDiff(const OptionsSpec& spec, Options& options)
 		{
-			auto unifiedDiffCollection =
-			    variablesMap.GetOptionalValue<std::vector<std::string>>(
-			        ProgramOptions::UnifiedDiffOption);
-
-			if (unifiedDiffCollection)
+			for (const auto& unifiedDiff : spec.unified_diff)
 			{
-				for (const auto& unifiedDiff : *unifiedDiffCollection)
+				fs::path unifiedDiffPath;
+				std::optional<fs::path> rootDiffFolder;
+
+				std::tie(unifiedDiffPath, rootDiffFolder) =
+				    ExtractUnifiedDiffOption(unifiedDiff);
+
+				if (!fs::is_regular_file(unifiedDiffPath))
 				{
-					fs::path unifiedDiffPath;
-					std::optional<fs::path> rootDiffFolder;
-
-					std::tie(unifiedDiffPath, rootDiffFolder) =
-					    ExtractUnifiedDiffOption(unifiedDiff);
-
-					if (!fs::is_regular_file(unifiedDiffPath))
-					{
-						throw Plugin::OptionsParserException("Unified diff path " +
-						                             unifiedDiffPath.string() +
-						                             " does not exist.");
-					}
-					if (rootDiffFolder && !is_directory(*rootDiffFolder))
-					{
-						throw Plugin::OptionsParserException(
-						    "Unified diff root folder " +
-						    rootDiffFolder->string() + " does not exist.");
-					}
-
-					options.AddUnifiedDiffSettings(
-					    UnifiedDiffSettings{unifiedDiffPath, rootDiffFolder});
+					throw Plugin::OptionsParserException(
+					    "Unified diff path " + unifiedDiffPath.string() +
+					    " does not exist.");
 				}
+				if (rootDiffFolder && !is_directory(*rootDiffFolder))
+				{
+					throw Plugin::OptionsParserException(
+					    "Unified diff root folder " + rootDiffFolder->string() +
+					    " does not exist.");
+				}
+
+				options.AddUnifiedDiffSettings(
+				    UnifiedDiffSettings{unifiedDiffPath, rootDiffFolder});
 			}
 		}
 
 		//----------------------------------------------------------------------------
-		void
-		AddExcludedLineRegexes(const ProgramOptionsVariablesMap& variablesMap,
-		                       Options& options)
+		void AddExcludedLineRegexes(const OptionsSpec& spec, Options& options)
 		{
-			auto excludedLineRegexes =
-			    variablesMap.GetOptionalValue<std::vector<std::string>>(
-			        ProgramOptions::ExcludedLineRegexOption);
-			if (excludedLineRegexes)
-			{
-				for (const auto& excludedLineRegex : *excludedLineRegexes)
-					options.AddExcludedLineRegex(
-					    Tools::LocalToWString(excludedLineRegex));
-			}
+			for (const auto& excludedLineRegex : spec.excluded_line_regex)
+				options.AddExcludedLineRegex(
+				    Tools::LocalToWString(excludedLineRegex));
 		}
 
 		//---------------------------------------------------------------------
@@ -287,8 +215,8 @@ namespace CppCoverage
 			if (pos == std::string::npos)
 			{
 				throw Plugin::OptionsParserException(error + "Cannot find " +
-				                             OptionsParser::PathSeparator +
-				                             '.');
+				                                     OptionsParser::PathSeparator +
+				                                     '.');
 			}
 
 			auto pdbPath = paths.substr(0, pos);
@@ -303,30 +231,23 @@ namespace CppCoverage
 			auto localPath = paths.substr(pos + 1);
 			if (!Tools::FileExists(localPath))
 			{
-				throw Plugin::OptionsParserException(error + "Path \"" + localPath +
-				                             "\" does not exist.");
+				throw Plugin::OptionsParserException(error + "Path \"" +
+				                                     localPath +
+				                                     "\" does not exist.");
 			}
 
 			return SubstitutePdbSourcePath{pdbPath, localPath};
 		}
 
 		//---------------------------------------------------------------------
-		void AddSubstitutePdbSourcePaths(
-		    const ProgramOptionsVariablesMap& variablesMap, Options& options)
+		void AddSubstitutePdbSourcePaths(const OptionsSpec& spec,
+		                                 Options& options)
 		{
-			auto substitutePdbSourcePaths =
-			    variablesMap.GetOptionalValue<std::vector<std::string>>(
-			        ProgramOptions::SubstitutePdbSourcePathOption);
-
-			if (substitutePdbSourcePaths)
-			{
-				for (const auto& paths : *substitutePdbSourcePaths)
-				{
-					options.AddSubstitutePdbSourcePath(
-					    CreateSubstitutePdbSourcePath(paths));
-				}
-			}
+			for (const auto& paths : spec.substitute_pdb_source_path)
+				options.AddSubstitutePdbSourcePath(
+				    CreateSubstitutePdbSourcePath(paths));
 		}
+
 		//---------------------------------------------------------------------------
 		void CheckArgumentsSize(int argc,
 		                        const char** argv,
@@ -350,6 +271,54 @@ namespace CppCoverage
 				warningManager.AddWarning(tooLongCmd);
 			}
 		}
+
+		//---------------------------------------------------------------------
+		// Reads a JSON config file into spec (the base; the command line is
+		// applied on top afterwards).
+		void ReadConfigFile(OptionsSpec& spec, const std::string& path)
+		{
+			std::ifstream ifs{path, std::ios::binary};
+			if (!ifs)
+				throw Plugin::OptionsParserException(
+				    "Cannot open config file: " + path);
+
+			std::string content{std::istreambuf_iterator<char>{ifs},
+			                    std::istreambuf_iterator<char>{}};
+			auto error = glz::read_json(spec, content);
+			if (error)
+				throw Plugin::OptionsParserException(
+				    "Cannot parse JSON config file " + path + ": " +
+				    glz::format_error(error, content));
+		}
+
+		//---------------------------------------------------------------------
+		// Splits the raw arguments (argv[0] skipped) into command-line option
+		// tokens and, after the first "--", the program-to-run tokens.
+		struct SplitArgs
+		{
+			std::vector<std::string> options;
+			std::vector<std::string> program; // program then its arguments
+			bool hasSeparator = false;
+		};
+
+		SplitArgs SplitArguments(int argc, const char** argv)
+		{
+			SplitArgs split;
+			for (int i = 1; i < argc; ++i)
+			{
+				std::string token = argv[i] ? argv[i] : "";
+				if (!split.hasSeparator && token == "--")
+				{
+					split.hasSeparator = true;
+					continue;
+				}
+				if (split.hasSeparator)
+					split.program.push_back(std::move(token));
+				else
+					split.options.push_back(std::move(token));
+			}
+			return split;
+		}
 	}
 
 	//-------------------------------------------------------------------------
@@ -360,8 +329,7 @@ namespace CppCoverage
 	OptionsParser::OptionsParser(
 	    std::shared_ptr<Tools::WarningManager> warningManager,
 	    std::vector<std::unique_ptr<IOptionParser>>&& optionParsers)
-	    : programOptions_{std::make_unique<ProgramOptions>(optionParsers)},
-	      optionalWarningManager_{std::move(warningManager)}
+	    : optionalWarningManager_{std::move(warningManager)}
 	{
 		optionParsers_ = std::move(optionParsers);
 	}
@@ -387,13 +355,10 @@ namespace CppCoverage
 			auto options = Parse(argc, argv);
 
 			if (!options && emptyOptionsExplanation)
-				*emptyOptionsExplanation << *programOptions_;
+				*emptyOptionsExplanation
+				    << Tools::LocalToWString(ProgramOptions::GetHelpMessage());
 
 			return options;
-		}
-		catch (const boost::program_options::unknown_option& unknownOption)
-		{
-			ShowExplanation(emptyOptionsExplanation, unknownOption.what());
 		}
 		catch (const Plugin::OptionsParserException& e)
 		{
@@ -410,92 +375,101 @@ namespace CppCoverage
 		if (emptyOptionsExplanation)
 		{
 			*emptyOptionsExplanation << message << std::endl;
-			*emptyOptionsExplanation << *programOptions_ << std::endl;
+			*emptyOptionsExplanation
+			    << Tools::LocalToWString(ProgramOptions::GetHelpMessage())
+			    << std::endl;
 		}
 	}
 
 	//-------------------------------------------------------------------------
 	std::optional<Options> OptionsParser::Parse(int argc,
-	                                              const char** argv) const
+	                                            const char** argv) const
 	{
-		ProgramOptionsVariablesMap variablesMap;
-
 		if (optionalWarningManager_)
 			CheckArgumentsSize(argc, argv, *optionalWarningManager_);
-		programOptions_->FillVariableMap(
-		    argc, argv, variablesMap.GetVariablesMap());
-		const auto* configFile = variablesMap.GetOptionalValue<std::string>(
-		    ProgramOptions::ConfigFileOption);
 
-		if (configFile)
-			ParseConfigFile(*programOptions_, variablesMap, *configFile);
+		auto split = SplitArguments(argc, argv);
+		std::span<const std::string> optionTokens{split.options};
 
-		if (variablesMap.IsOptionSelected(ProgramOptions::HelpOption))
+		// Discover --config_file first (a throwaway parse), so the JSON config
+		// can be read as the base with the command line applied on top.
+		OptionsSpec probe;
+		glzcli::parse(probe, optionTokens);
+
+		OptionsSpec spec;
+		if (probe.config_file)
+			ReadConfigFile(spec, *probe.config_file);
+
+		auto result = glzcli::parse(spec, optionTokens);
+		if (result.help)
 			return std::nullopt;
+		if (result.error)
+			throw Plugin::OptionsParserException(*result.error);
 
-		auto modulePatterns =
-		    GetPatterns(variablesMap,
-		                ProgramOptions::SelectedModulesOption,
-		                ProgramOptions::ExcludedModulesOption);
-		auto sourcePatterns =
-		    GetPatterns(variablesMap,
-		                ProgramOptions::SelectedSourcesOption,
-		                ProgramOptions::ExcludedSourcesOption);
+		// A "--" separator puts the program and its arguments after it,
+		// verbatim; otherwise they were captured as positionals.
+		if (split.hasSeparator && !split.program.empty())
+		{
+			spec.program_to_run = split.program.front();
+			spec.program_args.assign(split.program.begin() + 1,
+			                         split.program.end());
+		}
 
-		auto optionalStartInfo = GetStartInfo(variablesMap);
-		Options options{
-		    modulePatterns,
-		    sourcePatterns,
-		    optionalStartInfo ? &*optionalStartInfo : nullptr};
+		auto modulePatterns = GetPatterns(ProgramOptions::SelectedModulesOption,
+		                                  spec.modules,
+		                                  ProgramOptions::ExcludedModulesOption,
+		                                  spec.excluded_modules);
+		auto sourcePatterns = GetPatterns(ProgramOptions::SelectedSourcesOption,
+		                                  spec.sources,
+		                                  ProgramOptions::ExcludedSourcesOption,
+		                                  spec.excluded_sources);
 
-		bool isVerbose =
-		    variablesMap.IsOptionSelected(ProgramOptions::VerboseOption);
-		bool isQuiet =
-		    variablesMap.IsOptionSelected(ProgramOptions::QuietOption);
+		auto optionalStartInfo = GetStartInfo(spec);
+		Options options{modulePatterns,
+		                sourcePatterns,
+		                optionalStartInfo ? &*optionalStartInfo : nullptr};
 
-		if (isVerbose && isQuiet)
-			throw Plugin::OptionsParserException("--" + ProgramOptions::VerboseOption +
-			                             " and --" +
-			                             ProgramOptions::QuietOption +
-			                             " cannot be used at the same time.");
+		if (spec.verbose && spec.quiet)
+			throw Plugin::OptionsParserException(
+			    "--" + ProgramOptions::VerboseOption + " and --" +
+			    ProgramOptions::QuietOption +
+			    " cannot be used at the same time.");
 
-		if (isVerbose)
+		if (spec.verbose)
 			options.SetLogLevel(LogLevel::Verbose);
-		if (isQuiet)
+		if (spec.quiet)
 			options.SetLogLevel(LogLevel::Quiet);
 
-		if (variablesMap.IsOptionSelected(ProgramOptions::CoverChildrenOption))
+		if (spec.cover_children)
 			options.EnableCoverChildrenMode();
-		if (variablesMap.IsOptionSelected(ProgramOptions::PluginOption))
+		if (spec.plugin)
 			options.EnablePlugingMode();
-		if (variablesMap.IsOptionSelected(
-		        ProgramOptions::NoAggregateByFileOption))
+		if (spec.no_aggregate_by_file)
 			options.DisableAggregateByFileMode();
-		if (variablesMap.IsOptionSelected(
-		        ProgramOptions::ContinueAfterCppExceptionOption))
+		if (spec.continue_after_cpp_exception)
 			options.EnableContinueAfterCppExceptionMode();
-		if (variablesMap.IsOptionSelected(ProgramOptions::OptimizedBuildOption))
+		if (spec.optimized_build)
 			options.EnableOptimizedBuildSupport();
-		if (variablesMap.IsOptionSelected(ProgramOptions::StopOnAssertOption))
+		if (spec.stop_on_assert)
 			options.EnableStopOnAssertMode();
-		if (variablesMap.IsOptionSelected(ProgramOptions::BranchCoverageOption))
+		if (spec.branch_coverage)
 			options.EnableBranchCoverageMode();
-		if (variablesMap.IsOptionSelected(ProgramOptions::NoPdbCacheOption))
+		if (spec.no_pdb_cache)
 			options.EnableNoPdbCacheMode();
-		if (variablesMap.IsOptionSelected(ProgramOptions::NoRawPdbOption))
+		if (spec.no_raw_pdb)
 			options.EnableNoRawPdbMode();
-		if (variablesMap.IsOptionSelected(ProgramOptions::NoLineMergingOption))
+		if (spec.no_line_merging)
 			options.EnableNoLineMergingMode();
-		if (variablesMap.IsOptionSelected(ProgramOptions::PreparseImportsOption))
+		if (spec.preparse_imports)
 			options.EnablePreparseImportsMode();
-		if (variablesMap.IsOptionSelected(ProgramOptions::ExperimentalVehOption))
+		if (spec.experimental_veh)
 			options.EnableExperimentalVehMode();
 
-		AddInputCoverages(variablesMap, options);
-		AddInputFastCov(variablesMap, options);
-		AddUnifiedDiff(variablesMap, options);
-		AddExcludedLineRegexes(variablesMap, options);
-		AddSubstitutePdbSourcePaths(variablesMap, options);
+		AddInputCoverages(spec, options);
+		AddInputFastCov(spec, options);
+		AddUnifiedDiff(spec, options);
+		AddExcludedLineRegexes(spec, options);
+		AddSubstitutePdbSourcePaths(spec, options);
 
 		if (!options.GetStartInfo() && options.GetInputCoveragePaths().empty() &&
 		    options.GetInputFastCovPaths().empty())
@@ -505,7 +479,7 @@ namespace CppCoverage
 			    ProgramOptions::InputFastCovValue);
 
 		for (const auto& optionParser : optionParsers_)
-			optionParser->ParseOption(variablesMap, options);
+			optionParser->ParseOption(spec, options);
 		return options;
 	}
 
