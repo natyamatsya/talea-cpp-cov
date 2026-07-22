@@ -526,7 +526,8 @@ namespace CppCoverage
 		std::vector<std::filesystem::path>
 		DiscoverModulePaths(const std::filesystem::path& exePath,
 		                    ICoverageFilterManager& filterManager,
-		                    FilterAssistant* filterAssistant)
+		                    FilterAssistant* filterAssistant,
+		                    const std::filesystem::path* workingDirectory)
 		{
 			std::vector<std::filesystem::path> paths;
 			std::vector<std::wstring> seenNames;
@@ -589,6 +590,34 @@ namespace CppCoverage
 			    directory,
 			    std::filesystem::directory_options::skip_permission_denied,
 			    error});
+
+			// Wrapper launchers (ctest, test runners, scripts) live outside the
+			// covered project: the interesting modules are the CHILD processes'
+			// binaries, which are nowhere near the wrapper's directory. Their
+			// natural anchor is the run's --working_dir (e.g. the build tree),
+			// so scan it too - the base-name dedup and the caps above apply
+			// unchanged. Without this, a `OpenCppCoverage -- ctest ...` run
+			// silently instruments nothing.
+			if (workingDirectory && !workingDirectory->empty())
+			{
+				auto normalizedWorking =
+				    std::filesystem::weakly_canonical(*workingDirectory, error);
+				auto normalizedExeDir =
+				    std::filesystem::weakly_canonical(directory, error);
+				if (normalizedWorking != normalizedExeDir)
+				{
+					scan(std::filesystem::directory_iterator{
+					    *workingDirectory,
+					    std::filesystem::directory_options::
+					        skip_permission_denied,
+					    error});
+					scan(std::filesystem::recursive_directory_iterator{
+					    *workingDirectory,
+					    std::filesystem::directory_options::
+					        skip_permission_denied,
+					    error});
+				}
+			}
 
 			return paths;
 		}
@@ -1004,8 +1033,11 @@ namespace CppCoverage
 			if (!QueryFullProcessImageNameW(out.process.get(), 0, exePath, &size))
 				return;
 
-			for (const auto& modulePath :
-			     DiscoverModulePaths(exePath, filterManager, nullptr))
+			for (const auto& modulePath : DiscoverModulePaths(
+			         exePath,
+			         filterManager,
+			         nullptr,
+			         settings.GetStartInfo().GetWorkingDirectory()))
 			{
 				auto probes = ComputeModuleProbes(modulePath,
 				                                  filterManager,
@@ -1180,7 +1212,10 @@ namespace CppCoverage
 
 		std::vector<ModuleProbes> modules;
 		for (const auto& modulePath :
-		     DiscoverModulePaths(exePath, filterManager, filterAssistant_.get()))
+		     DiscoverModulePaths(exePath,
+		                         filterManager,
+		                         filterAssistant_.get(),
+		                         startInfo.GetWorkingDirectory()))
 		{
 			auto probes = ComputeModuleProbes(modulePath,
 			                                  filterManager,
