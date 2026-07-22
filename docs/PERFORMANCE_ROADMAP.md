@@ -7,21 +7,21 @@ formats already in place.
 
 ## Baseline (msvc-release, 24-core / 4.7 GHz, warm file cache)
 
-> The numbers below (and the before/after deltas in the items) were captured
-> while the machine was also building. They are consistent enough to be
-> directionally decisive, but re-run `Benchmarks.exe` on an otherwise idle
-> machine before quoting absolute figures.
-
+> Re-measured on an **otherwise idle** machine (10 repetitions,
+> `--benchmark_report_aggregates_only`, medians below; coefficient of variation
+> under ~2% for every row except `SerializeAndDeserialize` at ~4%). These are
+> the decisive absolute figures and supersede the earlier under-load capture;
+> they confirm every optimization delta recorded in the items below.
 
 | Benchmark | Time | Notes |
 |---|---|---|
-| `ParsePdbRawPdb` | 2.3 ms | cold raw_pdb parse of CppCoverage.dll (161 source files) |
-| `MergeCoverageData` | 3.1 ms | 3 modules x 20 files x 500 lines = 30k lines |
-| `MergeColumnarShards/30` | 15.5 ms | ~0.5 ms per same-build shard |
-| `SerializeAndDeserializeCoverageData` | 3.5 ms | columnar `.cov` round-trip |
-| `ExportCobertura` | 9.3 ms | full document, the fixture dataset (was 18.4 ms; see Tier 1 #2) |
-| `CoberturaLine_{Legacy,Fmt}` | 42 / 10 ms | 100k `<line/>` elements, baseline vs fmt |
-| `FindConditionalBranches/100000` | 14.4 ms | ~70 MiB/s Zydis decode |
+| `ParsePdbRawPdb` | 2.00 ms | cold raw_pdb parse of CppCoverage.dll (160 source files) |
+| `MergeCoverageData` | 1.43 ms | 3 modules x 20 files x 500 lines = 30k lines (was 3.1 ms; Tier 1 #1) |
+| `MergeColumnarShards/30` | 12.6 ms | ~0.42 ms per same-build shard (was 15.5 ms; Tier 1 #1) |
+| `SerializeAndDeserializeCoverageData` | 2.15 ms | columnar `.cov` round-trip (was 3.5 ms; Tier 1 #1) |
+| `ExportCobertura` | 7.30 ms | full document, the fixture dataset (was 18.4 -> 9.3 ms; Tier 1 #1, #2) |
+| `CoberturaLine_{Legacy,StdFormat,Fmt}` | 39.6 / 9.70 / 9.01 ms | 100k `<line/>` elements: baseline vs `std::format` vs fmt |
+| `FindConditionalBranches/100000` | 14.0 ms | ~75 MiB/s Zydis decode |
 
 Where wall-clock actually goes on a real run: **cold start** is dominated by
 per-module PDB parsing; **steady state** by breakpoint servicing (debug-event
