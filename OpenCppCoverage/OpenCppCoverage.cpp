@@ -48,7 +48,6 @@
 #include "Tools/WarningManager.hpp"
 
 namespace cov = CppCoverage;
-namespace logging = boost::log;
 
 namespace OpenCppCoverage
 {
@@ -197,12 +196,12 @@ namespace OpenCppCoverage
 		//-----------------------------------------------------------------------------
 		void InitLogger(const cov::Options& options)
 		{
-			auto logLevel = logging::trivial::info;
+			auto logLevel = Tools::LogLevel::Info;
 
 			switch (options.GetLogLevel())
 			{
-				case cov::LogLevel::Verbose: logLevel = logging::trivial::debug; break;
-				case cov::LogLevel::Quiet: logLevel = logging::trivial::error; break;
+				case cov::LogLevel::Verbose: logLevel = Tools::LogLevel::Debug; break;
+				case cov::LogLevel::Quiet: logLevel = Tools::LogLevel::Error; break;
 			}
 
 			Tools::InitConsoleAndFileLog(L"LastCoverageResults.log");

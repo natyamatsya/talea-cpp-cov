@@ -20,7 +20,7 @@
 #include "Tools/StringUtils.hpp"
 #include <boost/range/algorithm/count_if.hpp>
 
-#include <boost/log/trivial.hpp>
+#include <memory>
 
 #include "CppCoverage/CodeCoverageRunner.hpp"
 #include "CppCoverage/StartInfo.hpp"
@@ -57,7 +57,6 @@
 
 namespace cov = CppCoverage;
 namespace fs = std::filesystem;
-namespace logging = boost::log;
 
 namespace CppCoverageTest
 {
@@ -73,10 +72,10 @@ namespace CppCoverageTest
 		//---------------------------------------------------------------------
 		void SetUp() override
 		{
-			error_ = boost::make_shared<std::ostringstream>();
+			error_ = std::make_shared<std::ostringstream>();
 
 			Tools::EnableLogger(true);
-			Tools::SetLoggerMinSeverity(logging::trivial::error);
+			Tools::SetLoggerMinSeverity(Tools::LogLevel::Error);
 			Tools::InitLoggerOstream(error_);
 		}
 
@@ -167,7 +166,7 @@ namespace CppCoverageTest
 		}
 
 	private:
-		boost::shared_ptr<std::ostringstream> error_;		
+		std::shared_ptr<std::ostringstream> error_;
 	};
 
 	//-------------------------------------------------------------------------

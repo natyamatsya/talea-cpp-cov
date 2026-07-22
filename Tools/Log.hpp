@@ -16,59 +16,82 @@
 
 #pragma once
 
-#include <set>
-#include <iosfwd>
 #include <filesystem>
-#include <boost/log/trivial.hpp>
-#include <boost/log/sources/global_logger_storage.hpp>
+#include <memory>
+#include <set>
+#include <sstream>
+#include <string>
 
 #include "ToolsExport.hpp"
 
-// Define the logger
-BOOST_LOG_INLINE_GLOBAL_LOGGER_DEFAULT(globalLogger, boost::log::sources::wseverity_logger<boost::log::trivial::severity_level >)
-
-#define LOG_TRACE BOOST_LOG_SEV  (globalLogger::get(), boost::log::trivial::trace) 
-#define LOG_DEBUG BOOST_LOG_SEV  (globalLogger::get(), boost::log::trivial::debug) 
-#define LOG_INFO BOOST_LOG_SEV   (globalLogger::get(), boost::log::trivial::info) 
-#define LOG_WARNING BOOST_LOG_SEV(globalLogger::get(), boost::log::trivial::warning) 
-#define LOG_ERROR BOOST_LOG_SEV  (globalLogger::get(), boost::log::trivial::error) 
-
 namespace Tools
 {
-	void TOOLS_DLL InitConsoleAndFileLog(const std::filesystem::path& logPath);
-	void TOOLS_DLL SetLoggerMinSeverity(boost::log::trivial::severity_level minSeverity);
-	void TOOLS_DLL EnableLogger(bool isEnabled);
-	void TOOLS_DLL InitLoggerOstream(const boost::shared_ptr<std::ostringstream>& ostr);
-}
-
-namespace boost
-{
-	namespace log
+	enum class LogLevel
 	{
-		//-----------------------------------------------------------------------
-		template <typename Collection>
-		wformatting_ostream& LogCollection(
-			wformatting_ostream& ostr, 
-			const Collection& collection)
+		Trace,
+		Debug,
+		Info,
+		Warning,
+		Error
+	};
+
+	// A stream-style front end for the logger. Each LOG_* use builds one
+	// temporary that accumulates a wide message and, on destruction, converts
+	// it to UTF-8 and emits a single line through the logger that lives in
+	// Tools.dll. Because only Tools/Log.cpp includes the logging backend
+	// (spdlog), the backend stays confined to one module and links statically.
+	//
+	// This adapter is the transitional bridge that keeps the existing
+	// "LOG_X << ..." call sites working; they are being converted to format
+	// strings in batches, after which this class is removed. See
+	// docs/SPDLOG_MIGRATION.md.
+	class TOOLS_DLL LogStream
+	{
+	public:
+		explicit LogStream(LogLevel level);
+		~LogStream();
+
+		template <typename T>
+		LogStream& operator<<(const T& value)
 		{
-			ostr << L'[';
-			for (auto it = collection.begin(); it != collection.end(); ++it)
-			{
-				if (it != collection.begin())
-					ostr << L", ";
-				ostr << *it;
-			}
-			ostr << L']';
-			return ostr;
+			stream_ << value;
+			return *this;
 		}
 
-		//-----------------------------------------------------------------------
+		// Collections keep their historical "[a, b, c]" rendering (previously a
+		// boost::log operator<< for std::set).
 		template <typename T>
-		wformatting_ostream& operator<<(
-			wformatting_ostream& ostr, 
-			const std::set<T>& values)
+		LogStream& operator<<(const std::set<T>& values)
 		{
-			return LogCollection(ostr, values);
+			stream_ << L'[';
+			bool first = true;
+			for (const auto& value : values)
+			{
+				if (!first)
+					stream_ << L", ";
+				first = false;
+				stream_ << value;
+			}
+			stream_ << L']';
+			return *this;
 		}
-	}
+
+	private:
+		LogStream(const LogStream&) = delete;
+		LogStream& operator=(const LogStream&) = delete;
+
+		LogLevel level_;
+		std::wostringstream stream_;
+	};
+
+	void TOOLS_DLL InitConsoleAndFileLog(const std::filesystem::path& logPath);
+	void TOOLS_DLL SetLoggerMinSeverity(LogLevel minSeverity);
+	void TOOLS_DLL EnableLogger(bool isEnabled);
+	void TOOLS_DLL InitLoggerOstream(const std::shared_ptr<std::ostringstream>& ostr);
 }
+
+#define LOG_TRACE   ::Tools::LogStream{::Tools::LogLevel::Trace}
+#define LOG_DEBUG   ::Tools::LogStream{::Tools::LogLevel::Debug}
+#define LOG_INFO    ::Tools::LogStream{::Tools::LogLevel::Info}
+#define LOG_WARNING ::Tools::LogStream{::Tools::LogLevel::Warning}
+#define LOG_ERROR   ::Tools::LogStream{::Tools::LogLevel::Error}

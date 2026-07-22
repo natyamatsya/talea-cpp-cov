@@ -6,17 +6,18 @@
 # to ship their DLLs (pcre2-8.dll, fmt.dll, libctemplate.dll, benchmark.dll):
 #
 #   pcre2      -> folded into Tools.dll     (Tools::Regex)
-#   fmt        -> folded into Exporter.dll  (CoberturaExporter)
+#   spdlog     -> folded into Tools.dll     (logging backend, only in Log.cpp)
+#   fmt        -> folded into Tools.dll + Exporter.dll (spdlog / CoberturaExporter)
 #   ctemplate  -> folded into Exporter.dll  (HTML export)
 #   benchmark  -> folded into Benchmarks.exe
 #
-# boost-log deliberately stays dynamic: the LOG_* macros expand inline in every
-# module to a boost-log global-logger singleton, which is only shared across our
-# DLLs when boost-log itself is the shared DLL.
+# The logging backend (spdlog) is confined to Tools/Log.cpp so a single logger
+# instance lives in Tools.dll and can link statically — unlike boost-log, whose
+# LOG_* macros expanded inline in every module and required the shared DLL.
 set(VCPKG_TARGET_ARCHITECTURE x64)
 set(VCPKG_CRT_LINKAGE dynamic)
 set(VCPKG_LIBRARY_LINKAGE dynamic)
 
-if(PORT MATCHES "^(pcre2|fmt|ctemplate|benchmark)$")
+if(PORT MATCHES "^(pcre2|fmt|ctemplate|benchmark|spdlog)$")
     set(VCPKG_LIBRARY_LINKAGE static)
 endif()

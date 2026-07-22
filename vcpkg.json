@@ -5,13 +5,18 @@
   "dependencies": [
     "benchmark",
     "boost-container",
-    "boost-log",
     "boost-range",
     "ctemplate",
     "fmt",
     "glaze",
     "gtest",
     "mio",
-    "pcre2"
+    "pcre2",
+    {
+      "name": "spdlog",
+      "features": [
+        "fmt"
+      ]
+    }
   ]
 }

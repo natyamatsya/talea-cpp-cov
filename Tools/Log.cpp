@@ -17,90 +17,126 @@
 #include "stdafx.h"
 #include "Log.hpp"
 
-#include <filesystem>
-#include <locale>
+#include "Tools/Tool.hpp"
 
-#include <boost/log/expressions.hpp>
-#include <boost/log/utility/setup/file.hpp>
-#include <boost/log/utility/setup/console.hpp>
-#include <boost/log/utility/setup/common_attributes.hpp>
-#include <boost/log/support/date_time.hpp>
-
-namespace logging = boost::log;
-namespace sinks = boost::log::sinks;
-namespace keywords = boost::log::keywords;
-namespace expr = boost::log::expressions;
+// spdlog is included only here, so the logging backend stays confined to
+// Tools.dll and links statically. Reuse our (already static) fmt rather than
+// spdlog's bundled copy.
+#define SPDLOG_COMPILED_LIB
+#define SPDLOG_FMT_EXTERNAL
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/basic_file_sink.h>
+#include <spdlog/sinks/ostream_sink.h>
+#include <spdlog/sinks/stdout_sinks.h>
 
 namespace Tools
 {
 	namespace
 	{
+		LogLevel g_minSeverity = LogLevel::Info;
+		bool g_enabled = true;
+
 		//-------------------------------------------------------------------------
-		void SetLogSink(boost::shared_ptr<logging::sinks::sink> sink)
+		spdlog::level::level_enum ToSpdlogLevel(LogLevel level)
 		{
-			logging::core::get()->remove_all_sinks();
-			logging::core::get()->add_sink(sink);
+			switch (level)
+			{
+				case LogLevel::Trace: return spdlog::level::trace;
+				case LogLevel::Debug: return spdlog::level::debug;
+				case LogLevel::Info: return spdlog::level::info;
+				case LogLevel::Warning: return spdlog::level::warn;
+				case LogLevel::Error: return spdlog::level::err;
+			}
+			return spdlog::level::info;
 		}
+
+		//-------------------------------------------------------------------------
+		// The single process-wide logger, living in Tools.dll. It starts with no
+		// sinks (logging goes nowhere until InitConsoleAndFileLog or
+		// InitLoggerOstream installs one), mirroring the previous behaviour.
+		spdlog::logger& Logger()
+		{
+			static spdlog::logger logger{"occ"};
+			return logger;
+		}
+
+		//-------------------------------------------------------------------------
+		void ApplyLevel()
+		{
+			Logger().set_level(g_enabled ? ToSpdlogLevel(g_minSeverity)
+			                             : spdlog::level::off);
+		}
+
+		//-------------------------------------------------------------------------
+		void SetSink(spdlog::sink_ptr sink)
+		{
+			auto& sinks = Logger().sinks();
+			sinks.clear();
+			sinks.push_back(std::move(sink));
+		}
+	}
+
+	//-------------------------------------------------------------------------
+	LogStream::LogStream(LogLevel level) : level_{level}
+	{
+	}
+
+	//-------------------------------------------------------------------------
+	LogStream::~LogStream()
+	{
+		const auto level = ToSpdlogLevel(level_);
+		auto& logger = Logger();
+		if (!logger.should_log(level))
+			return;
+		// The message is a literal (never a format string), so pass it through
+		// the non-formatting overload.
+		logger.log(level, Tools::ToUtf8String(stream_.str()));
 	}
 
 	//-------------------------------------------------------------------------
 	void InitConsoleAndFileLog(const std::filesystem::path& logPath)
-	{		
-		boost::log::add_common_attributes();
+	{
+		// Console goes to stderr as "[severity] message"; the file adds a
+		// timestamp, matching the previous boost::log output.
+		auto consoleSink = std::make_shared<spdlog::sinks::stderr_sink_mt>();
+		consoleSink->set_pattern("[%l] %v");
 
-		auto fileSink = logging::add_file_log(logPath.wstring(),
-			boost::log::keywords::format =
-			expr::stream
-			<< "[" << expr::format_date_time< boost::posix_time::ptime >("TimeStamp", "%Y-%m-%d %H:%M:%S")
-			<< "] [" << logging::trivial::severity
-			<< "] " << expr::message);
+		auto fileSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
+		    logPath.string(), /*truncate*/ true);
+		fileSink->set_pattern("[%Y-%m-%d %H:%M:%S] [%l] %v");
 
-		auto consoleSink = logging::add_console_log(std::clog,
-			boost::log::keywords::format =
-			expr::stream
-			<< "[" << logging::trivial::severity
-			<< "] " << expr::message
-			);
-
-		// UTF-8 output so paths with special characters are not mangled. The
-		// OS supplies a UTF-8 codecvt via the ".UTF-8" code-page locale
-		// (Windows 10+), which avoids pulling in ICU through boost::locale. If
-		// that locale is unavailable the log simply falls back to the default
-		// encoding.
-		try
-		{
-			std::locale loc(".UTF-8");
-			fileSink->imbue(loc);
-			consoleSink->imbue(loc);
-		}
-		catch (const std::exception&)
-		{
-		}
+		auto& sinks = Logger().sinks();
+		sinks.clear();
+		sinks.push_back(std::move(consoleSink));
+		sinks.push_back(std::move(fileSink));
+		Logger().flush_on(spdlog::level::trace);
+		ApplyLevel();
 	}
 
 	//-------------------------------------------------------------------------
-	void SetLoggerMinSeverity(boost::log::trivial::severity_level minSeverity)
+	void SetLoggerMinSeverity(LogLevel minSeverity)
 	{
-		auto filter = logging::trivial::severity >= minSeverity;
-
-		logging::core::get()->set_filter(filter);		
+		g_minSeverity = minSeverity;
+		ApplyLevel();
 	}
 
 	//-------------------------------------------------------------------------
 	void EnableLogger(bool isEnabled)
 	{
-		logging::core::get()->set_logging_enabled(isEnabled);
+		g_enabled = isEnabled;
+		ApplyLevel();
 	}
 
 	//-------------------------------------------------------------------------
-	void InitLoggerOstream(const boost::shared_ptr<std::ostringstream>& ostr)
+	void InitLoggerOstream(const std::shared_ptr<std::ostringstream>& ostr)
 	{
-		typedef sinks::synchronous_sink<sinks::text_ostream_backend> text_sink;
-		auto sink = boost::make_shared<text_sink>();
-		auto backend = sink->locked_backend();
-
-		backend->add_stream(ostr);
-		backend->auto_flush(true);
-		SetLogSink(sink);
-	}	
+		// Capture just the message (no decoration), as the previous
+		// text_ostream_backend did.
+		auto sink =
+		    std::make_shared<spdlog::sinks::ostream_sink_mt>(*ostr, /*flush*/ true);
+		sink->set_pattern("%v");
+		SetSink(std::move(sink));
+		Logger().flush_on(spdlog::level::trace);
+		ApplyLevel();
+	}
 }
