@@ -51,7 +51,7 @@ namespace Tools
 			        size - totalBytesRead,
 			        &bytesRead))
 			{
-				LOG_ERROR_STREAM << "Cannot read memory";
+				LOG_ERROR("Cannot read memory");
 			}
 			if (bytesRead == 0)
 				THROW("Cannot ready process memory");
@@ -78,7 +78,7 @@ namespace Tools
 			                          size - totalWritten,
 			                          &written))
 			{
-				LOG_ERROR_STREAM << "Cannot write memory:";
+				LOG_ERROR("Cannot write memory:");
 			}
 
 			if (written == 0)

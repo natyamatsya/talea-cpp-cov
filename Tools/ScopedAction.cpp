@@ -40,7 +40,7 @@ namespace Tools
 		});
 
 		if (error)
-			LOG_ERROR_STREAM << *error;
+			LOG_ERROR("{}", *error);
 	}
 
 }
