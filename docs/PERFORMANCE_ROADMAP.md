@@ -19,7 +19,7 @@ formats already in place.
 | `MergeCoverageData` | 1.43 ms | 3 modules x 20 files x 500 lines = 30k lines (was 3.1 ms; Tier 1 #1) |
 | `MergeColumnarShards/30` | 12.6 ms | ~0.42 ms per same-build shard (was 15.5 ms; Tier 1 #1) |
 | `SerializeAndDeserializeCoverageData` | 2.15 ms | columnar `.cov` round-trip (was 3.5 ms; Tier 1 #1) |
-| `ExportCobertura` | 7.30 ms | full document, the fixture dataset (was 18.4 -> 9.3 ms; Tier 1 #1, #2) |
+| `ExportCobertura` | 2.50 ms | full document, the fixture dataset (was 18.4 -> 9.3 -> 7.3 ms; Tier 1 #1/#2, Tier 1 #3) |
 | `CoberturaLine_{Legacy,StdFormat,Fmt}` | 39.6 / 9.70 / 9.01 ms | 100k `<line/>` elements: baseline vs `std::format` vs fmt |
 | `FindConditionalBranches/100000` | 11.3 ms | ~93 MiB/s Zydis decode (minimal mode; Tier 2 #4) |
 
@@ -38,7 +38,7 @@ differs. Measured on the idle baseline machine (10 repetitions, medians, all CVs
 |---|---:|---:|---:|---|
 | `FindConditionalBranches/100000` (Zydis decode, minimal mode) | 11.3 ms | 10.1 ms | −11% | clang-cl |
 | `ParsePdbRawPdb` | 2.12 ms | 1.94 ms | −8% | clang-cl |
-| `ExportCobertura` | 7.32 ms | 5.44 ms | −26% | clang-cl |
+| `ExportCobertura` (UTF-8 direct, Tier 1 #3) | 2.50 ms | 2.39 ms | −4% | ~tie |
 | `CoberturaLine_Fmt` (fmt) | 9.56 ms | 7.50 ms | −22% | clang-cl |
 | `CoberturaLine_StdFormat` (`std::format`) | 9.72 ms | 8.85 ms | −9% | clang-cl |
 | `CoberturaLine_Legacy` (`wostream`) | 34.1 ms | 33.4 ms | −2% | ~tie |
@@ -51,9 +51,12 @@ The split is systematic, not noise:
 - **`clang-cl` wins the compute / codegen-bound loops** — Zydis instruction
   decode (branch disassembly, ~11% after the minimal-mode change of Tier 2 #4;
   it was ~19% when both compilers ran the full semantic pass, so MSVC gained
-  more from the switch), string/number formatting (Cobertura export +26%, `fmt`
-  line emission +22%), and raw byte parsing (raw_pdb +8%). Tight loops where
-  LLVM's backend and vectorizer produce better code.
+  more from the switch), the standalone `fmt` line-emission micro-benchmark
+  (~22%), and raw byte parsing (raw_pdb +8%). Tight loops where LLVM's backend
+  and vectorizer produce better code. (`ExportCobertura` used to sit here at
+  −26%, but after the UTF-8 + `to_chars` + `string_view` rewrite of Tier 1 #3
+  the two compilers are within noise — the wide-formatting overhead that
+  favoured clang-cl is gone.)
 - **MSVC wins the MSVC-STL-container-heavy work** — `std::flat_map` merge (+13%),
   columnar shard merge (+21%), serialize (+9%). These lean entirely on
   Microsoft's own STL (`std::flat_map`, `std::vector`, hashing); `cl`'s codegen
@@ -100,13 +103,37 @@ writes it once. Output is byte-for-byte identical (golden-file test);
 `CoberturaLine_Fmt` envelope. The same buffer-then-write approach applies to
 the HTML exporter next.
 
-### 3. Emit reports as UTF-8 directly
-The Cobertura path round-trips through `Tools::ToUtf8String` /
-`LocalToWString` (`CoberturaExporter.cpp:87-88`) and builds UTF-16 that is
-converted on write. Coverage identifiers are ASCII-dominant; formatting into a
-UTF-8 (`char`) buffer end-to-end removes the wide-buffer and the conversion.
-Applies to the HTML exporter too.
-- **Effort:** medium. **Measure:** add an HTML-export benchmark (see gap below).
+### 3. Emit the Cobertura report as UTF-8 directly — DONE
+The Cobertura path round-tripped through `Tools::ToUtf8String` /
+`LocalToWString` and built a UTF-16 `std::wstring` document that a
+`std::wofstream` codecvt narrowed back to bytes on write — the buffer was really
+UTF-8 bytes widened to `wchar_t` and then re-narrowed. The `XmlWriter` now builds
+the document in a `char` (UTF-8) buffer and writes it to a `std::ostream` /
+`std::ofstream`, so paths go through `ToUtf8String` once (no re-widening) and the
+buffer is half the bytes. Three changes compounded:
+
+- **`char` (UTF-8) buffer end-to-end**, removing the widen-then-narrow round trip
+  and the wide codecvt on write.
+- **`std::to_chars` for integer attributes** (line number, hits, counts — the
+  per-line hot path): locale-free, allocation-free, no format-string parse. It is
+  `char`-only, so the narrow buffer is what unblocked it. `fmt` stays for the
+  composite forms (`"{} ({}/{})"`, `%` rate strings), and `FormatRate`'s double
+  now uses `std::to_chars(…, chars_format::general, max_digits10)` too — removing
+  the last `std::ostringstream` on the path (`<sstream>`/`<locale>` dropped).
+- **`std::string_view` tag/attribute parameters**, so the `"class"`/`"line"`/…
+  literals no longer allocate a temporary `std::wstring` on every call.
+
+Output is byte-for-byte identical (golden-file test, incl. the accented
+`SpecialChars` case). Measured (`ExportCobertura`, 10-rep medians, idle):
+- MSVC: 7.32 → **2.50 ms** (~2.9x).
+- clang-cl: 5.44 → **2.39 ms** (~2.3x).
+
+The two compilers, previously 7.32 vs 5.44 ms, are now within noise of each
+other — the UTF-8 + `to_chars` + `string_view` path removed the wide-formatting
+overhead that had favoured clang-cl. All four configs green: 271/271.
+
+The HTML exporter goes through ctemplate rather than this writer, so its
+UTF-8-direct conversion is separate and needs its own benchmark first.
 
 ## Tier 2 — high impact, higher effort or narrower scope
 
@@ -151,6 +178,24 @@ pre-parse (`--preparse_imports`) is opt-in. Parsing the main module's PDB (and
 known imports) on a worker while the loader runs would hide most of the 2.3 ms
 per-module parse behind work that happens regardless. Consider making
 pre-parse the default when the import count crosses a threshold.
+
+### 8. Arena-allocate the transient merge/build structures
+The remaining container-heavy hot paths — `MergeCoverageData`,
+`MergeColumnarShards` — build and tear down many small `std::flat_map` /
+`std::vector` / hash nodes per run, one `malloc`/`free` each. A
+`std::pmr::monotonic_buffer_resource` (a stack-backed bump arena) feeding
+`std::pmr` versions of those transient containers would collapse that allocator
+traffic into pointer bumps and a single bulk release, without hand-writing an
+allocator. This is the standard tool for "optimized allocator for our workload";
+the columnar `.cov` format (struct-of-arrays + varint) and `gch::small_vector`
+in `ExecutedAddressManager` already cover the "optimized data layout" half.
+- **Validate first:** profile `MergeCoverageData` to confirm allocator traffic
+  is a real fraction of the 1.48 ms before threading a memory resource through
+  the data model — the win is real only if allocation is actually the cost.
+- **Watch the ABI:** `Plugin::FileCoverage` etc. are part of the exported data
+  model; a `pmr` allocator on their members would change their layout, so scope
+  the arena to *transient* merge scratch, not the persisted model, unless a
+  layout change is intended.
 
 ## Tier 3 — build-level wins for the tool itself
 

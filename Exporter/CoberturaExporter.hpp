@@ -36,7 +36,7 @@ namespace Exporter
 
 		std::filesystem::path GetDefaultPath(const std::wstring& runningCommandFilename) const override;
 		void Export(const Plugin::CoverageData&, const std::filesystem::path& output) override;
-		void Export(const Plugin::CoverageData&, std::wostream&) const;
+		void Export(const Plugin::CoverageData&, std::ostream&) const;
 
 	private:
 		CoberturaExporter(const CoberturaExporter&) = delete;

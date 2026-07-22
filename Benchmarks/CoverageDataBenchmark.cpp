@@ -273,7 +273,7 @@ namespace
 
 		for (auto _ : state)
 		{
-			std::wostringstream ostr;
+			std::ostringstream ostr;
 			Exporter::CoberturaExporter{}.Export(coverageData, ostr);
 			benchmark::DoNotOptimize(ostr);
 		}

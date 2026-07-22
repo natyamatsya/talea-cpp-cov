@@ -38,11 +38,14 @@ namespace ExporterTest
 	namespace
 	{
 		//-------------------------------------------------------------------------
-		std::wstring GetExpectedResult(const std::string& filename)
+		// The report is UTF-8 bytes; read the golden file as narrow bytes too.
+		// Text-mode ifstream normalizes the golden file's CRLF to '\n', matching
+		// the '\n' the exporter writes into its in-memory buffer.
+		std::string GetExpectedResult(const std::string& filename)
 		{
 			fs::path expectedResult = fs::path(PROJECT_DIR) / "Data" / filename;
-			std::wifstream ifs{ expectedResult.wstring().c_str() };
-			std::wostringstream ostr;
+			std::ifstream ifs{ expectedResult.wstring().c_str() };
+			std::ostringstream ostr;
 
 			ostr << ifs.rdbuf();
 
@@ -50,19 +53,19 @@ namespace ExporterTest
 		}
 
 		//-------------------------------------------------------------------------
-		std::wstring GetExpectedResult()
+		std::string GetExpectedResult()
 		{
 			return GetExpectedResult("CoberturaExporterExpectedResult.xml");
 		}
 
 		//-------------------------------------------------------------------------
-		std::wstring ExportToString(const Plugin::CoverageData& coverageData)
+		std::string ExportToString(const Plugin::CoverageData& coverageData)
 		{
-			std::wostringstream ostr;
+			std::ostringstream ostr;
 			Exporter::CoberturaExporter().Export(coverageData, ostr);
 			auto result = ostr.str();
-			std::wregex regex(LR"(timestamp="\d*")");
-			return std::regex_replace(result, regex, L"timestamp=\"TIMESTAMP\"");
+			std::regex regex(R"(timestamp="\d*")");
+			return std::regex_replace(result, regex, "timestamp=\"TIMESTAMP\"");
 		}
 	}
 	
@@ -82,16 +85,16 @@ namespace ExporterTest
 
 		module.AddFile("File2").AddLine(0, true);
 
-		std::wostringstream ostr;
+		std::ostringstream ostr;
 		Exporter::CoberturaExporter().Export(coverageData, ostr);
 		auto result = ostr.str();
-		std::wregex regex(LR"(timestamp="\d*")");
-		result = std::regex_replace(result, regex, L"timestamp=\"TIMESTAMP\"");
+		std::regex regex(R"(timestamp="\d*")");
+		result = std::regex_replace(result, regex, "timestamp=\"TIMESTAMP\"");
 
-		auto expectedResult = GetExpectedResult();				
-		
+		auto expectedResult = GetExpectedResult();
+
 		ASSERT_EQ(result, expectedResult);
-	}	
+	}
 
 	//-------------------------------------------------------------------------
 	TEST(CoberturaExporterTest, ExportWithBranches)
@@ -135,14 +138,16 @@ namespace ExporterTest
 	{
 		Plugin::CoverageData coverageData{ L"", 0 };
 		coverageData.AddModule(L"\u00E9\u00E0").AddFile(L"\u00E9\u00E0").AddLine(0, true);
-		
-		std::wostringstream ostr;
+
+		std::ostringstream ostr;
 		Exporter::CoberturaExporter().Export(coverageData, ostr);
 		auto result = ostr.str();
 
-		auto packageName = Tools::LocalToWString(reinterpret_cast<const char*>(u8"package name=\"\u00E9\u00E0\""));
-		auto name = Tools::LocalToWString(reinterpret_cast<const char*>(u8"class name=\"\u00E9\u00E0\""));
-		auto filename = Tools::LocalToWString(reinterpret_cast<const char*>(u8"filename=\"\u00E9\u00E0\""));
+		// The report is UTF-8, so the accented names appear as their UTF-8
+		// bytes directly - no widening needed.
+		auto packageName = reinterpret_cast<const char*>(u8"package name=\"\u00E9\u00E0\"");
+		auto name = reinterpret_cast<const char*>(u8"class name=\"\u00E9\u00E0\"");
+		auto filename = reinterpret_cast<const char*>(u8"filename=\"\u00E9\u00E0\"");
 
 		ASSERT_TRUE(result.contains(packageName));
 		ASSERT_TRUE(result.contains(name));
