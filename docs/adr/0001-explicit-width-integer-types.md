@@ -34,20 +34,34 @@ creates a type mismatch at every call into those APIs.
 ## Decision
 
 First-party code uses explicit fixed-width integer types from `<cstdint>` for
-every integer value that represents data with a defined numeric role or width:
+**every** integer value — fields, signatures, format fields, and also loop
+indices and local temporaries. There is no "plain `int` is fine here" carve-out:
 
 - 32-bit values (line numbers, branch indices, counts, container keys, format
-  fields) use `std::uint32_t` / `std::int32_t`.
+  fields, loop counters) use `std::uint32_t` / `std::int32_t`.
 - Bytes use `std::uint8_t`.
 - 64-bit values (addresses, RVAs, file offsets) use `std::uint64_t` /
   `std::int64_t`.
 - `std::size_t` remains the type for sizes of and indices into standard
-  containers (it is already explicit about its role).
+  containers (it is already explicit about its role); an index used purely to
+  walk a container is `std::size_t`, a counter over a numeric range is
+  `std::int32_t` / `std::uint32_t`.
 
-Platform and API integer types (`DWORD`, `ULONG`, `BYTE`, `HANDLE`, `int` as a
-Win32 parameter, …) are **not** first-party types. They appear only at the
-interop boundary — the immediate call site of the API — and are not propagated
-into first-party data structures or signatures.
+The **only** exemption is a value defined by an externally-defined API. Those
+keep the external type, but only at the boundary — the immediate call site or
+the signature the external API dictates — and are converted to/from a
+first-party fixed-width type with a clean cast when they cross into or out of
+first-party code. Concretely, the exempt cases are:
+
+- Platform / debug-API types (`DWORD`, `ULONG`, `BYTE`, `HANDLE`, `HRESULT`,
+  Win32 / DIA / CRT parameters and out-parameters).
+- `main`'s `argc` / `argv` and process exit codes, whose `int` is fixed by the
+  hosting environment.
+- Signatures dictated by a third-party framework — e.g. GoogleTest fixtures and
+  macros — where the `int` (or other type) belongs to that API, not to us.
+
+Anything that is genuinely our own — including every `for` loop counter over
+our own data — is first-party and takes a fixed-width type.
 
 This will break interop where an API expects its own type: passing a
 `std::uint32_t*` to a parameter typed `DWORD*` (`unsigned long*`) does not
@@ -88,12 +102,13 @@ boundary, not by weakening the first-party type back to the implicit one.
   same-width code is source-level only — no binary or behavioural change — so
   it can be done incrementally under the test matrix.
 
-**Scope note**
+**Reach**
 
-- Plain, short-lived loop indices with no stored or interface role may stay
-  `int` / `std::size_t` where that reads more naturally; the rule targets values
-  that carry meaning (are stored, serialized, compared across a boundary, or
-  exposed in a signature), not every arithmetic temporary.
+- The rule is not limited to values that "carry meaning". Loop indices and
+  arithmetic temporaries over first-party data are first-party and take a
+  fixed-width type too; the goal is that reading any integer in our code tells
+  you its width. The exemptions above are the boundary, not a general licence
+  to keep `int`.
 
 ## History
 
