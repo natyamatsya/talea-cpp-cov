@@ -19,7 +19,6 @@
 #include "OptionsSpec.hpp"
 #include "Options.hpp"
 #include "Plugin/OptionsParserException.hpp"
-#include "ExportPluginDescription.hpp"
 #include "Tools/Tool.hpp"
 
 namespace CppCoverage
@@ -72,31 +71,6 @@ namespace CppCoverage
 
 			return std::nullopt;
 		}
-
-		//-------------------------------------------------------------------------
-		bool TryAddExportPlugin(const std::vector<ExportPluginDescription>&
-		                            exportPluginDescriptions,
-		                        const ExportData& exportData,
-		                        Options& options)
-		{
-			auto it = std::find_if(
-			    exportPluginDescriptions.begin(), exportPluginDescriptions.end(), [&](const auto& plugin) {
-				    return plugin.GetPluginName() == exportData.exportType;
-			    });
-			if (it == exportPluginDescriptions.end())
-				return false;
-
-			auto argument = exportData.argument;
-			auto optionalArgument = (argument.empty())
-			                            ? std::nullopt
-			                            : std::make_optional(argument);
-			it->CheckArgument(optionalArgument);
-
-			options.AddExport(OptionsExport{OptionsExportType::Plugin,
-			                                std::wstring{exportData.exportType},
-			                                std::move(optionalArgument)});
-			return true;
-		}
 	}
 
 	const char ExportOptionParser::ExportSeparator = ':';
@@ -107,9 +81,7 @@ namespace CppCoverage
 	const std::string ExportOptionParser::ExportTypeBinaryValue = "binary";
 
 	//-------------------------------------------------------------------------
-	ExportOptionParser::ExportOptionParser(
-	    std::vector<ExportPluginDescription>&& exportPluginDescriptions)
-	    : exportPluginDescriptions_{std::move(exportPluginDescriptions)}
+	ExportOptionParser::ExportOptionParser()
 	{
 		exportTypes_.emplace(
 		    Tools::LocalToWString(ExportOptionParser::ExportTypeHtmlValue),
@@ -140,13 +112,10 @@ namespace CppCoverage
 
 			if (optionExport)
 				options.AddExport(std::move(*optionExport));
-			else if (!TryAddExportPlugin(
-			             exportPluginDescriptions_, exportData, options))
-			{
+			else
 				throw Plugin::OptionsParserException(
 				    Tools::ToLocalString(exportData.exportType) +
 				    " is not a valid export type.");
-			}
 		}
 	}
 
@@ -162,12 +131,6 @@ namespace CppCoverage
 		      L"output file (optional)"},
 		     {Tools::LocalToWString(ExportOptionParser::ExportTypeBinaryValue),
 		      L"output file (optional)"}};
-		for (const auto& description : exportPluginDescriptions_)
-		{
-			exportArgumentInfos.push_back(
-			    {description.GetPluginName(),
-			     description.GetParameterDescription()});
-		}
 
 		std::wstring exports;
 		for (const auto& argumentInfos : exportArgumentInfos)

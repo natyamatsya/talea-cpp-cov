@@ -26,8 +26,7 @@ namespace CppCoverage
 	{
 		Html,
 		Cobertura,
-		Binary,
-		Plugin
+		Binary
 	};
 
 	class CPPCOVERAGE_DLL OptionsExport

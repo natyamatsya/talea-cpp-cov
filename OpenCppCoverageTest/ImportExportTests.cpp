@@ -33,7 +33,6 @@
 #include "Exporter/Binary/CoverageDataDeserializer.hpp"
 
 #include "TestHelper/CoverageDataComparer.hpp"
-#include "TestCoverageSharedLib/TestCoverageSharedLib.hpp"
 
 #include "Tools/Tool.hpp"
 
@@ -168,18 +167,5 @@ namespace OpenCppCoverageTest
 			}
 		}
 		ASSERT_TRUE(hasBranches);
-	}
-
-	//-------------------------------------------------------------------------
-	TEST(ImportExportTest, ExportPlugin)
-	{
-		TestHelper::TemporaryPath tempPath{
-		    TestHelper::TemporaryPathOption::CreateAsFolder};
-		auto output = tempPath.GetPath() / "Output.txt";
-		auto dllPath = TestCoverageSharedLib::GetOutputBinaryPath();
-		auto pluginName = dllPath.stem().string();
-
-		RunCoverage({BuildExportTypeString(pluginName, output)}, output);
-		ASSERT_NE(0, std::filesystem::file_size(output));
 	}
 }

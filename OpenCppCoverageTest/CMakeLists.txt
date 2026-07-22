@@ -17,14 +17,4 @@ add_dependencies(OpenCppCoverageTest CppCoverageTest ExporterTest OpenCppCoverag
 
 target_precompile_headers(OpenCppCoverageTest PRIVATE stdafx.h)
 
-# The import/export tests load TestCoverageSharedLib.dll as a stand-in plugin
-# from <exe dir>/Plugins/Exporter.
-add_custom_command(TARGET OpenCppCoverageTest POST_BUILD
-	COMMAND ${CMAKE_COMMAND} -E make_directory
-		"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Plugins/Exporter"
-	COMMAND ${CMAKE_COMMAND} -E copy_if_different
-		"$<TARGET_FILE:TestCoverageSharedLib>"
-		"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Plugins/Exporter"
-	VERBATIM)
-
 occ_register_tests(OpenCppCoverageTest SERIAL TIMEOUT 300)

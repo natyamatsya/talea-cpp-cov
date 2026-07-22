@@ -39,10 +39,6 @@
 #include "Exporter/Binary/BinaryExporter.hpp"
 #include "Exporter/Binary/CoverageDataDeserializer.hpp"
 #include "Exporter/Binary/ColumnarCoverage.hpp"
-#include "Exporter/Plugin/ExporterPluginManager.hpp"
-#include "Exporter/Plugin/PluginLoader.hpp"
-
-#include "Plugin/Exporter/IExportPlugin.hpp"
 
 #include "Tools/Tool.hpp"
 #include "Tools/Log.hpp"
@@ -76,16 +72,9 @@ namespace OpenCppCoverage
 			return Tools::GetExecutableFolder() / "Template";
 		}
 
-		//-------------------------------------------------------------------------
-		std::filesystem::path GetPluginsExportFolder()
-		{
-			return Tools::GetExecutableFolder() / "Plugins" / "Exporter";
-		}
-
 		//-----------------------------------------------------------------------------
 		void
 		Export(const cov::Options& options,
-		       const Exporter::ExporterPluginManager& exporterPluginManager,
 		       const Plugin::CoverageData& coverage)
 		{
 			const auto& exports = options.GetExports();
@@ -105,19 +94,13 @@ namespace OpenCppCoverage
 				auto exportType = singleExport.GetType();
 				auto parameter = singleExport.GetParameter();
 
-				if (exportType == cov::OptionsExportType::Plugin)
-					exporterPluginManager.Export(
-					    singleExport.GetName(), coverage, parameter);
-				else
-				{
-					const auto& exporter = exporters.at(exportType);
-					auto output =
-					    (parameter)
-					        ? fs::path{*parameter}
-					        : exporter->GetDefaultPath(defaultPathPrefix);
+				const auto& exporter = exporters.at(exportType);
+				auto output =
+				    (parameter)
+				        ? fs::path{*parameter}
+				        : exporter->GetDefaultPath(defaultPathPrefix);
 
-					exporter->Export(coverage, output);
-				}
+				exporter->Export(coverage, output);
 			}
 		}
 
@@ -209,7 +192,6 @@ namespace OpenCppCoverage
 
 		//-----------------------------------------------------------------------------
 		std::int32_t Run(const cov::Options& options,
-		        const Exporter::ExporterPluginManager& exporterPluginManager,
 		        std::shared_ptr<Tools::WarningManager> warningManager)
 		{
 			InitLogger(options);
@@ -285,7 +267,7 @@ namespace OpenCppCoverage
 				coverageDataMerger.MergeFileCoverage(coverageData);
 			}
 
-			Export(options, exporterPluginManager, coverageData);
+			Export(options, coverageData);
 			LOG_INFO("The code coverage report is not what you expect? See the FAQ https://github.com/OpenCppCoverage/OpenCppCoverage/wiki/FAQ.");
 
 			if (exitCode)
@@ -302,14 +284,11 @@ namespace OpenCppCoverage
 		auto warningManager = std::make_shared<Tools::WarningManager>();
 		std::vector<std::unique_ptr<cov::IOptionParser>> optionParsers;
 
-		Exporter::ExporterPluginManager exporterPluginManager{
-		    Exporter::PluginLoader<Plugin::IExportPlugin>{},
-		    GetPluginsExportFolder()};
-
-		auto exportPluginDescriptions =
-		    exporterPluginManager.CreateExportPluginDescriptions();
-		optionParsers.push_back(std::make_unique<cov::ExportOptionParser>(
-		    std::move(exportPluginDescriptions)));
+		// External export plugins were removed when OpenCppCoverage became a
+		// single statically linked executable: their DLL boundary passed STL
+		// objects across a heap boundary, which the static CRT does not allow.
+		// The built-in Html / Cobertura / Binary exporters remain.
+		optionParsers.push_back(std::make_unique<cov::ExportOptionParser>());
 		cov::OptionsParser optionsParser{warningManager, std::move(optionParsers)};
 
 		auto options = optionsParser.Parse(argc, argv, emptyOptionsExplanation);
@@ -319,7 +298,7 @@ namespace OpenCppCoverage
 		{
 			try
 			{
-				status = ::OpenCppCoverage::Run(*options, exporterPluginManager, warningManager);
+				status = ::OpenCppCoverage::Run(*options, warningManager);
 			}
 			catch (const std::exception& e)
 			{

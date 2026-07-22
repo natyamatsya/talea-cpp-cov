@@ -16,9 +16,9 @@ set(OCC_SANITIZER "none" CACHE STRING
 	"Sanitizer to build first-party code with: none, address, undefined, address+undefined")
 set_property(CACHE OCC_SANITIZER PROPERTY STRINGS none address undefined address+undefined)
 
-# All runtime artifacts (exes, DLLs, PDBs, plugins, templates) share one flat
-# directory: test code locates sibling binaries through the OUT_DIR macro, and
-# the exe expects Template/ and Plugins/Exporter/ next to itself.
+# All runtime artifacts (exes, DLLs, PDBs, templates) share one flat directory:
+# test code locates sibling binaries through the OUT_DIR macro, and the exe
+# expects Template/ next to itself.
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set(CMAKE_PDB_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")

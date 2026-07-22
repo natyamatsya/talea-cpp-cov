@@ -40,13 +40,11 @@ namespace CppCoverageTest
 
 		//-------------------------------------------------------------------------
 		std::unique_ptr<cov::OptionsParser>
-		CreateOptionParser(std::vector<cov::ExportPluginDescription>&&
-		                       exportPluginDescription = {})
+		CreateOptionParser()
 		{
 			std::vector<std::unique_ptr<cov::IOptionParser>> optionParsers;
 
-			optionParsers.push_back(std::make_unique<cov::ExportOptionParser>(
-			    std::move(exportPluginDescription)));
+			optionParsers.push_back(std::make_unique<cov::ExportOptionParser>());
 			return std::make_unique<cov::OptionsParser>(
 			    nullptr, std::move(optionParsers));
 		}
@@ -166,49 +164,5 @@ namespace CppCoverageTest
 
 	namespace
 	{
-		//-------------------------------------------------------------------------
-		void CheckExportPluginParser(
-		    const std::wstring& pluginName,
-		    const std::wstring& pluginArg,
-			std::function<void(const std::optional<std::wstring>&)> checkArgumentFct,
-		    std::function<void(const cov::OptionsExport&)> checkOptionExporFct)
-		{
-			std::vector<cov::ExportPluginDescription> exportPluginDescription;
-			exportPluginDescription.push_back(cov::ExportPluginDescription{
-				std::wstring{pluginName},
-			    L"",
-				checkArgumentFct
-			});
-			auto parser =
-			    CreateOptionParser(std::move(exportPluginDescription));
-
-			auto options =
-			    TestTools::Parse(*parser,
-			                     {TestTools::GetOptionPrefix() +
-			                          cov::ExportOptionParser::ExportTypeOption,
-			                      Tools::ToLocalString(pluginName) + ':' +
-			                          Tools::ToLocalString(pluginArg)});
-			if (!options)
-				throw std::runtime_error("Null option");
-
-			const auto& e = options->GetExports().at(0);
-			checkOptionExporFct(e);
-		}
-	}
-	//-------------------------------------------------------------------------
-	TEST(OptionsParserExportTest, ExportPluginDescription)
-	{
-		const std::wstring pluginArg = L"pluginArg";
-		std::optional<std::wstring> argument;
-
-		CheckExportPluginParser(
-			L"pluginName",
-			pluginArg,
-			[&](const auto& arg) { argument = arg;  },
-			[&](const cov::OptionsExport& e) {
-			ASSERT_EQ(cov::OptionsExportType::Plugin, e.GetType());
-			ASSERT_EQ(pluginArg, e.GetParameter());
-		});
-		ASSERT_EQ(pluginArg, argument);
 	}
 }

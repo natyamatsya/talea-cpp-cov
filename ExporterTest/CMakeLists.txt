@@ -4,7 +4,6 @@ add_executable(ExporterTest
 	CoberturaExporterTest.cpp
 	ColumnarCoverageTest.cpp
 	CoverageDataSerializerTest.cpp
-	ExporterPluginManagerTest.cpp
 	ExporterTest.cpp
 	HtmlExporterTest.cpp
 	HtmlFileCoverageExporterTest.cpp

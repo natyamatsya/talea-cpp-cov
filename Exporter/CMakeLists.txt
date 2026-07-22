@@ -9,8 +9,7 @@ add_library(Exporter SHARED
 	Html/HtmlFileCoverageExporter.cpp
 	Html/HtmlFolderStructure.cpp
 	Html/TemplateHtmlExporter.cpp
-	InvalidOutputFileException.cpp
-	Plugin/ExporterPluginManager.cpp)
+	InvalidOutputFileException.cpp)
 add_library(occ::Exporter ALIAS Exporter)
 
 occ_apply_conventions(Exporter)
