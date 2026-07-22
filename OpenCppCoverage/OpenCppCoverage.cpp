@@ -238,10 +238,10 @@ namespace OpenCppCoverage
 				runCoverageSettings.SetPreparseImports(options.IsPreparseImportsModeEnabled());
 
 				std::optional<Plugin::CoverageData> coverageData;
-				if (options.IsExperimentalVehModeEnabled())
+				if (options.IsVehModeEnabled())
 				{
 					if (options.IsCoverChildrenModeEnabled())
-						LOG_WARNING("--experimental_veh child-process coverage is experimental (in-process CreateProcess hook).");
+						LOG_WARNING("VEH child-process coverage is experimental (in-process CreateProcess hook). Use --no_veh for the classic debugger.");
 
 					cov::VehCoverageEngine vehEngine{warningManager};
 					coverageData.emplace(

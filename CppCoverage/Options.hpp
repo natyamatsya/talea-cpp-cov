@@ -103,8 +103,8 @@ namespace CppCoverage
 		void EnablePreparseImportsMode();
 		bool IsPreparseImportsModeEnabled() const;
 
-		void EnableExperimentalVehMode();
-		bool IsExperimentalVehModeEnabled() const;
+		void DisableVehMode();
+		bool IsVehModeEnabled() const;
 
 		void AddExcludedLineRegex(const std::wstring&);
 		const std::vector<std::wstring>& GetExcludedLineRegexes() const;
@@ -135,7 +135,7 @@ namespace CppCoverage
         bool isNoRawPdbModeEnabled_;
         bool isNoLineMergingModeEnabled_;
         bool isPreparseImportsModeEnabled_;
-        bool isExperimentalVehModeEnabled_;
+        bool isVehModeEnabled_;
         std::vector<OptionsExport> exports_;
 		std::vector<std::filesystem::path> inputCoveragePaths_;
 		std::vector<std::filesystem::path> inputFastCovPaths_;

@@ -54,7 +54,8 @@ namespace CppCoverage
 		bool no_raw_pdb = false;
 		bool no_line_merging = false;
 		bool preparse_imports = false;
-		bool experimental_veh = false;
+		bool experimental_veh = false; // deprecated: VEH is the default engine
+		bool no_veh = false;
 
 		// --- scalar value options ---
 		std::optional<std::string> config_file;
@@ -154,8 +155,14 @@ namespace CppCoverage
 		                  "parallel before start. Pure performance."}},
 		    std::pair{std::string_view{"experimental_veh"},
 		              std::string_view{
-		                  "(Experimental) Service breakpoints in-process with a "
-		                  "Vectored Exception Handler. 64-bit only."}},
+		                  "Deprecated: the in-process VEH engine is now the "
+		                  "default; this flag has no effect. Use --no_veh to "
+		                  "disable it."}},
+		    std::pair{std::string_view{"no_veh"},
+		              std::string_view{
+		                  "Disable the in-process VEH engine and use the classic "
+		                  "debugger. Slower, but re-instruments unloaded-then-"
+		                  "reloaded DLLs, which VEH does not."}},
 		    std::pair{std::string_view{"input_fastcov"},
 		              std::string_view{
 		                  "(Experimental) Import a compiler-instrumentation "
@@ -214,6 +221,8 @@ namespace glz
 		                                     &T::preparse_imports,
 		                                     "experimental_veh",
 		                                     &T::experimental_veh,
+		                                     "no_veh",
+		                                     &T::no_veh,
 		                                     "config_file",
 		                                     &T::config_file,
 		                                     "working_dir",

@@ -55,7 +55,7 @@ namespace CppCoverage
 		, isNoRawPdbModeEnabled_{false}
 		, isNoLineMergingModeEnabled_{false}
 		, isPreparseImportsModeEnabled_{false}
-		, isExperimentalVehModeEnabled_{false}
+		, isVehModeEnabled_{true}
 	{
 		if (startInfo)
 			optionalStartInfo_ = *startInfo;
@@ -288,15 +288,15 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	void Options::EnableExperimentalVehMode()
+	void Options::DisableVehMode()
 	{
-		isExperimentalVehModeEnabled_ = true;
+		isVehModeEnabled_ = false;
 	}
 
 	//-------------------------------------------------------------------------
-	bool Options::IsExperimentalVehModeEnabled() const
+	bool Options::IsVehModeEnabled() const
 	{
-		return isExperimentalVehModeEnabled_;
+		return isVehModeEnabled_;
 	}
 
 	//-------------------------------------------------------------------------
@@ -340,7 +340,7 @@ namespace CppCoverage
 		ostr << L"No raw PDB: " << options.isNoRawPdbModeEnabled_ << std::endl;
 		ostr << L"No line merging: " << options.isNoLineMergingModeEnabled_ << std::endl;
 		ostr << L"Preparse imports: " << options.isPreparseImportsModeEnabled_ << std::endl;
-		ostr << L"Experimental VEH: " << options.isExperimentalVehModeEnabled_ << std::endl;
+		ostr << L"VEH engine: " << options.isVehModeEnabled_ << std::endl;
 
 		ostr << L"Export: ";
 		for (const auto& optionExport : options.exports_)

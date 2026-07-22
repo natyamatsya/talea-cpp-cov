@@ -59,6 +59,7 @@ namespace CppCoverage
 	const std::string ProgramOptions::NoLineMergingOption = "no_line_merging";
 	const std::string ProgramOptions::PreparseImportsOption = "preparse_imports";
 	const std::string ProgramOptions::ExperimentalVehOption = "experimental_veh";
+	const std::string ProgramOptions::NoVehOption = "no_veh";
 	const std::string ProgramOptions::InputFastCovValue = "input_fastcov";
 	const std::string ProgramOptions::FastCovTemplateReportValue =
 	    "fastcov_template_report";

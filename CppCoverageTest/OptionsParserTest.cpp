@@ -191,14 +191,20 @@ namespace CppCoverageTest
 	}
 
 	//-------------------------------------------------------------------------
-	TEST(OptionsParserTest, ExperimentalVeh)
+	TEST(OptionsParserTest, VehEngine)
 	{
 		cov::OptionsParser parser;
 
+		// VEH is the default engine.
+		ASSERT_TRUE(TestTools::Parse(parser, {})->IsVehModeEnabled());
+		// --no_veh falls back to the classic debugger.
+		ASSERT_FALSE(TestTools::Parse(parser,
+		{ TestTools::GetOptionPrefix() + cov::ProgramOptions::NoVehOption })
+			->IsVehModeEnabled());
+		// --experimental_veh is a deprecated no-op: VEH stays enabled.
 		ASSERT_TRUE(TestTools::Parse(parser,
 		{ TestTools::GetOptionPrefix() + cov::ProgramOptions::ExperimentalVehOption })
-			->IsExperimentalVehModeEnabled());
-		ASSERT_FALSE(TestTools::Parse(parser, {})->IsExperimentalVehModeEnabled());
+			->IsVehModeEnabled());
 	}
     
     //-------------------------------------------------------------------------

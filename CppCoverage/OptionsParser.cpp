@@ -463,8 +463,10 @@ namespace CppCoverage
 			options.EnableNoLineMergingMode();
 		if (spec.preparse_imports)
 			options.EnablePreparseImportsMode();
-		if (spec.experimental_veh)
-			options.EnableExperimentalVehMode();
+		// VEH is the default engine; --experimental_veh is a deprecated no-op
+		// kept for backward compatibility. --no_veh falls back to the debugger.
+		if (spec.no_veh)
+			options.DisableVehMode();
 
 		AddInputCoverages(spec, options);
 		AddInputFastCov(spec, options);
