@@ -16,10 +16,7 @@
 
 #pragma once
 
-#ifdef TEST_HELPER_EXPORTS
-#define TEST_HELPER_DLL __declspec(dllexport)
-#else
-#define TEST_HELPER_DLL _declspec(dllimport)
-#endif
-
-#pragma warning (disable: 4251)
+// TestHelper is a static utility library linked into the test executables;
+// there is no DLL boundary, so the macro expands to nothing. (The runtime-
+// loaded TestHelper.dll is a separate one-function target, TestUnloadHelper.)
+#define TEST_HELPER_DLL

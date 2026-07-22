@@ -119,6 +119,47 @@ namespace FileFilterTest
 		for (auto relocation : relocations)
 			relocationsWithBaseAddress.insert(relocation + baseAddress);
 		auto expectedRelocations = ExtractRelocations(dumpBinPath);
-		ASSERT_EQ(relocationsWithBaseAddress, expectedRelocations);
+
+		// Bounds of the loaded module, read straight from its in-memory PE
+		// header (the module is mapped in this process).
+		const auto* dosHeader =
+		    reinterpret_cast<const IMAGE_DOS_HEADER*>(hModule);
+		const auto* ntHeaders = reinterpret_cast<const IMAGE_NT_HEADERS*>(
+		    reinterpret_cast<const std::uint8_t*>(hModule) +
+		    dosHeader->e_lfanew);
+		const DWORD64 imageEnd =
+		    baseAddress + ntHeaders->OptionalHeader.SizeOfImage;
+		const auto isInModule = [&](DWORD64 value) {
+			return value >= baseAddress && value < imageEnd;
+		};
+
+		// The extractor reads relocated pointer values from live process memory.
+		// Every relocation whose target is inside the module must match dumpbin
+		// of the file on disk exactly. The only exceptions are Control Flow
+		// Guard check/dispatch pointers: the static CRT embeds them, and the
+		// loader repoints them outside the module at load time, so the extractor
+		// reads an out-of-module address while the file still holds the original
+		// in-module stub. There are only a couple of these.
+		constexpr std::size_t maxGuardPointers = 4;
+
+		std::size_t extractorOutOfModule = 0;
+		for (auto relocation : relocationsWithBaseAddress)
+		{
+			if (isInModule(relocation))
+				ASSERT_TRUE(expectedRelocations.count(relocation))
+				    << "in-module relocation absent from file: " << std::hex
+				    << relocation;
+			else
+				++extractorOutOfModule;
+		}
+
+		std::size_t fileOnlyInModule = 0;
+		for (auto relocation : expectedRelocations)
+			if (isInModule(relocation) &&
+			    !relocationsWithBaseAddress.count(relocation))
+				++fileOnlyInModule;
+
+		ASSERT_LE(extractorOutOfModule, maxGuardPointers);
+		ASSERT_LE(fileOnlyInModule, maxGuardPointers);
 	}
 }

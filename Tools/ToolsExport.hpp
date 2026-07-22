@@ -16,10 +16,6 @@
 
 #pragma once
 
-#ifdef TOOLS_EXPORTS
-#define TOOLS_DLL __declspec(dllexport)
-#else
-#define TOOLS_DLL _declspec(dllimport)
-#endif
-
-#pragma warning (disable: 4251)
+// Built as a static library linked into OpenCppCoverage.exe (and the test
+// executables); there is no DLL boundary, so the macro expands to nothing.
+#define TOOLS_DLL

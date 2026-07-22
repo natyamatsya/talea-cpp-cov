@@ -18,7 +18,19 @@
 
 namespace TestCoverageOptimizedBuild
 {
-	__declspec(dllexport) std::filesystem::path GetMainCppPath();
-	__declspec(dllexport) std::filesystem::path GetOutputBinaryPath();
+	// C-ABI exports + inline wrappers so nothing heap-owning crosses the DLL
+	// boundary under the static CRT (see TestCoverageSharedLib for the pattern).
+	__declspec(dllexport) const wchar_t* GetMainCppPathC();
+	__declspec(dllexport) const wchar_t* GetOutputBinaryPathC();
+
+	inline std::filesystem::path GetMainCppPath()
+	{
+		return GetMainCppPathC();
+	}
+	inline std::filesystem::path GetOutputBinaryPath()
+	{
+		return GetOutputBinaryPathC();
+	}
+
 	__declspec(dllexport) void TestOptimizedBuild();
 }

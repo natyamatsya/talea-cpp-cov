@@ -36,15 +36,23 @@ namespace TestCoverageSharedLib
 	}
 
 	//-------------------------------------------------------------------------
-	fs::path GetMainCppPath()
+	// These cross the DLL boundary into the test executables, which run on a
+	// separate static CRT heap, so they hand back a pointer into this DLL's own
+	// static storage instead of returning a heap-owning std::filesystem::path.
+	// The inline GetMainCppPath / GetOutputBinaryPath wrappers (in the header)
+	// rebuild a path in the caller, keeping call sites unchanged.
+	const wchar_t* GetMainCppPathC()
 	{
-		return __FILE__ ;
+		static const std::wstring path = fs::path(__FILE__).wstring();
+		return path.c_str();
 	}
 
 	//-------------------------------------------------------------------------
-	fs::path GetOutputBinaryPath()
-	{		
-		return std::filesystem::path(OUT_DIR) / TARGET_FILE_NAME;
+	const wchar_t* GetOutputBinaryPathC()
+	{
+		static const std::wstring path =
+		    (fs::path(OUT_DIR) / TARGET_FILE_NAME).wstring();
+		return path.c_str();
 	}
 
 	//-------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-add_library(Exporter SHARED
+add_library(Exporter STATIC
 	Binary/BinaryExporter.cpp
 	Binary/ColumnarCoverage.cpp
 	Binary/CoverageDataDeserializer.cpp

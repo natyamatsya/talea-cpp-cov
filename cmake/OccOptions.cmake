@@ -12,7 +12,10 @@ target_compile_definitions(occ_defaults INTERFACE
 	BENCHMARK_STATIC_DEFINE)
 target_compile_options(occ_defaults INTERFACE
 	/W3 /FC /utf-8
-	$<$<CXX_COMPILER_ID:MSVC>:/sdl>
+	# Fully static build: C4251/C4275 (a dll-exported class has an STL/base
+	# without a dll-interface) cannot occur across a real boundary, so silence
+	# them globally instead of per-export-header as the DLL build once did.
+	$<$<CXX_COMPILER_ID:MSVC>:/sdl;/wd4251;/wd4275>
 	$<$<COMPILE_LANGUAGE:CXX>:/permissive- /std:c++latest>
 	$<$<BOOL:${OCC_WERROR}>:/WX>
 	# glaze exports /Zc:lambda and /Zc:preprocessor (cl-only, inert on clang);
@@ -40,12 +43,13 @@ target_link_options(occ_opt_default INTERFACE
 	$<$<AND:$<CONFIG:Release>,$<CXX_COMPILER_ID:MSVC>,$<BOOL:${OCC_MSVC_LTO}>>:/LTCG>)
 
 # --- GTest.props -------------------------------------------------------------
+# GTest is linked statically (fully static build), so GTEST_LINKED_AS_SHARED_-
+# LIBRARY must NOT be set - otherwise the headers mark symbols dllimport and the
+# link fails against the static gmock.lib.
 add_library(occ_gtest INTERFACE)
 target_link_libraries(occ_gtest INTERFACE GTest::gmock)
 target_compile_definitions(occ_gtest INTERFACE
-	GTEST_LINKED_AS_SHARED_LIBRARY=1
 	_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING)
-target_compile_options(occ_gtest INTERFACE /wd4251 /wd4275)
 
 # Applies the conventions every former Default.props importer relied on:
 # repo-root + project include dirs, the compiled-in path macros consumed by

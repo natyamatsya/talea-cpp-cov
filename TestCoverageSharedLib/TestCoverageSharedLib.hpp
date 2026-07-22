@@ -21,8 +21,22 @@
 
 namespace TestCoverageSharedLib
 {
-	__declspec(dllexport) std::filesystem::path GetMainCppPath();
-	__declspec(dllexport) std::filesystem::path GetOutputBinaryPath();
+	// C-ABI exports: return a pointer into this DLL's static storage so nothing
+	// heap-owning crosses into the test executables' separate static CRT heap.
+	__declspec(dllexport) const wchar_t* GetMainCppPathC();
+	__declspec(dllexport) const wchar_t* GetOutputBinaryPathC();
+
+	// Convenience wrappers, inline so they are compiled into (and rebuild the
+	// path on) the caller side; call sites use these unchanged.
+	inline std::filesystem::path GetMainCppPath()
+	{
+		return GetMainCppPathC();
+	}
+	inline std::filesystem::path GetOutputBinaryPath()
+	{
+		return GetOutputBinaryPathC();
+	}
+
 	__declspec(dllexport) bool IsOdd(std::int32_t n);
 
 	__declspec(dllexport) void CallSharedFunctionFromSharedLib();

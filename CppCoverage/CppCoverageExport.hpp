@@ -16,13 +16,9 @@
 
 #pragma once
 
-#ifdef CPPCOVERAGE_EXPORTS
-	#define CPPCOVERAGE_DLL __declspec(dllexport)
-#else
-	#define CPPCOVERAGE_DLL _declspec(dllimport)
-#endif
-
-#pragma warning (disable: 4251)
+// Built as a static library linked into OpenCppCoverage.exe (and the test
+// executables); there is no DLL boundary, so the macro expands to nothing.
+#define CPPCOVERAGE_DLL
 
 
 

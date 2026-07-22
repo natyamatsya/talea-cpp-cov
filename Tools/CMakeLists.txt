@@ -1,4 +1,4 @@
-add_library(Tools SHARED
+add_library(Tools STATIC
 	ExceptionBase.cpp
 	Log.cpp
 	MappedFile.cpp

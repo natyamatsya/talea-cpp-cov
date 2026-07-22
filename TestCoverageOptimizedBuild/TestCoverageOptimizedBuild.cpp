@@ -22,15 +22,22 @@
 namespace TestCoverageOptimizedBuild
 {
 	//-------------------------------------------------------------------------
-	std::filesystem::path GetMainCppPath()
+	// C-ABI across the DLL boundary: return a pointer into this DLL's static
+	// storage, not a heap-owning path, so nothing crosses into the test
+	// executables' separate static CRT heap (see TestCoverageSharedLib).
+	const wchar_t* GetMainCppPathC()
 	{
-		return __FILE__;
+		static const std::wstring path =
+		    std::filesystem::path(__FILE__).wstring();
+		return path.c_str();
 	}
 
 	//-------------------------------------------------------------------------
-	std::filesystem::path GetOutputBinaryPath()
+	const wchar_t* GetOutputBinaryPathC()
 	{
-		return std::filesystem::path(OUT_DIR) / TARGET_FILE_NAME;
+		static const std::wstring path =
+		    (std::filesystem::path(OUT_DIR) / TARGET_FILE_NAME).wstring();
+		return path.c_str();
 	}
 
 	//-------------------------------------------------------------------------

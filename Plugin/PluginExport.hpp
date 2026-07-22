@@ -16,13 +16,9 @@
 
 #pragma once
 
-#ifdef PLUGIN_EXPORTS
-	#define PLUGIN_DLL __declspec(dllexport)
-#else
-	#define PLUGIN_DLL _declspec(dllimport)
-#endif
-
-#pragma warning (disable: 4251)
+// Built as a static library linked into OpenCppCoverage.exe (and the test
+// executables); there is no DLL boundary, so the macro expands to nothing.
+#define PLUGIN_DLL
 
 
 

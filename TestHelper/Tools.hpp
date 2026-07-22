@@ -20,11 +20,6 @@
 #include <filesystem>
 #include "TestHelperExport.hpp"
 
-extern "C"
-{
-	void TEST_HELPER_DLL TestUnloadDll();
-}
-
 namespace TestHelper
 {
 	std::filesystem::path TEST_HELPER_DLL  GetTestUnloadDllFilename();

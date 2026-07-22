@@ -1,5 +1,5 @@
 # Public plugin interface (IExportPlugin and the coverage data types).
-add_library(Plugin SHARED
+add_library(Plugin STATIC
 	Exporter/BranchCoverage.cpp
 	Exporter/CoverageData.cpp
 	Exporter/FileCoverage.cpp

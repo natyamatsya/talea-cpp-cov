@@ -88,9 +88,14 @@ namespace ExporterTest
 		}
 	}
 
-	const auto StyleExecuted = Exporter::HtmlFileCoverageExporter::StyleBackgroundColorExecuted;
-	const auto StyleNotExecuted = Exporter::HtmlFileCoverageExporter::StyleBackgroundColorUnexecuted;
-	const auto EndStyle = Exporter::HtmlFileCoverageExporter::EndStyle;
+	// Bind by reference, not copy: these are static const std::wstring members
+	// of the exporter. Copying them here (namespace-scope static init) races
+	// with their own construction now that the exporter is statically linked
+	// into this test rather than a separate DLL whose statics ran first. A
+	// reference binds to their storage and reads the value at test-run time.
+	const auto& StyleExecuted = Exporter::HtmlFileCoverageExporter::StyleBackgroundColorExecuted;
+	const auto& StyleNotExecuted = Exporter::HtmlFileCoverageExporter::StyleBackgroundColorUnexecuted;
+	const auto& EndStyle = Exporter::HtmlFileCoverageExporter::EndStyle;
 	const std::wstring Line = L"line";
 
 	//---------------------------------------------------------------------

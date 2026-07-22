@@ -70,23 +70,22 @@ namespace
 	}
 }
 
-//-------------------------------------------------------------------------
-void TestUnloadDll()
-{
-}
-
 namespace TestHelper
 {
 	//-------------------------------------------------------------------------
 	fs::path GetTestUnloadDllFilename()
 	{
-		return fs::path(__FILE__).filename();
+		// The source file compiled into TestHelper.dll (TestUnloadHelper.cpp);
+		// this is the file the coverage tool reports when TestUnloadDll runs.
+		return L"TestUnloadHelper.cpp";
 	}
 
 	//-------------------------------------------------------------------------
 	fs::path GetOutputBinaryPath()
-	{		
-		return TARGET_FILE_NAME;
+	{
+		// The runtime-loaded DLL is the separate TestUnloadHelper target, whose
+		// output is TestHelper.dll, next to the test executable (flat bin dir).
+		return fs::path(OUT_DIR) / L"TestHelper.dll";
 	}
 
 	//-------------------------------------------------------------------------

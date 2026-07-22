@@ -1,4 +1,4 @@
-add_library(CppCoverage SHARED
+add_library(CppCoverage STATIC
 	Address.cpp
 	BranchCondition.cpp
 	BranchCoverageManager.cpp
