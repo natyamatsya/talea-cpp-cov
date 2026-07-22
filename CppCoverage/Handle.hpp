@@ -47,7 +47,7 @@ namespace CppCoverage
 			Tools::Try([&] {
 				if (handle_ && !releaser_(handle_))
 				{
-					LOG_ERROR << "Cannot release handler";
+					LOG_ERROR_STREAM << "Cannot release handler";
 				}
 			});
 		}

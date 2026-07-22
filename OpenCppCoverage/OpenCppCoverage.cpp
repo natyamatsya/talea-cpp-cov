@@ -134,7 +134,7 @@ namespace OpenCppCoverage
 
 			for (const auto& path : options.GetInputCoveragePaths())
 			{
-				LOG_INFO << L"Load coverage file: " << path.wstring();
+				LOG_INFO_STREAM << L"Load coverage file: " << path.wstring();
 				if (!merger.AddColumnarFile(path))
 				{
 					auto errorMsg =
@@ -156,7 +156,7 @@ namespace OpenCppCoverage
 			if (fastCovPaths.empty())
 			{
 				if (options.GetFastCovTemplateReportPath())
-					LOG_WARNING
+					LOG_WARNING_STREAM
 					    << L"--fastcov_template_report has no effect without "
 					       L"--input_fastcov; no report was written.";
 				return;
@@ -174,7 +174,7 @@ namespace OpenCppCoverage
 
 			for (const auto& path : fastCovPaths)
 			{
-				LOG_INFO << L"Import fast coverage dump: " << path.wstring();
+				LOG_INFO_STREAM << L"Import fast coverage dump: " << path.wstring();
 				auto result = importer.Import(path);
 				coverageDatas.push_back(std::move(result.coverageData_));
 				for (auto& report : result.templates_)
@@ -188,7 +188,7 @@ namespace OpenCppCoverage
 				    cov::FastCoverageImporter::FormatTemplateReport(templates);
 				std::ofstream ofs{*reportPath, std::ios::binary};
 				ofs << Tools::ToUtf8String(markdown);
-				LOG_INFO << L"Wrote template coverage report: "
+				LOG_INFO_STREAM << L"Wrote template coverage report: "
 				         << reportPath->wstring();
 			}
 		}
@@ -227,7 +227,7 @@ namespace OpenCppCoverage
 			
 			std::wostringstream ostr;
 			ostr << std::endl << options;
-			LOG_INFO << L"Start Program:" << ostr.str();
+			LOG_INFO_STREAM << L"Start Program:" << ostr.str();
 
 			cov::CodeCoverageRunner codeCoverageRunner{ warningManager };
 			cov::CoverageFilterSettings coverageFilterSettings{ options.GetModulePatterns(), options.GetSourcePatterns() };
@@ -260,7 +260,7 @@ namespace OpenCppCoverage
 				if (options.IsExperimentalVehModeEnabled())
 				{
 					if (options.IsCoverChildrenModeEnabled())
-						LOG_WARNING << L"--experimental_veh child-process "
+						LOG_WARNING_STREAM << L"--experimental_veh child-process "
 						               L"coverage is experimental (in-process "
 						               L"CreateProcess hook).";
 
@@ -289,11 +289,11 @@ namespace OpenCppCoverage
 			}
 
 			Export(options, exporterPluginManager, coverageData);
-			LOG_INFO << L"The code coverage report is not what you expect? See the FAQ "
+			LOG_INFO_STREAM << L"The code coverage report is not what you expect? See the FAQ "
 				L"https://github.com/OpenCppCoverage/OpenCppCoverage/wiki/FAQ.";
 
 			if (exitCode)
-				LOG_ERROR << L"Your program stop with error code: " << exitCode;
+				LOG_ERROR_STREAM << L"Your program stop with error code: " << exitCode;
 			return exitCode;
 		}
 	}
@@ -327,11 +327,11 @@ namespace OpenCppCoverage
 			}
 			catch (const std::exception& e)
 			{
-				LOG_ERROR << "Error: " << e.what();
+				LOG_ERROR_STREAM << "Error: " << e.what();
 			}
 			catch (...)
 			{
-				LOG_ERROR << "Unkown Error";
+				LOG_ERROR_STREAM << "Unkown Error";
 			}
 
 			warningManager->DisplayWarnings();

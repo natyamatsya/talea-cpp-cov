@@ -30,6 +30,6 @@ namespace Tools
 	void WarningManager::DisplayWarnings() const
 	{
 		for (const auto& warning : warnings_)
-			LOG_WARNING << warning;
+			LOG_WARNING_STREAM << warning;
 	}
 }

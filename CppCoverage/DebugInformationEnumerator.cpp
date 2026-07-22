@@ -199,7 +199,7 @@ namespace CppCoverage
 			HRESULT STDMETHODCALLTYPE NotifyOpenPDB(LPCOLESTR pdbPath,
 			                                        HRESULT resultCode) override
 			{
-				LOG_DEBUG << "Try to load pdb from " << pdbPath << ": "
+				LOG_DEBUG_STREAM << "Try to load pdb from " << pdbPath << ": "
 				          << (resultCode == S_OK ? "Success" : "Failed");
 				return S_OK;
 			}

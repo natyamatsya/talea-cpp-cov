@@ -33,7 +33,7 @@ namespace CppCoverage
 	{
 		void OnRip(const RIP_INFO& ripInfo)
 		{
-			LOG_ERROR << "Debugee process terminate unexpectedly:"
+			LOG_ERROR_STREAM << "Debugee process terminate unexpectedly:"
 				<< "(type:" << ripInfo.dwType << ")"
 				<< GetErrorMessage(ripInfo.dwError);
 		}
@@ -160,7 +160,7 @@ namespace CppCoverage
 			}
 			case EXCEPTION_DEBUG_EVENT: return OnException(debugEvent, debugEventsHandler, hProcess, hThread);
 			case RIP_EVENT: OnRip(debugEvent.u.RipInfo); break;
-			default: LOG_DEBUG << "Debug event:" << debugEvent.dwDebugEventCode; break;
+			default: LOG_DEBUG_STREAM << "Debug event:" << debugEvent.dwDebugEventCode; break;
 		}
 
 		return ProcessStatus{};
@@ -185,13 +185,13 @@ namespace CppCoverage
 			}
 			case IDebugEventsHandler::ExceptionType::InvalidBreakPoint:
 			{
-				LOG_WARNING << Tools::GetSeparatorLine();
-				LOG_WARNING << "It seems there is an assertion failure or you call DebugBreak() in your program.";
-				LOG_WARNING << Tools::GetSeparatorLine();
+				LOG_WARNING_STREAM << Tools::GetSeparatorLine();
+				LOG_WARNING_STREAM << "It seems there is an assertion failure or you call DebugBreak() in your program.";
+				LOG_WARNING_STREAM << Tools::GetSeparatorLine();
 
                 if (stopOnAssert_)
                 {
-                  LOG_WARNING << "Stop on assertion.";
+                  LOG_WARNING_STREAM << "Stop on assertion.";
                   return ProcessStatus{ std::nullopt, DBG_EXCEPTION_NOT_HANDLED };
                 }
                 else
@@ -212,7 +212,7 @@ namespace CppCoverage
 				if (continueAfterCppException_)
 				{
 					const auto& exceptionRecord = exception.ExceptionRecord;
-					LOG_WARNING << "Continue after a C++ exception.";
+					LOG_WARNING_STREAM << "Continue after a C++ exception.";
 					return ProcessStatus{ static_cast<int>(exceptionRecord.ExceptionCode), DBG_CONTINUE };
 				}
 				return ProcessStatus{ std::nullopt, DBG_EXCEPTION_NOT_HANDLED };
@@ -229,7 +229,7 @@ namespace CppCoverage
 		const auto& processInfo = debugEvent.u.CreateProcessInfo;
 		Tools::ScopedAction scopedAction{ [&processInfo]{ CloseHandle(processInfo.hFile); } };
 
-		LOG_DEBUG << "Create Process:" << debugEvent.dwProcessId;
+		LOG_DEBUG_STREAM << "Create Process:" << debugEvent.dwProcessId;
 
 		if (!rootProcessId_ && processHandles_.empty())
 			rootProcessId_ = debugEvent.dwProcessId;
@@ -252,7 +252,7 @@ namespace CppCoverage
 		OnExitThread(debugEvent.dwThreadId);
 		auto processId = debugEvent.dwProcessId;
 
-		LOG_DEBUG << "Exit Process:" << processId;
+		LOG_DEBUG_STREAM << "Exit Process:" << processId;
 
 		auto exitProcess = debugEvent.u.ExitProcess;
 		debugEventsHandler.OnExitProcess(hProcess, hThread, exitProcess);
@@ -268,7 +268,7 @@ namespace CppCoverage
 		HANDLE hThread,
 		DWORD dwThreadId)
 	{
-		LOG_DEBUG << "Create Thread:" << dwThreadId;
+		LOG_DEBUG_STREAM << "Create Thread:" << dwThreadId;
 
 		if (!threadHandles_.emplace(dwThreadId, hThread).second)
 			THROW("Thread id already exist");
@@ -277,7 +277,7 @@ namespace CppCoverage
 	//-------------------------------------------------------------------------
 	void Debugger::OnExitThread(DWORD dwThreadId)
 	{	
-		LOG_DEBUG << "Exit thread:" << dwThreadId;
+		LOG_DEBUG_STREAM << "Exit thread:" << dwThreadId;
 
 		if (threadHandles_.erase(dwThreadId) != 1)
 			THROW("Cannot find exited thread.");

@@ -94,6 +94,19 @@ namespace Tools
 	}
 
 	//-------------------------------------------------------------------------
+	bool ShouldLog(LogLevel level)
+	{
+		return Logger().should_log(ToSpdlogLevel(level));
+	}
+
+	//-------------------------------------------------------------------------
+	void LogMessage(LogLevel level, std::string_view message)
+	{
+		// message is already-formatted UTF-8 text, not a format string.
+		Logger().log(ToSpdlogLevel(level), message);
+	}
+
+	//-------------------------------------------------------------------------
 	void InitConsoleAndFileLog(const std::filesystem::path& logPath)
 	{
 		// Console goes to stderr as "[severity] message"; the file adds a

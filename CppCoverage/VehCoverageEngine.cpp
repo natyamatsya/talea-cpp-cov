@@ -535,7 +535,7 @@ namespace CppCoverage
 			    hProcess, nullptr, byteSize, MEM_COMMIT, PAGE_READWRITE);
 			if (!remoteMemory)
 			{
-				LOG_ERROR << L"VEH: cannot allocate memory in the target.";
+				LOG_ERROR_STREAM << L"VEH: cannot allocate memory in the target.";
 				return false;
 			}
 
@@ -577,7 +577,7 @@ namespace CppCoverage
 			}
 
 			if (!success)
-				LOG_ERROR << L"VEH: cannot inject the coverage helper.";
+				LOG_ERROR_STREAM << L"VEH: cannot inject the coverage helper.";
 
 			VirtualFreeEx(hProcess, remoteMemory, 0, MEM_RELEASE);
 			return success;
@@ -596,13 +596,13 @@ namespace CppCoverage
 				if (status == static_cast<std::uint32_t>(
 				                  VehCoverage::HelperStatus::Error))
 				{
-					LOG_ERROR << L"VEH: helper reported error code "
+					LOG_ERROR_STREAM << L"VEH: helper reported error code "
 					          << header->helperErrorCode << L".";
 					return false;
 				}
 				if (GetTickCount64() >= deadline)
 				{
-					LOG_ERROR << L"VEH: timed out waiting for the helper.";
+					LOG_ERROR_STREAM << L"VEH: timed out waiting for the helper.";
 					return false;
 				}
 				Sleep(1);
@@ -1014,7 +1014,7 @@ namespace CppCoverage
 						     child.ready.get()});
 					else if (!warnedCap)
 					{
-						LOG_WARNING << L"VEH: watching the maximum number of "
+						LOG_WARNING_STREAM << L"VEH: watching the maximum number of "
 						               L"processes for child spawns; deeper "
 						               L"descendants are not instrumented.";
 						warnedCap = true;
@@ -1181,7 +1181,7 @@ namespace CppCoverage
 						// every spawned child would block waiting on a ready
 						// signal that never comes. The header is read by the
 						// helper only after injection below.
-						LOG_WARNING << L"VEH: child-process registration "
+						LOG_WARNING_STREAM << L"VEH: child-process registration "
 						               L"unavailable; child coverage disabled.";
 						header->coverChildren = 0;
 						coverChildren = false;
@@ -1191,11 +1191,11 @@ namespace CppCoverage
 				if (InjectHelper(processHandle.get(), helperDllPath))
 					WaitForHelperReady(header);
 				else
-					LOG_WARNING << L"VEH: continuing without instrumentation.";
+					LOG_WARNING_STREAM << L"VEH: continuing without instrumentation.";
 			}
 			else
 			{
-				LOG_ERROR << L"VEH: cannot create the shared section; "
+				LOG_ERROR_STREAM << L"VEH: cannot create the shared section; "
 				             L"running without instrumentation.";
 			}
 		}

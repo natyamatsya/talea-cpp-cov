@@ -102,11 +102,11 @@ namespace CppCoverage
 		{			
 			auto hProcess = processInformation_->hProcess;
 			if (hProcess && !CloseHandle(hProcess))
-				LOG_ERROR << "Cannot close process handle";
+				LOG_ERROR_STREAM << "Cannot close process handle";
 
 			auto hThread = processInformation_->hThread;
 			if (hThread && !CloseHandle(hThread))
-				LOG_ERROR << "Cannot close thread handle";
+				LOG_ERROR_STREAM << "Cannot close thread handle";
 		}
 	}
 

@@ -186,8 +186,8 @@ namespace CppCoverage
 			executableLinesSet.clear();
 			for (const auto& lineInfo : fileInfo.lineInfoColllection_)
 				executableLinesSet.insert(lineInfo.lineNumber_);
-			LOG_DEBUG << L"Executable lines for " << filePath << L": ";
-			LOG_DEBUG << ToWString(executableLinesSet);
+			LOG_DEBUG_STREAM << L"Executable lines for " << filePath << L": ";
+			LOG_DEBUG_STREAM << ToWString(executableLinesSet);
 			executableLineCache_.currentFilePath = filePath;
 		}
 		return executableLineCache_.executableLinesSet;

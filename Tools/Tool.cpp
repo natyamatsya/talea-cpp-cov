@@ -137,9 +137,9 @@ namespace Tools
 		const std::wstring& message, 
 		const std::filesystem::path& path)
 	{
-		LOG_INFO << GetSeparatorLine();
-		LOG_INFO << message << path.wstring();
-		LOG_INFO << GetSeparatorLine();
+		LOG_INFO_STREAM << GetSeparatorLine();
+		LOG_INFO_STREAM << message << path.wstring();
+		LOG_INFO_STREAM << GetSeparatorLine();
 	}
 
 	//-------------------------------------------------------------------------

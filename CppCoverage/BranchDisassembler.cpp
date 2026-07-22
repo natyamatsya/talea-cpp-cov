@@ -84,7 +84,7 @@ namespace CppCoverage
 		                           ZYDIS_STACK_WIDTH_32);
 		impl_->valid_ = ZYAN_SUCCESS(status);
 		if (!impl_->valid_)
-			LOG_ERROR << "Cannot initialize Zydis decoder.";
+			LOG_ERROR_STREAM << "Cannot initialize Zydis decoder.";
 	}
 
 	//-------------------------------------------------------------------------
