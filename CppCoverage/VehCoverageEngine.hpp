@@ -31,6 +31,7 @@ namespace CppCoverage
 {
 	class RunCoverageSettings;
 	class PdbLineTableCache;
+	class FilterAssistant;
 
 	// Experimental in-process coverage engine (roadmap Tier 3.2).
 	//
@@ -62,5 +63,6 @@ namespace CppCoverage
 		VehCoverageEngine& operator=(const VehCoverageEngine&) = delete;
 
 		std::shared_ptr<Tools::WarningManager> warningManager_;
+		std::shared_ptr<FilterAssistant> filterAssistant_;
 	};
 }

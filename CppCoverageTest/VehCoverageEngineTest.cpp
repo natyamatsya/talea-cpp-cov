@@ -205,14 +205,11 @@ namespace CppCoverageTest
 	}
 
 	//-------------------------------------------------------------------------
-	// A DLL loaded, unloaded and loaded again: the VEH engine should re-patch
-	// it on the second load and cover it, matching the debugger.
-	//
-	// Known VEH limitation (see docs/PERFORMANCE_ROADMAP.md): it does not, so
-	// the reloaded module's executed lines read as uncovered. Reproduced with
-	// the CLI (--experimental_veh), so it is an engine gap, not a test
-	// artifact. Enable this test once VEH re-instruments reloaded modules.
-	TEST(VehCoverageEngineTest, DISABLED_UnloadReloadDllMatchesDebugger)
+	// A DLL loaded, unloaded and loaded again: the VEH engine re-patches it on
+	// the second load and covers it, matching the debugger. The unload
+	// notification retires the module's active range and releases its claim so
+	// the reload re-plants the probes into the same (cumulative) hit array.
+	TEST(VehCoverageEngineTest, UnloadReloadDllMatchesDebugger)
 	{
 		TestTools::CoverageArgs args{
 		    {TestCoverageConsole::TestUnloadReloadDll},

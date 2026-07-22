@@ -44,6 +44,8 @@
 #include "CppCoverageException.hpp"
 #include "CoverageFilterManager.hpp"
 #include "DebugInformationEnumerator.hpp"
+#include "FileSystem.hpp"
+#include "FilterAssistant.hpp"
 #include "ExecutedAddressManager.hpp"
 #include "LineRunScanner.hpp"
 #include "PdbLineTableCache.hpp"
@@ -157,15 +159,24 @@ namespace CppCoverage
 		{
 		  public:
 			ProbeCollector(ICoverageFilterManager& filterManager,
-			               const std::filesystem::path& modulePath)
-			    : filterManager_{filterManager}, modulePath_{modulePath}
+			               const std::filesystem::path& modulePath,
+			               FilterAssistant* filterAssistant)
+			    : filterManager_{filterManager}, modulePath_{modulePath},
+			      filterAssistant_{filterAssistant}
 			{
 			}
 
 			bool IsSourceFileSelected(
 			    const std::filesystem::path& path) override
 			{
-				return filterManager_.IsSourceFileSelected(path.wstring());
+				auto isSelected =
+				    filterManager_.IsSourceFileSelected(path.wstring());
+				// Feed the filter assistant like the debugger's
+				// MonitoredLineRegister does, so a run that selects modules but
+				// no sources still advises a --sources filter.
+				if (filterAssistant_)
+					filterAssistant_->OnNewSourceFile(path, isSelected);
+				return isSelected;
 			}
 
 			void OnModuleFunctions(
@@ -220,6 +231,7 @@ namespace CppCoverage
 		  private:
 			ICoverageFilterManager& filterManager_;
 			const std::filesystem::path modulePath_;
+			FilterAssistant* filterAssistant_;
 			std::vector<FunctionRange> functions_;
 			std::vector<SelectedLine> selectedLines_;
 		};
@@ -474,7 +486,8 @@ namespace CppCoverage
 		ComputeModuleProbes(const std::filesystem::path& modulePath,
 		                    ICoverageFilterManager& filterManager,
 		                    const RunCoverageSettings& settings,
-		                    std::shared_ptr<PdbLineTableCache> pdbLineTableCache)
+		                    std::shared_ptr<PdbLineTableCache> pdbLineTableCache,
+		                    FilterAssistant* filterAssistant)
 		{
 			DebugInformationEnumerator enumerator{
 			    settings.GetSubstitutePdbSourcePaths(),
@@ -482,7 +495,7 @@ namespace CppCoverage
 			    pdbLineTableCache,
 			    /*needFunctionNames*/ false,
 			    settings.IsRawPdbEnabled()};
-			ProbeCollector collector{filterManager, modulePath};
+			ProbeCollector collector{filterManager, modulePath, filterAssistant};
 			if (!enumerator.Enumerate(modulePath, collector))
 				return std::nullopt;
 
@@ -512,15 +525,30 @@ namespace CppCoverage
 		// they live next to the executable.
 		std::vector<std::filesystem::path>
 		DiscoverModulePaths(const std::filesystem::path& exePath,
-		                    ICoverageFilterManager& filterManager)
+		                    ICoverageFilterManager& filterManager,
+		                    FilterAssistant* filterAssistant)
 		{
 			std::vector<std::filesystem::path> paths;
 			std::vector<std::wstring> seenNames;
 
 			auto add = [&](const std::filesystem::path& path) {
-				if (!filterManager.IsModuleSelected(path.wstring()))
-					return;
 				auto name = ToLowerAscii(path.filename().wstring());
+				// Never instrument our own injected helper. Without a --modules
+				// filter it is discovered from the exe's directory like any other
+				// module; the helper would then plant int3 across its own code
+				// (handler included) and self-trap. It is a coverage mechanism,
+				// not a coverage target.
+				if (name == L"vehcoveragehelper.dll")
+					return;
+				auto isSelected =
+				    filterManager.IsModuleSelected(path.wstring());
+				// Feed the assistant every candidate module (selected or not),
+				// like the debugger's LoadModule does, so a run that selects no
+				// module still advises a --modules filter.
+				if (filterAssistant)
+					filterAssistant->OnNewModule(path, isSelected);
+				if (!isSelected)
+					return;
 				if (std::find(seenNames.begin(), seenNames.end(), name) !=
 				    seenNames.end())
 					return;
@@ -977,10 +1005,13 @@ namespace CppCoverage
 				return;
 
 			for (const auto& modulePath :
-			     DiscoverModulePaths(exePath, filterManager))
+			     DiscoverModulePaths(exePath, filterManager, nullptr))
 			{
-				auto probes = ComputeModuleProbes(
-				    modulePath, filterManager, settings, pdbLineTableCache);
+				auto probes = ComputeModuleProbes(modulePath,
+				                                  filterManager,
+				                                  settings,
+				                                  pdbLineTableCache,
+				                                  nullptr);
 				if (probes)
 					out.modules.push_back(std::move(*probes));
 			}
@@ -1095,7 +1126,9 @@ namespace CppCoverage
 	//-------------------------------------------------------------------------
 	VehCoverageEngine::VehCoverageEngine(
 	    std::shared_ptr<Tools::WarningManager> warningManager)
-	    : warningManager_{std::move(warningManager)}
+	    : warningManager_{std::move(warningManager)},
+	      filterAssistant_{std::make_shared<FilterAssistant>(
+	          std::make_shared<FileSystem>())}
 	{
 	}
 
@@ -1147,10 +1180,13 @@ namespace CppCoverage
 
 		std::vector<ModuleProbes> modules;
 		for (const auto& modulePath :
-		     DiscoverModulePaths(exePath, filterManager))
+		     DiscoverModulePaths(exePath, filterManager, filterAssistant_.get()))
 		{
-			auto probes = ComputeModuleProbes(
-			    modulePath, filterManager, settings, pdbLineTableCache);
+			auto probes = ComputeModuleProbes(modulePath,
+			                                  filterManager,
+			                                  settings,
+			                                  pdbLineTableCache,
+			                                  filterAssistant_.get());
 			if (probes)
 				modules.push_back(std::move(*probes));
 		}
@@ -1323,6 +1359,13 @@ namespace CppCoverage
 		auto coverageData = manager.CreateCoverageData(
 		    coverageName, static_cast<std::int32_t>(exitCode));
 		DecorateBranches(coverageData, branchResults);
+
+		// Same filter advice the debugger engine emits: the assistant was fed
+		// every candidate module and source during offline probe discovery.
+		auto filterAdviceMessage = filterAssistant_->GetAdviceMessage();
+		if (filterAdviceMessage)
+			warningManager_->AddWarning(*filterAdviceMessage);
+
 		return coverageData;
 	}
 }

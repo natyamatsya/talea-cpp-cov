@@ -49,6 +49,7 @@ namespace
 		ULONG sizeOfImage_;
 	};
 	constexpr ULONG LdrDllNotificationReasonLoaded = 1;
+	constexpr ULONG LdrDllNotificationReasonUnloaded = 2;
 	using LdrDllNotificationFunction = VOID(CALLBACK*)(
 	    ULONG, const LdrDllNotificationData*, PVOID);
 	using LdrRegisterDllNotificationFn = NTSTATUS(NTAPI*)(
@@ -442,17 +443,68 @@ namespace
 	void HookProcessCreationInModule(HMODULE module) noexcept;
 
 	//-------------------------------------------------------------------------
+	// Retires an instrumented module that is being unloaded: the handler must
+	// stop matching addresses in the soon-to-be-unmapped range (a later module
+	// could map at the same base and would otherwise be mis-serviced), and the
+	// descriptor's claim is released so a reload re-patches it. Coverage already
+	// recorded lives in the shared hit array and is unaffected - a reloaded
+	// module accumulates into the same hits, matching the debugger.
+	void RetireModule(std::uint32_t descriptorIndex,
+	                  const std::uint8_t* moduleBase) noexcept
+	{
+		auto reserved = g_activeReserved;
+		for (LONG slot = 0; slot < reserved; ++slot)
+		{
+			if (g_activeReady[slot] && g_active[slot].base_ == moduleBase)
+			{
+				g_activeReady[slot] = 0;
+				MemoryBarrier();
+				// originalBytes_ is deliberately not freed: a handler could have
+				// read the slot pointer just before we cleared ready. The leak
+				// is one small buffer per unload and bounded by the run.
+			}
+		}
+		// Let a subsequent load re-patch this module (see PatchModule's claim).
+		InterlockedExchange(&g_claimed[descriptorIndex], 0);
+	}
+
+	//-------------------------------------------------------------------------
+	void UnpatchByName(const wchar_t* loadedName,
+	                   std::size_t loadedLength,
+	                   const std::uint8_t* moduleBase) noexcept
+	{
+		for (std::uint32_t i = 0; i < g_moduleCount; ++i)
+		{
+			if (NameMatches(g_descriptors[i].baseName_, loadedName,
+			                loadedLength))
+			{
+				RetireModule(i, moduleBase);
+				return;
+			}
+		}
+	}
+
+	//-------------------------------------------------------------------------
 	VOID CALLBACK OnDllLoaded(ULONG reason,
 	                          const LdrDllNotificationData* data,
 	                          PVOID) noexcept
 	{
-		if (reason != LdrDllNotificationReasonLoaded || !data ||
-		    !data->baseDllName_ || !data->baseDllName_->Buffer)
+		if (!data || !data->baseDllName_ || !data->baseDllName_->Buffer)
 			return;
 
-		PatchByName(data->baseDllName_->Buffer,
-		            data->baseDllName_->Length / sizeof(wchar_t),
-		            static_cast<const std::uint8_t*>(data->dllBase_));
+		auto* moduleBase = static_cast<const std::uint8_t*>(data->dllBase_);
+		const auto* name = data->baseDllName_->Buffer;
+		auto length = data->baseDllName_->Length / sizeof(wchar_t);
+
+		if (reason == LdrDllNotificationReasonUnloaded)
+		{
+			UnpatchByName(name, length, moduleBase);
+			return;
+		}
+		if (reason != LdrDllNotificationReasonLoaded)
+			return;
+
+		PatchByName(name, length, moduleBase);
 
 		// A module loaded after injection also needs its CreateProcess IAT
 		// hooked, so children it spawns are covered too.
@@ -707,6 +759,16 @@ namespace
 	//-------------------------------------------------------------------------
 	bool Initialize() noexcept
 	{
+		// The debugger engine consumes a target's second-chance exception and
+		// lets the process die quietly. With the VEH engine no debugger is
+		// attached, so an unhandled fault in the target would otherwise pop a
+		// Windows Error Reporting crash dialog. Suppress it here (this runs in
+		// the target, before its main thread resumes) so a faulting target
+		// fails silently with the same exit code, matching the debugger. Only
+		// the crash UI is suppressed; coverage and exit codes are unchanged.
+		SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX |
+		             SEM_NOOPENFILEERRORBOX);
+
 		wchar_t mappingName[64];
 		wchar_t* cursor = mappingName;
 		for (const wchar_t* p = VehCoverage::MappingNamePrefix; *p; ++p)
