@@ -109,13 +109,20 @@ are now mostly closed, so optimization can be gated on an equivalence check:
   (`FastCoverageImporterTest.MatchesDebugger`): it runs the instrumented
   `TestFastCovConsole` fixture, imports the dump and compares to the debugger
   over the same binary. It is MSVC-only (the clang-cl fast-mode runtime needs
-  lld) and skips under clang-cl. **Open finding:** the same fixture built in
-  the Release preset emits a much smaller `.sancov` region and imports as empty
-  coverage, while a standalone optimized build (and the Debug preset) instrument
-  correctly — so the test runs in Debug and skips in Release pending a fix. The
-  fixture source compiles identically across presets, so the cause is in the
-  Release build environment (linker or the runtime TU under `NDEBUG`), and it
-  may indicate a real fast-mode gap for release-built targets worth chasing.
+  lld) and skips under clang-cl; it runs in both Debug and Release.
+
+  This test initially failed in the Release preset (empty import), which turned
+  out to be instructive: `inline-8bit-counters` are emitted as a zero-init
+  (BSS-like) `.sancov` section with `SizeOfRawData = 0`, and a Release link
+  *without* `/DEBUG` turns on `/OPT:REF`, which trims that counter region (its
+  `VirtualSize` collapsed from `0x319` to `0x8`) so the runtime read a
+  truncated array. Linking the instrumented target with `/DEBUG /OPT:NOREF`
+  restores it. **Real-world implication:** a target compiled with
+  `/fsanitize-coverage` for fast mode must be linked so the linker does not
+  prune `.sancov` — worth calling out in the CoverageRuntime docs, and the
+  fast-mode runtime would be more robust sizing the counter array from the
+  sanitizer boundary/init-callback bounds rather than the PE section's
+  `VirtualSize`.
 - The **VEH** parity matrix (`VehCoverageEngineTest`) now also covers
   multi-module and unhandled access violations. Extending it surfaced two real
   VEH divergences from the debugger, both reproduced with the CLI

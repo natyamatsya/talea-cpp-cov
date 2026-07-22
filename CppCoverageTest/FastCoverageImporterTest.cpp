@@ -111,15 +111,6 @@ namespace CppCoverageTest
 	// skips when the fixture is absent.
 	TEST(FastCoverageImporterTest, MatchesDebugger)
 	{
-#ifdef NDEBUG
-		// Known issue (see docs/PERFORMANCE_ROADMAP.md): a fixture built in the
-		// Release preset emits a much smaller .sancov region and the import
-		// comes back empty, though a standalone optimized build instruments
-		// correctly. Under investigation; the parity itself is validated by
-		// the Debug preset, where fast mode matches the debugger exactly.
-		GTEST_SKIP() << "Fast-mode fixture instrumentation differs in the "
-		                "Release preset; validated in Debug.";
-#endif
 		const auto fixture = fs::path{OUT_DIR} / L"TestFastCovConsole.exe";
 		if (!fs::exists(fixture))
 			GTEST_SKIP() << "TestFastCovConsole fixture is MSVC-only.";

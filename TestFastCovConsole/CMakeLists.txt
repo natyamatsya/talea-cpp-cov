@@ -22,3 +22,10 @@ set_source_files_properties(TestFastCovConsole.cpp PROPERTIES
 set_target_properties(TestFastCovConsole PROPERTIES
 	MSVC_DEBUG_INFORMATION_FORMAT ProgramDatabase
 	MSVC_RUNTIME_CHECKS "")
+
+# Link with /DEBUG (so a PDB is emitted in every preset) and keep the linker's
+# section trimming off. Without /DEBUG a Release link turns on /OPT:REF /OPT:ICF,
+# which prunes the zero-initialized .sancov counter region down to almost
+# nothing (its VirtualSize collapses from ~0x319 to ~0x8) and the fast-mode
+# import comes back empty. /OPT:NOREF /OPT:NOICF keep the full counter array.
+target_link_options(TestFastCovConsole PRIVATE /DEBUG /OPT:NOREF /OPT:NOICF)

@@ -58,6 +58,12 @@ Because MSVC omits the PC table, the importer recovers each counter's block
 address by disassembling the module (`inc byte [rip+disp]` into `.sancov`) and
 reconstructing basic-block leaders from the PDB function ranges.
 
+Keep the `/DEBUG` on the link (the examples above do). The 8-bit counters live
+in a zero-initialized `.sancov` section (`SizeOfRawData` is 0), and a Release
+link *without* `/DEBUG` turns on `/OPT:REF`, which prunes that counter region
+so the dump comes back nearly empty. If you must link without `/DEBUG`, pass
+`/OPT:NOREF` (and `/OPT:NOICF`) so the linker keeps the full `.sancov`.
+
 ### Covering instrumented DLLs
 
 At exit the MSVC runtime enumerates every loaded module and dumps each one that
