@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "BranchCoverageManager.hpp"
 
 #include <map>
@@ -65,7 +66,7 @@ namespace CppCoverage
 	{
 		// Use map to have stable pointers on values.
 		// lineNumber -> branchIndex -> outcome
-		std::map<unsigned int, std::map<unsigned int, BranchOutcome>>
+		std::map<std::uint32_t, std::map<std::uint32_t, BranchOutcome>>
 		    branchesByLine_;
 	};
 
@@ -115,7 +116,7 @@ namespace CppCoverage
 	void BranchCoverageManager::RegisterBranch(
 	    const Address& address,
 	    const std::wstring& filename,
-	    unsigned int lineNumber,
+	    std::uint32_t lineNumber,
 	    BranchCondition condition,
 	    unsigned char originalInstruction)
 	{
@@ -126,7 +127,7 @@ namespace CppCoverage
 		auto& file = module.files_[filename];
 		auto& branches = file.branchesByLine_[lineNumber];
 
-		auto branchIndex = static_cast<unsigned int>(branches.size());
+		auto branchIndex = static_cast<std::uint32_t>(branches.size());
 		auto& outcome = branches[branchIndex];
 
 		branches_.emplace(address,

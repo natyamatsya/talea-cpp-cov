@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include <fstream>
 
@@ -44,7 +45,7 @@ namespace ExporterTest
 		{
 			std::wofstream ofs(sourceFile.GetPath().wstring());
 
-			unsigned int lineNumber = 1;
+			std::uint32_t lineNumber = 1;
 			for (const auto& line : sourceLines)
 			{
 				ofs << line.first << std::endl;

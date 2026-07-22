@@ -16,6 +16,8 @@
 
 #include "pch.h"
 
+#include <cstdint>
+
 #include "Plugin/Exporter/FileCoverage.hpp"
 #include "CppCoverage/CppCoverageException.hpp"
 
@@ -27,7 +29,7 @@ namespace PluginTest
 	TEST(FileCoverageTest, Basic)
 	{
 		Plugin::FileCoverage file{ L"" };
-		unsigned int lineNumber = 0;
+		std::uint32_t lineNumber = 0;
 
 		file.AddLine(lineNumber, true);
 
@@ -45,7 +47,7 @@ namespace PluginTest
 	TEST(FileCoverageTest, UpdateLine)
 	{
 		Plugin::FileCoverage file{ L"" };
-		unsigned int lineNumber = 0;
+		std::uint32_t lineNumber = 0;
 
 		file.AddLine(lineNumber, true);
 		file.UpdateLine(lineNumber, false);

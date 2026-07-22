@@ -15,19 +15,20 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "LineCoverage.hpp"
 
 namespace Plugin
 {
 	//-------------------------------------------------------------------------
-	LineCoverage::LineCoverage(unsigned int lineNumber, bool hasBeenExecuted)
+	LineCoverage::LineCoverage(std::uint32_t lineNumber, bool hasBeenExecuted)
 		: lineNumber_(lineNumber)
 		, hasBeenExecuted_(hasBeenExecuted)
 	{
 	}
 		
 	//-------------------------------------------------------------------------
-	unsigned int LineCoverage::GetLineNumber() const
+	std::uint32_t LineCoverage::GetLineNumber() const
 	{
 		return lineNumber_;
 	}

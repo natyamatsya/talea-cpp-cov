@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <filesystem>
 #include <flat_map>
@@ -30,18 +31,18 @@ namespace Plugin
 	public:
 		explicit FileCoverage(const std::filesystem::path& path);
 
-		void AddLine(unsigned int lineNumber, bool hasBeenExecuted);
-		void UpdateLine(unsigned int lineNumber, bool hasBeenExecuted);
-		void AddBranch(unsigned int lineNumber, const BranchCoverage&);
-		void MergeBranch(unsigned int lineNumber, const BranchCoverage&);
+		void AddLine(std::uint32_t lineNumber, bool hasBeenExecuted);
+		void UpdateLine(std::uint32_t lineNumber, bool hasBeenExecuted);
+		void AddBranch(std::uint32_t lineNumber, const BranchCoverage&);
+		void MergeBranch(std::uint32_t lineNumber, const BranchCoverage&);
 
 		const std::filesystem::path& GetPath() const;
-		const LineCoverage* operator[](unsigned int line) const;
+		const LineCoverage* operator[](std::uint32_t line) const;
 		std::vector<LineCoverage> GetLines() const;
 
 		// Zero-copy access to the lines (ordered by line number). Prefer this
 		// over GetLines() on hot paths; GetLines() copies every line.
-		const std::flat_map<unsigned int, LineCoverage>& GetLineCollection() const;
+		const std::flat_map<std::uint32_t, LineCoverage>& GetLineCollection() const;
 
 		FileCoverage& operator=(const FileCoverage&) = default;
 
@@ -50,7 +51,7 @@ namespace Plugin
 			
 	private:
 		std::filesystem::path path_;
-		std::flat_map<unsigned int, LineCoverage> lines_;
+		std::flat_map<std::uint32_t, LineCoverage> lines_;
 	};
 }
 

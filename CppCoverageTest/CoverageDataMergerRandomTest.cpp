@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include <random>
 
@@ -37,7 +38,7 @@ namespace CppCoverageTest
 			LineInfo(
 				const fs::path& module,
 				const fs::path& file,
-				unsigned int line)
+				std::uint32_t line)
 				: module_(module)
 				, file_(file)
 				, line_{ line }
@@ -53,16 +54,16 @@ namespace CppCoverageTest
 
 			fs::path module_;
 			fs::path file_;
-			unsigned int line_;
+			std::uint32_t line_;
 		};
 		
-		using LineInfoHasBeenExecuted = std::map<LineInfo, unsigned int>;
-		using RandFct = std::function < unsigned int() > ;
+		using LineInfoHasBeenExecuted = std::map<LineInfo, std::uint32_t>;
+		using RandFct = std::function < std::uint32_t() > ;
 
 		//---------------------------------------------------------------------
-		std::set<unsigned int> GetRandomValues(const RandFct& getRand, size_t elementNumber)
+		std::set<std::uint32_t> GetRandomValues(const RandFct& getRand, size_t elementNumber)
 		{
-			std::set<unsigned int> randomValues;
+			std::set<std::uint32_t> randomValues;
 
 			while (randomValues.size() < elementNumber)
 				randomValues.insert(getRand());
@@ -72,7 +73,7 @@ namespace CppCoverageTest
 		//---------------------------------------------------------------------
 		void AddRandomFileCoverage(
 			const RandFct& getRand,
-			unsigned int fileIndex,
+			std::uint32_t fileIndex,
 			Plugin::ModuleCoverage& module,			
 			LineInfoHasBeenExecuted& mergedLineInfo)
 		{
@@ -115,7 +116,7 @@ namespace CppCoverageTest
 			LineInfoHasBeenExecuted& mergedLineInfo)
 		{
 			std::default_random_engine generator;
-			std::uniform_int_distribution<unsigned int> distribution(1, maxRandomValue);
+			std::uniform_int_distribution<std::uint32_t> distribution(1, maxRandomValue);
 			auto getRand = [&](){ return distribution(generator); };
 
 			std::vector<Plugin::CoverageData> coverageDatas;

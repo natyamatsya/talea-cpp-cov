@@ -53,7 +53,7 @@ namespace CppCoverage
 		struct BasicBlock
 		{
 			std::uint32_t rva_;
-			unsigned int count_;
+			std::uint32_t count_;
 		};
 
 		//---------------------------------------------------------------------
@@ -61,7 +61,7 @@ namespace CppCoverage
 		{
 			std::uint32_t rva_;
 			std::wstring filePath_;
-			unsigned int lineNumber_;
+			std::uint32_t lineNumber_;
 		};
 
 		//---------------------------------------------------------------------
@@ -111,7 +111,7 @@ namespace CppCoverage
 					records_.push_back(LineRecord{
 					    static_cast<std::uint32_t>(lineInfo.virtualAddress_),
 					    path.wstring(),
-					    static_cast<unsigned int>(lineInfo.lineNumber_)});
+					    static_cast<std::uint32_t>(lineInfo.lineNumber_)});
 				}
 			}
 
@@ -129,7 +129,7 @@ namespace CppCoverage
 		// Execution count of the basic block that covers rva: the block with
 		// the greatest start address not past rva. 0 when rva precedes every
 		// block.
-		unsigned int CountAt(const std::vector<BasicBlock>& blocks,
+		std::uint32_t CountAt(const std::vector<BasicBlock>& blocks,
 		                     std::uint32_t rva)
 		{
 			auto it = std::upper_bound(
@@ -222,7 +222,7 @@ namespace CppCoverage
 		    PeImageFileReader& reader,
 		    const std::vector<IDebugInformationHandler::FunctionRange>&
 		        functions,
-		    const std::map<std::uint32_t, unsigned int>* clangCounts,
+		    const std::map<std::uint32_t, std::uint32_t>* clangCounts,
 		    std::uint32_t regionRva,
 		    const std::vector<std::uint8_t>* region)
 		{
@@ -258,7 +258,7 @@ namespace CppCoverage
 				std::vector<Terminator> terminators;
 				std::vector<std::uint32_t> leaders;
 				leaders.push_back(functionRva);
-				std::vector<std::pair<std::uint32_t, unsigned int>>
+				std::vector<std::pair<std::uint32_t, std::uint32_t>>
 				    increments;
 				bool indirect = false;
 
@@ -432,7 +432,7 @@ namespace CppCoverage
 
 				// Known counts per block (-1 = not instrumented).
 				std::vector<int> count(blockCount, -1);
-				auto setCount = [&](std::uint32_t rva, unsigned int value) {
+				auto setCount = [&](std::uint32_t rva, std::uint32_t value) {
 					auto index = leaderIndex(rva);
 					if (index < 0)
 						return;
@@ -491,8 +491,8 @@ namespace CppCoverage
 
 				for (std::size_t b = 0; b < blockCount; ++b)
 				{
-					unsigned int value =
-					    count[b] > 0 ? static_cast<unsigned int>(count[b])
+					std::uint32_t value =
+					    count[b] > 0 ? static_cast<std::uint32_t>(count[b])
 					                 : (covered[b] ? 1u : 0u);
 					blocks.push_back(BasicBlock{leaders[b], value});
 				}
@@ -537,7 +537,7 @@ namespace CppCoverage
 			// The clang PC table already gives each instrumented block's
 			// address; collect the counts per module so the shared
 			// reconstruction can rebuild the CFG and fill the pruned blocks.
-			std::vector<std::map<std::uint32_t, unsigned int>> countsByModule(
+			std::vector<std::map<std::uint32_t, std::uint32_t>> countsByModule(
 			    header->moduleCount_);
 			for (std::uint32_t i = 0; i < header->basicBlockCount_; ++i)
 			{
@@ -546,7 +546,7 @@ namespace CppCoverage
 				{
 					auto& counts = countsByModule[record.moduleIndex_];
 					auto& value = counts[record.rva_];
-					value = std::max<unsigned int>(value, record.count_);
+					value = std::max<std::uint32_t>(value, record.count_);
 				}
 			}
 
@@ -645,7 +645,7 @@ namespace CppCoverage
 		std::map<std::wstring,
 		         std::map<std::wstring,
 		                  std::pair<std::filesystem::path,
-		                            std::map<unsigned int, unsigned int>>>>
+		                            std::map<std::uint32_t, std::uint32_t>>>>
 		    templates;
 
 		// Maps one module's coverage to line and instantiation coverage. The
@@ -654,7 +654,7 @@ namespace CppCoverage
 		// shared reconstruction rebuilds the CFG and fills the pruned blocks.
 		auto processModule =
 		    [&](const std::filesystem::path& modulePath,
-		        const std::map<std::uint32_t, unsigned int>* clangCounts,
+		        const std::map<std::uint32_t, std::uint32_t>* clangCounts,
 		        std::uint32_t regionRva,
 		        const std::vector<std::uint8_t>* rawRegion) {
 			    if (!filterManager.IsModuleSelected(modulePath.wstring()))
@@ -775,14 +775,14 @@ namespace CppCoverage
 
 			// The union of lines across instantiations, so the table shows
 			// which lines ran for which instantiation.
-			std::map<unsigned int, bool> allLines;
+			std::map<std::uint32_t, bool> allLines;
 			for (const auto& instantiation : report.instantiations_)
 				for (const auto& line : instantiation.lines_)
 					allLines[line.lineNumber_];
 
 			for (const auto& instantiation : report.instantiations_)
 			{
-				std::map<unsigned int, unsigned int> byLine;
+				std::map<std::uint32_t, std::uint32_t> byLine;
 				for (const auto& line : instantiation.lines_)
 					byLine[line.lineNumber_] = line.count_;
 

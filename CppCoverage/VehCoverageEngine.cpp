@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "VehCoverageEngine.hpp"
 
 #include <Windows.h>
@@ -77,7 +78,7 @@ namespace CppCoverage
 		{
 			std::uint32_t rva_;
 			std::uint32_t length_;
-			unsigned int lineNumber_;
+			std::uint32_t lineNumber_;
 			std::wstring filePath_;
 		};
 
@@ -90,8 +91,8 @@ namespace CppCoverage
 			std::uint8_t originalByte_;
 			VehCoverage::BranchCondition condition_;
 			std::wstring filePath_;
-			unsigned int lineNumber_;
-			unsigned int branchIndex_;
+			std::uint32_t lineNumber_;
+			std::uint32_t branchIndex_;
 		};
 
 		struct ModuleProbes
@@ -99,7 +100,7 @@ namespace CppCoverage
 			std::filesystem::path path_;
 			std::wstring baseNameLower_;
 			std::vector<std::uint32_t> probeRvas_;
-			std::vector<std::vector<std::pair<std::wstring, unsigned int>>>
+			std::vector<std::vector<std::pair<std::wstring, std::uint32_t>>>
 			    probeLines_;
 			std::vector<ModuleBranch> branches_; // sorted by rva_, may be empty
 		};
@@ -201,7 +202,7 @@ namespace CppCoverage
 					selectedLines_.push_back(SelectedLine{
 					    static_cast<std::uint32_t>(lineInfo.virtualAddress_),
 					    lines[i].length_,
-					    static_cast<unsigned int>(lineInfo.lineNumber_),
+					    static_cast<std::uint32_t>(lineInfo.lineNumber_),
 					    path.wstring()});
 				}
 			}
@@ -360,7 +361,7 @@ namespace CppCoverage
 
 			BranchDisassembler disassembler{/*is64BitCode*/ true};
 
-			std::map<std::pair<std::wstring, unsigned int>, unsigned int>
+			std::map<std::pair<std::wstring, std::uint32_t>, std::uint32_t>
 			    branchIndexByLine;
 			std::unordered_set<std::uint32_t> seenRvas; // first Jcc wins
 
@@ -773,8 +774,8 @@ namespace CppCoverage
 		{
 			std::wstring modulePath_;
 			std::wstring filePath_;
-			unsigned int lineNumber_;
-			unsigned int branchIndex_;
+			std::uint32_t lineNumber_;
+			std::uint32_t branchIndex_;
 			std::uint8_t outcome_;
 		};
 

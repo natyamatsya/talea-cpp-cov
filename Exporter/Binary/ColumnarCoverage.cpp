@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "ColumnarCoverage.hpp"
 
 #include <algorithm>
@@ -192,10 +193,10 @@ namespace Exporter
 					// varint byte, so a corrupt count cannot over-reserve.
 					data.lines.reserve(
 					    std::min<size_t>(lineCount, reader.Remaining()));
-					unsigned int line = 0;
+					std::uint32_t line = 0;
 					for (std::uint32_t i = 0; i < lineCount; ++i)
 					{
-						line += static_cast<unsigned int>(reader.Varint());
+						line += static_cast<std::uint32_t>(reader.Varint());
 						data.lines.push_back(line);
 					}
 					reader.ReadBitmap(data.executed, lineCount);
@@ -203,12 +204,12 @@ namespace Exporter
 					auto branchLineCount = reader.U32();
 					for (std::uint32_t b = 0; b < branchLineCount; ++b)
 					{
-						auto branchLine = static_cast<unsigned int>(reader.Varint());
+						auto branchLine = static_cast<std::uint32_t>(reader.Varint());
 						auto branchCount = reader.U32();
 						auto& branchMap = data.branches[branchLine];
 						for (std::uint32_t k = 0; k < branchCount; ++k)
 						{
-							auto index = static_cast<unsigned int>(reader.Varint());
+							auto index = static_cast<std::uint32_t>(reader.Varint());
 							branchMap[index] = reader.U8();
 						}
 					}
@@ -320,7 +321,7 @@ namespace Exporter
 					// Delta-varint line numbers + packed executed bitmap.
 					std::vector<std::uint8_t> bitmap(
 					    (lineCollection.size() + 7) / 8, 0);
-					unsigned int prev = 0;
+					std::uint32_t prev = 0;
 					size_t i = 0;
 					for (const auto& [lineNumber, line] : lineCollection)
 					{
@@ -460,7 +461,7 @@ namespace Exporter
 		else
 		{
 			// Different builds: sorted union of the two line arrays.
-			std::vector<unsigned int> lines;
+			std::vector<std::uint32_t> lines;
 			std::vector<std::uint8_t> executed;
 			lines.reserve(existing.lines.size() + incoming.lines.size());
 			executed.reserve(lines.capacity());

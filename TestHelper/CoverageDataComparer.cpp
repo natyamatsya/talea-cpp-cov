@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include "CoverageDataComparer.hpp"
 #include "Plugin/Exporter/CoverageData.hpp"
@@ -120,7 +121,7 @@ namespace TestHelper
 			if (file1->GetPath() != file2->GetPath())
 				return false;
 
-			return IsFirstContainsSecond<unsigned int>(
+			return IsFirstContainsSecond<std::uint32_t>(
 				file1->GetLines(), file2->GetLines(),
 				[](const Plugin::LineCoverage& line) { return line.GetLineNumber(); },
 				[](const Plugin::LineCoverage& line1, const Plugin::LineCoverage& line2)

@@ -63,10 +63,10 @@ namespace Exporter
 		// Raw column data for one file, shared by the reader and the merger.
 		struct FileData
 		{
-			std::vector<unsigned int> lines;      // ascending line numbers
+			std::vector<std::uint32_t> lines;      // ascending line numbers
 			std::vector<std::uint8_t> executed;   // parallel to lines, 0/1
 			// lineNumber -> (branchIndex -> flags: bit0 taken, bit1 fallthrough)
-			std::map<unsigned int, std::map<unsigned int, std::uint8_t>> branches;
+			std::map<std::uint32_t, std::map<std::uint32_t, std::uint8_t>> branches;
 		};
 
 		constexpr std::uint32_t Magic = 0x3243434F; // "OCC2" little-endian

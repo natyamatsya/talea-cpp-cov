@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <filesystem>
 #include <string>
@@ -45,8 +46,8 @@ namespace CppCoverage
 		// saturating 8-bit counter from the runtime).
 		struct InstantiationLine
 		{
-			unsigned int lineNumber_;
-			unsigned int count_;
+			std::uint32_t lineNumber_;
+			std::uint32_t count_;
 		};
 
 		// One template instantiation (e.g. "foo<int>"), its definition file,

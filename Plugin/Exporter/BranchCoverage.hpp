@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include "../PluginExport.hpp"
 
@@ -25,18 +26,18 @@ namespace Plugin
 	class PLUGIN_DLL BranchCoverage
 	{
 	public:
-		BranchCoverage(unsigned int branchIndex,
+		BranchCoverage(std::uint32_t branchIndex,
 		               bool hasBeenTaken,
 		               bool hasBeenFallenThrough);
 		BranchCoverage(const BranchCoverage&) = default;
 		BranchCoverage& operator=(const BranchCoverage&) = default;
 
-		unsigned int GetBranchIndex() const;
+		std::uint32_t GetBranchIndex() const;
 		bool HasBeenTaken() const;
 		bool HasBeenFallenThrough() const;
 
 	private:
-		unsigned int branchIndex_;
+		std::uint32_t branchIndex_;
 		bool hasBeenTaken_;
 		bool hasBeenFallenThrough_;
 	};

@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include <filesystem>
 #include "Tools/StringUtils.hpp"
@@ -86,7 +87,7 @@ namespace CppCoverageTest
 		}
 
 		//---------------------------------------------------------------------
-		void TestLine(const Plugin::FileCoverage& file, unsigned int lineNumber, bool hasBeenExecuted)
+		void TestLine(const Plugin::FileCoverage& file, std::uint32_t lineNumber, bool hasBeenExecuted)
 		{
 			const auto* line = file[lineNumber];
 

@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include <fstream>
 
@@ -50,7 +51,7 @@ namespace ExporterTest
 		Plugin::CoverageData MakeCoverage(
 		    const std::wstring& name,
 		    int exitCode,
-		    const std::vector<std::pair<unsigned int, bool>>& lines)
+		    const std::vector<std::pair<std::uint32_t, bool>>& lines)
 		{
 			Plugin::CoverageData coverageData{name, exitCode};
 			auto& file = coverageData.AddModule(L"module.dll").AddFile(L"file.cpp");

@@ -32,6 +32,7 @@
 
 #include <Windows.h>
 #include <winternl.h>
+#include <cstdint>
 
 #include "VehProtocol.hpp"
 #include "VehBranchEval.hpp"

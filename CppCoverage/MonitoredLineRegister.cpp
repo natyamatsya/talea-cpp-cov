@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include "MonitoredLineRegister.hpp"
 
@@ -236,7 +237,7 @@ namespace CppCoverage
 					pendingLines_.push_back(
 					    PendingLine{addressValue,
 					                lines[index].length_,
-					                static_cast<unsigned int>(lineNumber),
+					                static_cast<std::uint32_t>(lineNumber),
 					                fileIndex});
 				}
 				else
@@ -247,7 +248,7 @@ namespace CppCoverage
 				if (branchCoverageManager_)
 				{
 					selectedLines.push_back(
-					    SelectedLine{static_cast<unsigned int>(lineNumber),
+					    SelectedLine{static_cast<std::uint32_t>(lineNumber),
 					                 addressValue,
 					                 lines[index].length_});
 				}
@@ -312,7 +313,7 @@ namespace CppCoverage
 	{
 		struct BranchToRegister
 		{
-			unsigned int lineNumber_;
+			std::uint32_t lineNumber_;
 			BranchCondition condition_;
 		};
 

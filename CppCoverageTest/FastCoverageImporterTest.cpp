@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include <windows.h>
 #include <filesystem>
@@ -38,7 +39,7 @@ namespace CppCoverageTest
 	{
 		cov::FastCoverageImporter::Instantiation
 		MakeInstantiation(const std::wstring& name,
-		                  const std::vector<std::pair<unsigned int, unsigned int>>&
+		                  const std::vector<std::pair<std::uint32_t, std::uint32_t>>&
 		                      lineCounts)
 		{
 			cov::FastCoverageImporter::Instantiation instantiation;

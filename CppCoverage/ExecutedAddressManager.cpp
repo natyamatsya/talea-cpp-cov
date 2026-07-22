@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "ExecutedAddressManager.hpp"
 
 #include <algorithm>
@@ -113,7 +114,7 @@ namespace CppCoverage
 	std::uint32_t ExecutedAddressManager::GetOrCreateProbe(
 	    std::uint32_t moduleId,
 	    std::uint32_t fileId,
-	    unsigned int lineNumber)
+	    std::uint32_t lineNumber)
 	{
 		ProbeKey key{moduleId, fileId, lineNumber};
 		auto it = probeIdByKey_.find(key);
@@ -133,7 +134,7 @@ namespace CppCoverage
 	bool ExecutedAddressManager::RegisterAddress(
 		const Address& address,
 		const std::wstring& filename,
-		unsigned int lineNumber,
+		std::uint32_t lineNumber,
 		unsigned char instructionValue)
 	{
 		if (!hasLastModule_)
@@ -196,7 +197,7 @@ namespace CppCoverage
 		//   moduleId -> fileId -> (lineNumber -> executed)
 		std::unordered_map<
 		    std::uint32_t,
-		    std::unordered_map<std::uint32_t, std::map<unsigned int, bool>>>
+		    std::unordered_map<std::uint32_t, std::map<std::uint32_t, bool>>>
 		    linesByModuleFile;
 
 		for (std::size_t probe = 0; probe < probeExecuted_.size(); ++probe)

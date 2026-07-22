@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include <sstream>
 #include <random>
@@ -52,7 +53,7 @@ namespace ExporterTest
 					{
 						file.AddLine(line, distribution(generator) != 0);
 
-						for (unsigned int branchIndex = 0; branchIndex < 2;
+						for (std::uint32_t branchIndex = 0; branchIndex < 2;
 						     ++branchIndex)
 						{
 							if (distribution(generator))

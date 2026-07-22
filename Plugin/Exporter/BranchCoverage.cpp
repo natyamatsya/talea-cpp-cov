@@ -15,12 +15,13 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "BranchCoverage.hpp"
 
 namespace Plugin
 {
 	//-------------------------------------------------------------------------
-	BranchCoverage::BranchCoverage(unsigned int branchIndex,
+	BranchCoverage::BranchCoverage(std::uint32_t branchIndex,
 	                               bool hasBeenTaken,
 	                               bool hasBeenFallenThrough)
 		: branchIndex_(branchIndex)
@@ -30,7 +31,7 @@ namespace Plugin
 	}
 
 	//-------------------------------------------------------------------------
-	unsigned int BranchCoverage::GetBranchIndex() const
+	std::uint32_t BranchCoverage::GetBranchIndex() const
 	{
 		return branchIndex_;
 	}

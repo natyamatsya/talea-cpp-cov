@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <string>
 #include <map>
@@ -49,7 +50,7 @@ namespace CppCoverage
 
 		void RegisterBranch(const Address&,
 		                    const std::wstring& filename,
-		                    unsigned int lineNumber,
+		                    std::uint32_t lineNumber,
 		                    BranchCondition,
 		                    unsigned char originalInstruction);
 

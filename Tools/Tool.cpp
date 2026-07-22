@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "Tool.hpp"
 
 #include <optional>
@@ -43,7 +44,7 @@ namespace Tools
 		}
 		
 		//-------------------------------------------------------------------------
-		std::string ToString(unsigned int pageCode, const std::wstring& str)
+		std::string ToString(std::uint32_t pageCode, const std::wstring& str)
 		{
 			if (str.empty())
 				return{};
@@ -62,7 +63,7 @@ namespace Tools
 		}
 
 		//-------------------------------------------------------------------------
-		std::wstring ToWString(unsigned int pageCode, const std::string& str)
+		std::wstring ToWString(std::uint32_t pageCode, const std::string& str)
 		{
 			if (str.empty())
 				return{};

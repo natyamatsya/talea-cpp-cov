@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include "DebugInformationEnumerator.hpp"
 #include <memory>
@@ -75,7 +76,7 @@ namespace CppCoverage
 
 		struct SelectedLine
 		{
-			unsigned int lineNumber_;
+			std::uint32_t lineNumber_;
 			DWORD64 startAddress_;
 			unsigned long length_;
 		};
@@ -108,7 +109,7 @@ namespace CppCoverage
 		{
 			DWORD64 address_;
 			unsigned long length_;
-			unsigned int lineNumber_;
+			std::uint32_t lineNumber_;
 			size_t fileIndex_;
 		};
 		std::vector<PendingLine> pendingLines_;

@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <vector>
 
@@ -26,11 +27,11 @@ namespace Plugin
 	class PLUGIN_DLL LineCoverage
 	{
 	public:
-		LineCoverage(unsigned int lineNumber, bool hasBeenExecuted);
+		LineCoverage(std::uint32_t lineNumber, bool hasBeenExecuted);
 		LineCoverage(const LineCoverage&) = default;
 		LineCoverage& operator=(const LineCoverage&) = default;
 
-		unsigned int GetLineNumber() const;
+		std::uint32_t GetLineNumber() const;
 		bool HasBeenExecuted() const;
 		void SetHasBeenExecuted(bool);
 
@@ -39,7 +40,7 @@ namespace Plugin
 		const std::vector<BranchCoverage>& GetBranches() const;
 
 	private:
-		unsigned int lineNumber_;
+		std::uint32_t lineNumber_;
 		bool hasBeenExecuted_;
 		std::vector<BranchCoverage> branches_;
 	};

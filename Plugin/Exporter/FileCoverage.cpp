@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include <string>
 #include "FileCoverage.hpp"
 
@@ -27,7 +28,7 @@ namespace Plugin
 	}
 
 	//-------------------------------------------------------------------------
-	void FileCoverage::AddLine(unsigned int lineNumber, bool hasBeenExecuted)
+	void FileCoverage::AddLine(std::uint32_t lineNumber, bool hasBeenExecuted)
 	{
 		LineCoverage line{ lineNumber, hasBeenExecuted };
 
@@ -39,7 +40,7 @@ namespace Plugin
 	}
 
 	//-------------------------------------------------------------------------
-	void FileCoverage::UpdateLine(unsigned int lineNumber, bool hasBeenExecuted)
+	void FileCoverage::UpdateLine(std::uint32_t lineNumber, bool hasBeenExecuted)
 	{
 		auto it = lines_.find(lineNumber);
 
@@ -54,7 +55,7 @@ namespace Plugin
 	}
 
 	//-------------------------------------------------------------------------
-	void FileCoverage::AddBranch(unsigned int lineNumber,
+	void FileCoverage::AddBranch(std::uint32_t lineNumber,
 	                             const BranchCoverage& branch)
 	{
 		auto it = lines_.find(lineNumber);
@@ -70,7 +71,7 @@ namespace Plugin
 	}
 
 	//-------------------------------------------------------------------------
-	void FileCoverage::MergeBranch(unsigned int lineNumber,
+	void FileCoverage::MergeBranch(std::uint32_t lineNumber,
 	                               const BranchCoverage& branch)
 	{
 		auto it = lines_.find(lineNumber);
@@ -93,7 +94,7 @@ namespace Plugin
 	}
 
 	//-------------------------------------------------------------------------
-	const LineCoverage* FileCoverage::operator[](unsigned int line) const
+	const LineCoverage* FileCoverage::operator[](std::uint32_t line) const
 	{
 		auto it = lines_.find(line);
 
@@ -104,7 +105,7 @@ namespace Plugin
 	}
 		
 	//-------------------------------------------------------------------------
-	const std::flat_map<unsigned int, LineCoverage>&
+	const std::flat_map<std::uint32_t, LineCoverage>&
 	FileCoverage::GetLineCollection() const
 	{
 		return lines_;

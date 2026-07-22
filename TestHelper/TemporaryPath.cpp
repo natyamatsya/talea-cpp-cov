@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include <system_error>
 #include <random>
 
@@ -32,7 +33,7 @@ namespace TestHelper
 	TemporaryPath::TemporaryPath(TemporaryPathOption temporaryPathOption)
 	{
 		auto now = std::chrono::system_clock::now().time_since_epoch();
-		auto seed = static_cast<unsigned int>(now.count());
+		auto seed = static_cast<std::uint32_t>(now.count());
 		std::default_random_engine generator(seed);
 		std::uniform_int_distribution<int> distribution;
 		auto temp_directory = fs::temp_directory_path();

@@ -51,7 +51,7 @@ namespace CppCoverage
 		bool RegisterAddress(
 			const Address&,
 			const std::wstring& filename,
-			unsigned int line,
+			std::uint32_t line,
 			unsigned char instruction);
 
 		std::optional<unsigned char> MarkAddressAsExecuted(const Address&);
@@ -69,7 +69,7 @@ namespace CppCoverage
 		{
 			std::uint32_t moduleId;
 			std::uint32_t fileId;
-			unsigned int lineNumber;
+			std::uint32_t lineNumber;
 
 			bool operator==(const ProbeKey& other) const
 			{
@@ -89,7 +89,7 @@ namespace CppCoverage
 		std::uint32_t InternFile(const std::wstring& filename);
 		std::uint32_t GetOrCreateProbe(std::uint32_t moduleId,
 		                               std::uint32_t fileId,
-		                               unsigned int lineNumber);
+		                               std::uint32_t lineNumber);
 		template <typename Condition>
 		void RemoveAddressIf(Condition);
 
@@ -103,7 +103,7 @@ namespace CppCoverage
 		// Probe table (structure of arrays), indexed by probe id.
 		std::vector<std::uint32_t> probeModuleId_;
 		std::vector<std::uint32_t> probeFileId_;
-		std::vector<unsigned int> probeLineNumber_;
+		std::vector<std::uint32_t> probeLineNumber_;
 		std::vector<std::uint8_t> probeExecuted_;   // the hit bitset
 		std::unordered_map<ProbeKey, std::uint32_t, ProbeKeyHasher> probeIdByKey_;
 
