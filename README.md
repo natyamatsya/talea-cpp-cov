@@ -44,17 +44,41 @@ to those terms.
   if you need to profile 32-bit binaries.
 
 ## Building from source
-- Visual Studio with the *Desktop development with C++* workload.
+
+The build uses CMake (≥ 4.4) with the Ninja generator and supports both
+`cl.exe` (MSVC) and `clang-cl.exe`.
+
+Prerequisites:
+- Visual Studio with the *Desktop development with C++* workload (this
+  includes the DIA SDK, ATL, CMake and Ninja). For the clang-cl presets, also
+  install the *C++ Clang tools for Windows* component (or a standalone LLVM).
 - Run `InstallThirdPartyLibraries.ps1` once: it clones and bootstraps a pinned
   [vcpkg](https://github.com/microsoft/vcpkg) into `Build\ThirdParty\vcpkg`.
-- Build `CppCoverage.slnx`. Dependencies are declared in `vcpkg.json` (manifest
-  mode) and are built automatically during the first build, which therefore
-  takes a while. To install them ahead of time run
-  `Build\ThirdParty\vcpkg\vcpkg.exe install --triplet x64-windows`.
 
-Note: this fork is x64 only — both the tool itself and the profiled programs
-must be 64-bit. Use the original releases if you need to profile 32-bit
-binaries.
+Then, from an **x64 Native Tools Command Prompt** (the presets rely on the
+compiler and Windows SDK being on the environment paths):
+
+```
+cmake --preset msvc-debug
+cmake --build --preset msvc-debug
+ctest --preset msvc-debug
+```
+
+Available presets: `msvc-debug`, `msvc-release`, `clang-cl-debug`,
+`clang-cl-release`. Binaries land in `out\<preset>\bin`. Dependencies are
+declared in `vcpkg.json` (manifest mode) and are built automatically during
+the first configure, which therefore takes a while.
+
+Build options: `-DOCC_WERROR=OFF` disables warnings-as-errors,
+`-DOCC_MSVC_LTO=OFF` disables whole-program optimization in Release builds.
+
+Notes:
+- This fork is x64 only — both the tool itself and the profiled programs must
+  be 64-bit. Use the original releases if you need to profile 32-bit binaries.
+- The C++/CLI test fixture (`TestCppCli`) was removed together with the old
+  MSBuild system: the test suite no longer covers coverage of managed (mixed
+  managed/native) test assemblies. Coverage of mixed-mode binaries by the tool
+  itself is unchanged.
 
 ## Download
 OpenCppCoverage can be downloaded from [here](../../releases).
