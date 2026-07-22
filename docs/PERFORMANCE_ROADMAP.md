@@ -28,6 +28,46 @@ per-module PDB parsing; **steady state** by breakpoint servicing (debug-event
 round trips, already cut by run merging and the VEH engine); **finish** by
 export formatting. The items below target each in turn.
 
+## Compiler comparison: MSVC (`cl`) vs `clang-cl`
+
+Both release presets produce the same fully-static executable; only the compiler
+differs. Measured on the idle baseline machine (10 repetitions, medians, all CVs
+< 1.6%). Δ is `clang-cl` relative to MSVC — negative means `clang-cl` is faster.
+
+| Benchmark | MSVC | clang-cl | Δ | faster |
+|---|---:|---:|---:|---|
+| `FindConditionalBranches/100000` (Zydis decode) | 13.4 ms | 10.9 ms | −19% | clang-cl |
+| `ParsePdbRawPdb` | 2.12 ms | 1.94 ms | −8% | clang-cl |
+| `ExportCobertura` | 7.32 ms | 5.44 ms | −26% | clang-cl |
+| `CoberturaLine_Fmt` (fmt) | 9.56 ms | 7.50 ms | −22% | clang-cl |
+| `CoberturaLine_StdFormat` (`std::format`) | 9.72 ms | 8.85 ms | −9% | clang-cl |
+| `CoberturaLine_Legacy` (`wostream`) | 34.1 ms | 33.4 ms | −2% | ~tie |
+| `MergeCoverageData` (`flat_map`) | 1.48 ms | 1.67 ms | +13% | MSVC |
+| `MergeColumnarShards/30` | 12.9 ms | 15.6 ms | +21% | MSVC |
+| `SerializeAndDeserializeCoverageData` | 2.25 ms | 2.45 ms | +9% | MSVC |
+
+The split is systematic, not noise:
+
+- **`clang-cl` wins the compute / codegen-bound loops** — Zydis instruction
+  decode (branch disassembly, +19% and consistent across the whole sweep),
+  string/number formatting (Cobertura export +26%, `fmt` line emission +22%),
+  and raw byte parsing (raw_pdb +8%). Tight loops where LLVM's backend and
+  vectorizer produce better code.
+- **MSVC wins the MSVC-STL-container-heavy work** — `std::flat_map` merge (+13%),
+  columnar shard merge (+21%), serialize (+9%). These lean entirely on
+  Microsoft's own STL (`std::flat_map`, `std::vector`, hashing); `cl`'s codegen
+  is tuned for its STL's inlining and container layout, and `clang-cl` consuming
+  the same headers is slightly less optimal.
+
+**Implication.** A typical single-target run is dominated by PDB parse → breakpoint
+servicing → export; `clang-cl` is faster on the parse and export stages (and on
+branch disassembly), so it tends to edge ahead there. MSVC pulls ahead only for
+heavy multi-shard aggregation (`--input_coverage`), where the merge paths
+dominate. Neither compiler is a clean overall winner — it depends on the
+workload. The switch to a fully static (`/MT`) build was performance-neutral for
+this in-process work: msvc-release medians are within noise of the earlier
+dynamic-CRT build.
+
 ## Tier 1 — high impact, contained effort
 
 ### 1. Store line coverage in `std::flat_map`, not `std::map` — DONE

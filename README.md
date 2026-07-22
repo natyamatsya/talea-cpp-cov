@@ -23,6 +23,29 @@ The project remains available under the terms described in the
 [LICENSE](LICENSE.txt) file. Feel free to use, modify, and fork it according
 to those terms.
 
+### Engineering changes in this fork
+
+Beyond the coverage features below, this fork has modernized the project:
+
+* **CMake + Ninja build** replacing the MSBuild solution, with presets for both
+  MSVC (`cl.exe`) and `clang-cl.exe` — see [Building from source](#building-from-source).
+* **Single self-contained executable** — `OpenCppCoverage.exe` links every
+  dependency and the C runtime statically, so it ships as one file with no
+  side-by-side DLLs and no Visual C++ redistributable; its only dependencies are
+  Windows system libraries.
+* **No third-party package dependencies** — Boost was dropped entirely (its one
+  small-vector use is a vendored MIT header); the remaining libraries (fmt,
+  spdlog, PCRE2, ctemplate, …) are statically linked in.
+* **Explicit fixed-width integer types** throughout first-party code — see
+  [docs/adr/0001](docs/adr/0001-explicit-width-integer-types.md).
+* **Faster export and merge paths** (fmt-based Cobertura writer, `std::flat_map`
+  line storage) — see [docs/PERFORMANCE_ROADMAP.md](docs/PERFORMANCE_ROADMAP.md).
+
+One consequence of the single-executable design: the external export-plugin
+mechanism (drop-in `Plugins\Exporter\*.dll`) has been removed — its DLL boundary
+passed C++ objects across a heap boundary, which the static CRT cannot allow.
+The built-in HTML, Cobertura and binary exporters are unaffected.
+
 ---------------------
 ## Features:
 - **Visual Studio support**: Support compiler with program database file (.pdb).
@@ -205,4 +228,6 @@ imported. The HTML report and the console summary show line coverage only.
   (e.g. `cmov`) or jump tables (some `switch` statements) and are not measured.
 - Aggregating runs with `--input_coverage` matches branches by file, line and index,
   which is only reliable when all runs use the same binaries.
-- Export plugins must be rebuilt against the new plugin interface (version 2).
+- Branch data is exported through the built-in Cobertura and binary formats. This
+  fork no longer supports external export plugins (see
+  [Engineering changes in this fork](#engineering-changes-in-this-fork)).
