@@ -19,6 +19,13 @@
 
 #include "stdafx.h"
 
+// When built with -DOCC_MIMALLOC=ON, override global new/delete with mimalloc
+// for the whole executable. Included in the entry-point TU so the overrides are
+// visible program-wide; a no-op when the option is off.
+#ifdef OCC_USE_MIMALLOC
+#include <mimalloc-new-delete.h>
+#endif
+
 #include <iostream>
 
 #include "Tools/MiniDump.hpp"

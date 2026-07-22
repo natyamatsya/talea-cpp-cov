@@ -179,45 +179,43 @@ known imports) on a worker while the loader runs would hide most of the 2.3 ms
 per-module parse behind work that happens regardless. Consider making
 pre-parse the default when the import count crosses a threshold.
 
-### 8. Arena-allocate the merge output — PROFILED, worth ~22%
+### 8. Faster allocation — SUPERSEDED by mimalloc (a `pmr` arena is not worth it)
 The container-heavy hot paths (`MergeCoverageData`, `MergeColumnarShards`) build
 many small `std::flat_map` / `std::vector` / `std::wstring` nodes, one
-`malloc`/`free` each. A `std::pmr::monotonic_buffer_resource` (bump arena) would
-collapse that traffic into pointer bumps and a single bulk release, without
-hand-writing an allocator. (The columnar `.cov` format — struct-of-arrays +
-varint — and `gch::small_vector` in `ExecutedAddressManager` already cover the
-"optimized data layout" half.)
+`malloc`/`free` each. Profiling (`MergeAllocProfile`, a throwaway harness hooking
+global `new`/`delete`; merging 2 × (3 modules × 20 files × 500 lines)) showed
+**13,488 allocations / merge (4.51 MiB, ~351 B avg)**, and a simulated bump arena
+recovered **~22%** of the merge (0.32 ms MSVC / 0.36 ms clang-cl).
 
-**Profiled** (`Benchmarks/MergeAllocProfile.cpp`, a throwaway harness that hooks
-global `new`/`delete`; merging 2 × (3 modules × 20 files × 500 lines), release):
+Capturing that with `std::pmr` would have required making the whole data model
+(`CoverageData` / `ModuleCoverage` / `FileCoverage` / `LineCoverage`) allocator-
+aware and each `CoverageData` owning a `monotonic_buffer_resource` — because most
+of those allocations are the *returned* `CoverageData`, not transient scratch, so
+a per-call arena reset would free the result. A sizeable, risky change to the
+core model.
 
-| | MSVC | clang-cl |
-|---|---:|---:|
-| allocations / merge | 13,488 | 13,488 |
-| bytes / merge | 4.51 MiB (~351 B avg) | 4.51 MiB |
-| baseline (malloc/free) | 1.401 ms | 1.629 ms |
-| bump arena | 1.081 ms | 1.265 ms |
-| recoverable | **0.32 ms (22.8%)** | **0.36 ms (22.4%)** |
+**Instead, swapping the global allocator to mimalloc got more, everywhere, for
+~20 lines.** `OCC_MIMALLOC` links `mimalloc` statically and overrides
+`operator new`/`delete` in the executables' entry-point TUs. It is **on by
+default in the Release presets** (the shipping build); Debug stays on the CRT so
+its `/MTd` debug heap keeps validating allocations. Measured (10-rep medians,
+idle, release):
 
-So allocator traffic is a real ~22% of the merge on both compilers — worth
-doing. Two findings shape the implementation:
+| Benchmark | MSVC off→on | clang-cl off→on |
+|---|---|---|
+| `MergeCoverageData` | 1.48 → 1.11 ms (−25%) | 1.67 → 1.30 ms (−22%) |
+| `MergeColumnarShards/30` | 13.2 → 7.80 ms (−41%) | 16.0 → 10.9 ms (−32%) |
+| `ExportCobertura` | 2.18 → 1.50 ms (−31%) | 2.10 → 1.30 ms (−38%) |
+| `SerializeAndDeserializeCoverageData` | 2.32 → 1.93 ms (−17%) | 2.47 → 2.01 ms (−19%) |
+| `ParsePdbRawPdb` | 2.09 → 1.85 ms (−11%) | 1.96 → 1.79 ms (−9%) |
 
-- **Most of those allocations are the *output*, not transient scratch.** The
-  arena experiment recovered 22% precisely because *every* allocation — including
-  the merged `CoverageData` that the function returns — came from the arena. A
-  per-call arena reset after the merge would therefore free the result. To
-  capture the full 22%, the data model (`CoverageData` / `ModuleCoverage` /
-  `FileCoverage` / `LineCoverage`, their `flat_map`/`vector`/`wstring` members)
-  must become `std::pmr`-aware and each `CoverageData` must own the
-  `monotonic_buffer_resource` its contents allocate from — so the whole tree is
-  released in one shot when the `CoverageData` dies. Arena-ing only transient
-  scratch would recover much less than 22%.
-- **The ABI blocker is gone.** `Plugin::FileCoverage` etc. used to be an exported
-  cross-DLL/plugin ABI, so changing their layout was off-limits. After the
-  single-static-exe conversion (no external plugins, one static image) there is
-  no external consumer of that layout, so making the data model `pmr` is now
-  safe. It is still a sizeable change to the core model — sequence it deliberately
-  and keep the serializer's golden round-trip green.
+On the merge, mimalloc (−25% / −22%) **meets or beats the `pmr` arena's 22%
+upper bound**, but globally and with no data-model surgery — and it also wins the
+columnar merge, export, serialize and parse paths a `pmr` arena would never have
+touched. So the `pmr` conversion is **not worth doing**: mimalloc already exceeds
+its best case. All four configs stay green with mimalloc (release 271/271).
+mimalloc is Microsoft's, MIT-licensed, and Windows-first — the natural fit for a
+Windows single-static-exe; jemalloc/tcmalloc have weaker Windows support.
 
 ## Tier 3 — build-level wins for the tool itself
 

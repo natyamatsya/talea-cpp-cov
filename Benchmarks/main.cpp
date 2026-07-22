@@ -14,6 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// When built with -DOCC_MIMALLOC=ON, override global new/delete with mimalloc so
+// the benchmarks measure allocation under mimalloc; a no-op when off.
+#ifdef OCC_USE_MIMALLOC
+#include <mimalloc-new-delete.h>
+#endif
+
 #include <benchmark/benchmark.h>
 
 BENCHMARK_MAIN();

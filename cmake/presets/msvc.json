@@ -20,7 +20,10 @@
       "name": "msvc-release",
       "displayName": "cl.exe x64 Release",
       "inherits": "msvc",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "OCC_MIMALLOC": "ON"
+      }
     }
   ],
   "buildPresets": [

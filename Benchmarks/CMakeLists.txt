@@ -8,4 +8,4 @@ occ_apply_conventions(Benchmarks)
 target_link_libraries(Benchmarks PRIVATE
 	benchmark::benchmark fmt::fmt
 	occ::CppCoverage occ::Exporter occ::Plugin occ::Tools
-	shlwapi)
+	shlwapi occ_mimalloc)

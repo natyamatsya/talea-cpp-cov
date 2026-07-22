@@ -12,6 +12,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 option(OCC_WERROR "Treat compiler warnings as errors (/WX)" ON)
 option(OCC_MSVC_LTO "Whole-program optimization (/GL, /LTCG) in Release builds with cl" ON)
+option(OCC_MIMALLOC "Use mimalloc as the global allocator (overrides operator new/delete)" OFF)
 set(OCC_SANITIZER "none" CACHE STRING
 	"Sanitizer to build first-party code with: none, address, undefined, address+undefined")
 set_property(CACHE OCC_SANITIZER PROPERTY STRINGS none address undefined address+undefined)
@@ -67,6 +68,17 @@ find_package(GTest CONFIG REQUIRED)
 find_package(benchmark CONFIG REQUIRED)
 find_package(ctemplate REQUIRED)
 find_package(DiaSDK REQUIRED)
+
+# Optional global allocator. When OCC_MIMALLOC is on, occ_mimalloc links
+# mimalloc statically and defines OCC_USE_MIMALLOC so an executable's entry-point
+# translation unit overrides operator new/delete via <mimalloc-new-delete.h>.
+# Linked into OpenCppCoverage.exe and Benchmarks.exe; a no-op interface when off.
+add_library(occ_mimalloc INTERFACE)
+if(OCC_MIMALLOC)
+	find_package(mimalloc CONFIG REQUIRED)
+	target_link_libraries(occ_mimalloc INTERFACE mimalloc-static)
+	target_compile_definitions(occ_mimalloc INTERFACE OCC_USE_MIMALLOC=1)
+endif()
 
 include(Sanitizers)
 include(OccOptions)

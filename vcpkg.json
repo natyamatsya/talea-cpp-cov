@@ -8,6 +8,7 @@
     "fmt",
     "glaze",
     "gtest",
+    "mimalloc",
     "mio",
     "pcre2",
     {

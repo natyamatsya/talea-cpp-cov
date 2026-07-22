@@ -20,7 +20,10 @@
       "name": "clang-cl-release",
       "displayName": "clang-cl x64 Release",
       "inherits": "clang-cl",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "OCC_MIMALLOC": "ON"
+      }
     }
   ],
   "buildPresets": [
