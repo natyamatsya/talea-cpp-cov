@@ -172,7 +172,8 @@ namespace CppCoverage
 								        auto lineNumber =
 								            line.linenumStart;
 								        if (lineNumber == InvalidLine1 ||
-								            lineNumber == InvalidLine2)
+								            lineNumber == InvalidLine2 ||
+								            lineNumber == 0)
 									        continue;
 
 								        auto rva =
@@ -238,34 +239,40 @@ namespace CppCoverage
 			}
 
 			// --- function ranges -------------------------------------------
-			const auto symbolStream = module.CreateSymbolStream(rawFile);
-			symbolStream.ForEachSymbol(
-			    [&](const PDB::CodeView::DBI::Record* record) {
-				    std::uint16_t section = 0;
-				    std::uint32_t offset = 0;
-				    std::uint32_t codeSize = 0;
-				    switch (record->header.kind)
-				    {
-					    case PDB::CodeView::DBI::SymbolRecordKind::S_GPROC32:
-					    case PDB::CodeView::DBI::SymbolRecordKind::S_LPROC32:
-					    case PDB::CodeView::DBI::SymbolRecordKind::
-					        S_GPROC32_ID:
-					    case PDB::CodeView::DBI::SymbolRecordKind::
-					        S_LPROC32_ID:
-						    section = record->data.S_GPROC32.section;
-						    offset = record->data.S_GPROC32.offset;
-						    codeSize = record->data.S_GPROC32.codeSize;
-						    break;
-					    default:
+			// Not every compiland has a symbol stream (e.g. linker-synthesized
+			// modules, or objects a compiler emits without one — clang-cl does
+			// for some); CreateSymbolStream asserts if it is absent.
+			if (module.HasSymbolStream())
+			{
+				const auto symbolStream = module.CreateSymbolStream(rawFile);
+				symbolStream.ForEachSymbol(
+				    [&](const PDB::CodeView::DBI::Record* record) {
+					    std::uint16_t section = 0;
+					    std::uint32_t offset = 0;
+					    std::uint32_t codeSize = 0;
+					    switch (record->header.kind)
+					    {
+						    case PDB::CodeView::DBI::SymbolRecordKind::S_GPROC32:
+						    case PDB::CodeView::DBI::SymbolRecordKind::S_LPROC32:
+						    case PDB::CodeView::DBI::SymbolRecordKind::
+						        S_GPROC32_ID:
+						    case PDB::CodeView::DBI::SymbolRecordKind::
+						        S_LPROC32_ID:
+							    section = record->data.S_GPROC32.section;
+							    offset = record->data.S_GPROC32.offset;
+							    codeSize = record->data.S_GPROC32.codeSize;
+							    break;
+						    default:
+							    return;
+					    }
+					    if (codeSize == 0)
 						    return;
-				    }
-				    if (codeSize == 0)
-					    return;
-				    auto rva = sectionStream.ConvertSectionOffsetToRVA(
-				        section, offset);
-				    contribution.functions_.push_back(
-				        {static_cast<std::int64_t>(rva), codeSize, {}});
-			    });
+					    auto rva = sectionStream.ConvertSectionOffsetToRVA(
+					        section, offset);
+					    contribution.functions_.push_back(
+					        {static_cast<std::int64_t>(rva), codeSize, {}});
+				    });
+			}
 
 			return contribution;
 		}

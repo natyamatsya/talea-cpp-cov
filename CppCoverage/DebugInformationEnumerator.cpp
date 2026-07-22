@@ -29,7 +29,7 @@
 #include <unordered_map>
 #include "Tools/StringUtils.hpp"
 
-#include "tools/Log.hpp"
+#include "Tools/Log.hpp"
 
 #include "CppCoverageException.hpp"
 #include "PdbLineTableCache.hpp"
@@ -466,8 +466,8 @@ namespace CppCoverage
 		if (lineNumber.get_lineNumber(&linenum) != S_OK)
 			THROW("DIA: Cannot get line number");
 
-		// Skip invalid lines
-		if (linenum != 0x00f00f00 && linenum != 0x00feefee)
+		// Skip invalid lines (0 is clang's "no source" marker)
+		if (linenum != 0x00f00f00 && linenum != 0x00feefee && linenum != 0)
 		{
 			ULONGLONG virtualAddress = 0;
 			if (lineNumber.get_virtualAddress(&virtualAddress) != S_OK)
