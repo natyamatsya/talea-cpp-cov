@@ -51,12 +51,22 @@ namespace Tools
 		}
 
 		//-------------------------------------------------------------------------
-		// The single process-wide logger, living in Tools.dll. It starts with no
-		// sinks (logging goes nowhere until InitConsoleAndFileLog or
-		// InitLoggerOstream installs one), mirroring the previous behaviour.
+		// The single process-wide logger, living in Tools.dll. It starts with a
+		// default console (stderr) sink so messages logged before
+		// InitConsoleAndFileLog runs - e.g. option-parsing warnings emitted
+		// while --quiet is not yet in effect - still appear, matching
+		// boost::log's default-sink behaviour. InitConsoleAndFileLog /
+		// InitLoggerOstream replace it.
 		spdlog::logger& Logger()
 		{
-			static spdlog::logger logger{"occ"};
+			static spdlog::logger logger = []
+			{
+				auto sink = std::make_shared<spdlog::sinks::stderr_sink_mt>();
+				sink->set_pattern("[%l] %v");
+				spdlog::logger created{"occ", std::move(sink)};
+				created.flush_on(spdlog::level::trace);
+				return created;
+			}();
 			return logger;
 		}
 
@@ -74,23 +84,6 @@ namespace Tools
 			sinks.clear();
 			sinks.push_back(std::move(sink));
 		}
-	}
-
-	//-------------------------------------------------------------------------
-	LogStream::LogStream(LogLevel level) : level_{level}
-	{
-	}
-
-	//-------------------------------------------------------------------------
-	LogStream::~LogStream()
-	{
-		const auto level = ToSpdlogLevel(level_);
-		auto& logger = Logger();
-		if (!logger.should_log(level))
-			return;
-		// The message is a literal (never a format string), so pass it through
-		// the non-formatting overload.
-		logger.log(level, Tools::ToUtf8String(stream_.str()));
 	}
 
 	//-------------------------------------------------------------------------

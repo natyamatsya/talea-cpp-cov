@@ -94,11 +94,4 @@ namespace ToolsTest
 		EXPECT_NE(captured.find("should-appear"), std::string::npos);
 	}
 
-	//-------------------------------------------------------------------------
-	// The transitional stream form still works and shares the same logger.
-	TEST_F(LogFormatTest, StreamFormStillWorks)
-	{
-		LOG_INFO_STREAM << L"stream " << 7;
-		EXPECT_NE(Captured().find("stream 7"), std::string::npos);
-	}
 }

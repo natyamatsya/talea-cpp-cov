@@ -70,52 +70,6 @@ namespace Tools
 		Error
 	};
 
-	// A stream-style front end for the logger. Each LOG_*_STREAM use builds one
-	// temporary that accumulates a wide message and, on destruction, converts
-	// it to UTF-8 and emits a single line through the logger that lives in
-	// Tools.dll.
-	//
-	// This adapter is the transitional bridge that keeps the historical
-	// "LOG_X << ..." call sites working while they are converted to the
-	// LOG_X("fmt", ...) form in batches, after which it is removed. See
-	// docs/SPDLOG_MIGRATION.md.
-	class TOOLS_DLL LogStream
-	{
-	public:
-		explicit LogStream(LogLevel level);
-		~LogStream();
-
-		template <typename T>
-		LogStream& operator<<(const T& value)
-		{
-			stream_ << value;
-			return *this;
-		}
-
-		template <typename T>
-		LogStream& operator<<(const std::set<T>& values)
-		{
-			stream_ << L'[';
-			bool first = true;
-			for (const auto& value : values)
-			{
-				if (!first)
-					stream_ << L", ";
-				first = false;
-				stream_ << value;
-			}
-			stream_ << L']';
-			return *this;
-		}
-
-	private:
-		LogStream(const LogStream&) = delete;
-		LogStream& operator=(const LogStream&) = delete;
-
-		LogLevel level_;
-		std::wostringstream stream_;
-	};
-
 	// True when a message at this level would be emitted; lets Log() skip
 	// formatting work when the level is filtered out.
 	bool TOOLS_DLL ShouldLog(LogLevel level);
@@ -160,14 +114,7 @@ namespace Tools
 	void TOOLS_DLL InitLoggerOstream(const std::shared_ptr<std::ostringstream>& ostr);
 }
 
-// Transitional stream form (being converted to the format form below).
-#define LOG_TRACE_STREAM   ::Tools::LogStream{::Tools::LogLevel::Trace}
-#define LOG_DEBUG_STREAM   ::Tools::LogStream{::Tools::LogLevel::Debug}
-#define LOG_INFO_STREAM    ::Tools::LogStream{::Tools::LogLevel::Info}
-#define LOG_WARNING_STREAM ::Tools::LogStream{::Tools::LogLevel::Warning}
-#define LOG_ERROR_STREAM   ::Tools::LogStream{::Tools::LogLevel::Error}
-
-// Destination format form: LOG_INFO("loaded {} in {} ms", module, ms);
+// Format logging: LOG_INFO("loaded {} in {} ms", module, ms);
 #define LOG_TRACE(...)   ::Tools::Log(::Tools::LogLevel::Trace, __VA_ARGS__)
 #define LOG_DEBUG(...)   ::Tools::Log(::Tools::LogLevel::Debug, __VA_ARGS__)
 #define LOG_INFO(...)    ::Tools::Log(::Tools::LogLevel::Info, __VA_ARGS__)
