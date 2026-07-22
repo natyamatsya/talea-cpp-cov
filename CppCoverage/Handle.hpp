@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include "tools/Log.hpp"
-#include "tools/Tool.hpp"
+#include "Tools/Log.hpp"
+#include "Tools/Tool.hpp"
 
 #include "CppCoverageException.hpp"
 #include <optional>

@@ -27,7 +27,7 @@
 
 #include "Exporter/InvalidOutputFileException.hpp"
 #include "Exporter/CoberturaExporter.hpp"
-#include "tools/Tool.hpp"
+#include "Tools/Tool.hpp"
 
 #include "TestHelper/TemporaryPath.hpp"
 

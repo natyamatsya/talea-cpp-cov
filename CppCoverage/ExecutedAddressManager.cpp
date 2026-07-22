@@ -21,7 +21,7 @@
 
 #include <boost/container/small_vector.hpp>
 
-#include "tools/Log.hpp"
+#include "Tools/Log.hpp"
 
 #include "CppCoverageException.hpp"
 #include "Plugin/Exporter/ModuleCoverage.hpp"

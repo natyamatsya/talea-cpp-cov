@@ -24,10 +24,12 @@
 #include <sstream>
 #include <unordered_map>
 
+#ifndef ZYDIS_STATIC_BUILD
 #define ZYDIS_STATIC_BUILD
+#endif
 #include <Zydis/Zydis.h>
 
-#include "tools/Log.hpp"
+#include "Tools/Log.hpp"
 
 #include "Address.hpp"
 #include "CppCoverageException.hpp"

@@ -30,6 +30,7 @@ namespace Exporter
 	{
 	public:
 		IExporter() = default;
+		virtual ~IExporter() = default;
 
 		virtual std::filesystem::path GetDefaultPath(const std::wstring& prefix) const = 0;
 		virtual void Export(const Plugin::CoverageData&, const std::filesystem::path& output) = 0;

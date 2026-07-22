@@ -19,10 +19,12 @@
 
 #include <optional>
 
+#ifndef ZYDIS_STATIC_BUILD
 #define ZYDIS_STATIC_BUILD
+#endif
 #include <Zydis/Zydis.h>
 
-#include "tools/Log.hpp"
+#include "Tools/Log.hpp"
 
 namespace CppCoverage
 {

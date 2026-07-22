@@ -22,7 +22,7 @@
 #include <sstream>
 #include <optional>
 
-#include "tools/Log.hpp"
+#include "Tools/Log.hpp"
 
 #include "Plugin/Exporter/CoverageData.hpp"
 #include "Debugger.hpp"

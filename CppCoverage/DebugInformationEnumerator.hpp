@@ -42,8 +42,8 @@ namespace CppCoverage
 			     unsigned long symbolIndex,
 			     unsigned long length)
 			    : lineNumber_{lineNumber},
-			      virtualAddress_{virtualAddress},
 			      symbolIndex_{symbolIndex},
+			      virtualAddress_{virtualAddress},
 			      length_{length}
 			{
 			}

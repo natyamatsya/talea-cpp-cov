@@ -25,7 +25,7 @@ namespace FileFilter
 	class FILEFILTER_DLL IRelocationsExtractor
 	{
 	public:
-		~IRelocationsExtractor() {}
+		virtual ~IRelocationsExtractor() = default;
 		virtual std::unordered_set<DWORD64>
 		Extract(HANDLE hProcess, DWORD64 baseOfImage) const = 0;
 	};

@@ -20,7 +20,9 @@
 #include <algorithm>
 #include <unordered_set>
 
+#ifndef ZYDIS_STATIC_BUILD
 #define ZYDIS_STATIC_BUILD
+#endif
 #include <Zydis/Zydis.h>
 
 namespace CppCoverage

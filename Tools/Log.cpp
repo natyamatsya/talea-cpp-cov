@@ -22,8 +22,12 @@
 // spdlog is included only here, so the logging backend stays confined to
 // Tools.dll and links statically. Reuse our (already static) fmt rather than
 // spdlog's bundled copy.
+#ifndef SPDLOG_COMPILED_LIB
 #define SPDLOG_COMPILED_LIB
+#endif
+#ifndef SPDLOG_FMT_EXTERNAL
 #define SPDLOG_FMT_EXTERNAL
+#endif
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/ostream_sink.h>

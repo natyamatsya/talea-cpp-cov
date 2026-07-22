@@ -45,7 +45,7 @@ class SimpleTextExport : public Plugin::IExportPlugin
 	}
 
 	//-------------------------------------------------------------------------
-	void CheckArgument(const std::optional<std::wstring>& argument)
+	void CheckArgument(const std::optional<std::wstring>& argument) override
 	{
 		// Try to check if the argument is a file.
 		if (argument && !std::filesystem::path{*argument}.has_filename())
@@ -54,7 +54,7 @@ class SimpleTextExport : public Plugin::IExportPlugin
 	}
 
 	//-------------------------------------------------------------------------
-	std::wstring GetArgumentHelpDescription()
+	std::wstring GetArgumentHelpDescription() override
 	{
 		return L"output file (optional)";
 	}

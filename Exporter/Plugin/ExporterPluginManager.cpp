@@ -178,7 +178,7 @@ namespace Exporter
 			    CppCoverage::ExportPluginDescription{
 			        std::wstring{pluginName},
 			        std::move(helpDescription),
-			        [weakPlugin, pluginPath, this](
+			        [weakPlugin, pluginPath](
 			            const std::optional<std::wstring>& parameter) {
 					CheckArgument(weakPlugin, pluginPath, parameter);
 				}});

@@ -17,8 +17,8 @@
 #include "stdafx.h"
 #include "Debugger.hpp"
 
-#include "tools/Log.hpp"
-#include "tools/ScopedAction.hpp"
+#include "Tools/Log.hpp"
+#include "Tools/ScopedAction.hpp"
 
 #include "Process.hpp"
 #include "CppCoverageException.hpp"

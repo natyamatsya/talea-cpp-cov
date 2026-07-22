@@ -25,7 +25,9 @@
 
 // PCRE2 is linked statically (see custom-triplets/x64-windows.cmake), so the
 // header must not decorate its API with __declspec(dllimport).
+#ifndef PCRE2_STATIC
 #define PCRE2_STATIC
+#endif
 #define PCRE2_CODE_UNIT_WIDTH 8
 #include <pcre2.h>
 
@@ -72,6 +74,11 @@ namespace Tools
 			}
 			return code;
 		}
+	}
+
+	//-------------------------------------------------------------------------
+	Regex::Regex(std::string_view pattern) : Regex{pattern, Options{}}
+	{
 	}
 
 	//-------------------------------------------------------------------------

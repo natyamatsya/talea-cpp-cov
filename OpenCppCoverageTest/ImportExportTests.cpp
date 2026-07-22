@@ -29,7 +29,7 @@
 #include "Plugin/Exporter/LineCoverage.hpp"
 #include "CppCoverage/OptionsParser.hpp"
 
-#include "Exporter/binary/CoverageDataDeserializer.hpp"
+#include "Exporter/Binary/CoverageDataDeserializer.hpp"
 
 #include "TestHelper/CoverageDataComparer.hpp"
 #include "TestCoverageSharedLib/TestCoverageSharedLib.hpp"

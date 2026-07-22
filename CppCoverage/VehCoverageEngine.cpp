@@ -33,7 +33,7 @@
 #include <utility>
 #include <vector>
 
-#include "tools/Log.hpp"
+#include "Tools/Log.hpp"
 #include "Tools/WarningManager.hpp"
 
 #include "Address.hpp"
@@ -272,7 +272,10 @@ namespace CppCoverage
 
 					while (cursor < lines.size() &&
 					       lines[cursor].rva_ < functionStart)
-						addProbe(lines[cursor].rva_, cursor++);
+					{
+						addProbe(lines[cursor].rva_, cursor);
+						++cursor;
+					}
 
 					auto firstLine = cursor;
 					while (cursor < lines.size() &&

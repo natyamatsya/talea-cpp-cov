@@ -28,8 +28,8 @@ namespace FileFilter
 			DWORD64 virtualAddress,
 			ULONG symbolIndex)
 			: lineNumber_{ lineNumber }
-			, virtualAddress_{ virtualAddress }
 			, symbolIndex_{ symbolIndex }
+			, virtualAddress_{ virtualAddress }
 		{}
 
 		const int lineNumber_;

@@ -138,7 +138,7 @@ namespace TestHelper
 		return IsFirstContainsSecond<std::filesystem::path>(
 			container1, container2,
 			[](const ModuleCoveragePtr& module) { return module->GetPath(); },
-			[=](const ModuleCoveragePtr& module1,
+			[this](const ModuleCoveragePtr& module1,
 			   const ModuleCoveragePtr& module2)
 		{
 			return IsFirstModuleContainsSecond(module1, module2);

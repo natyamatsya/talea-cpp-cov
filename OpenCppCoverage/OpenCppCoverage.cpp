@@ -199,6 +199,7 @@ namespace OpenCppCoverage
 			{
 				case cov::LogLevel::Verbose: logLevel = Tools::LogLevel::Debug; break;
 				case cov::LogLevel::Quiet: logLevel = Tools::LogLevel::Error; break;
+				case cov::LogLevel::Normal: break;
 			}
 
 			Tools::InitConsoleAndFileLog(L"LastCoverageResults.log");

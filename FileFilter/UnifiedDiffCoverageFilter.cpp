@@ -60,8 +60,8 @@ namespace FileFilter
 	UnifiedDiffCoverageFilter::UnifiedDiffCoverageFilter(
 		std::vector<File>&& files,
 		const std::optional<std::filesystem::path>& rootDiffFolder)
-		: pathMatcher_{ std::move(files), rootDiffFolder }
-		, lastFile_ {nullptr}
+		: lastFile_{ nullptr }
+		, pathMatcher_{ std::move(files), rootDiffFolder }
 	{
 	}
 

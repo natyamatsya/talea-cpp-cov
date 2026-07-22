@@ -54,7 +54,11 @@ namespace Tools
 		};
 
 		// Throws Tools::ToolsException if the pattern fails to compile.
-		explicit Regex(std::string_view pattern, const Options& options = {});
+		// Two overloads instead of a defaulted Options argument: clang rejects
+		// using Options' default member initializers inside the enclosing
+		// class definition.
+		explicit Regex(std::string_view pattern);
+		explicit Regex(std::string_view pattern, const Options& options);
 		~Regex();
 
 		Regex(Regex&&) noexcept;

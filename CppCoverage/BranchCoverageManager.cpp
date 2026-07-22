@@ -19,7 +19,7 @@
 
 #include <unordered_map>
 
-#include "tools/Log.hpp"
+#include "Tools/Log.hpp"
 
 #include "CppCoverageException.hpp"
 #include "Plugin/Exporter/ModuleCoverage.hpp"
