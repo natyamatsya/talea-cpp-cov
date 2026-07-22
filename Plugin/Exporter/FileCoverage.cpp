@@ -104,7 +104,7 @@ namespace Plugin
 	}
 		
 	//-------------------------------------------------------------------------
-	const std::map<unsigned int, LineCoverage>&
+	const std::flat_map<unsigned int, LineCoverage>&
 	FileCoverage::GetLineCollection() const
 	{
 		return lines_;

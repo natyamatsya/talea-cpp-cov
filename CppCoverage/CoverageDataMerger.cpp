@@ -18,6 +18,7 @@
 #include "CoverageDataMerger.hpp"
 
 #include <functional>
+#include <map>
 
 #include "Plugin/Exporter/CoverageData.hpp"
 #include "Plugin/Exporter/ModuleCoverage.hpp"

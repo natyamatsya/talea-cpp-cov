@@ -17,7 +17,8 @@
 #pragma once
 
 #include <filesystem>
-#include <map>
+#include <flat_map>
+#include <vector>
 
 #include "LineCoverage.hpp"
 #include "../PluginExport.hpp"
@@ -40,7 +41,7 @@ namespace Plugin
 
 		// Zero-copy access to the lines (ordered by line number). Prefer this
 		// over GetLines() on hot paths; GetLines() copies every line.
-		const std::map<unsigned int, LineCoverage>& GetLineCollection() const;
+		const std::flat_map<unsigned int, LineCoverage>& GetLineCollection() const;
 
 		FileCoverage& operator=(const FileCoverage&) = default;
 
@@ -49,7 +50,7 @@ namespace Plugin
 			
 	private:
 		std::filesystem::path path_;
-		std::map<unsigned int, LineCoverage> lines_;	
+		std::flat_map<unsigned int, LineCoverage> lines_;
 	};
 }
 

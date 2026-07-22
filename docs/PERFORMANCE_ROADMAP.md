@@ -7,6 +7,12 @@ formats already in place.
 
 ## Baseline (msvc-release, 24-core / 4.7 GHz, warm file cache)
 
+> The numbers below (and the before/after deltas in the items) were captured
+> while the machine was also building. They are consistent enough to be
+> directionally decisive, but re-run `Benchmarks.exe` on an otherwise idle
+> machine before quoting absolute figures.
+
+
 | Benchmark | Time | Notes |
 |---|---|---|
 | `ParsePdbRawPdb` | 2.3 ms | cold raw_pdb parse of CppCoverage.dll (161 source files) |
@@ -24,16 +30,24 @@ export formatting. The items below target each in turn.
 
 ## Tier 1 — high impact, contained effort
 
-### 1. Store line coverage in a sorted vector, not `std::map`
-`Plugin::FileCoverage` keeps lines in `std::map<unsigned int, LineCoverage>`
-(`FileCoverage.hpp:52`) — a red-black tree with a heap node per line and
-pointer-chasing on every insert/lookup. Coverage is built once and read in
-order, the ideal case for a sorted `std::vector` (or `boost::container::
-flat_map`, already a dependency). Expect a solid cut to `MergeCoverageData`
-and every export (all of which iterate lines), plus lower memory and better
-cache behaviour on large modules.
-- **Effort:** medium (touches the plugin ABI — coordinate with the version bump).
-- **Measure:** `MergeCoverageData`, `ExportCobertura`.
+### 1. Store line coverage in `std::flat_map`, not `std::map` — DONE
+`Plugin::FileCoverage` kept lines in a `std::map<unsigned int, LineCoverage>`
+(red-black tree, a heap node per line, pointer-chasing on every access).
+Coverage is built once and read in order, the ideal case for a flat container,
+so it now uses `std::flat_map` (C++23, MSVC STL). Contiguous keys/values give
+better cache behaviour and lower per-line overhead; measured (5-rep aggregates,
+`std::map` → `std::flat_map`):
+- `MergeCoverageData` 3.1 → 1.47 ms (~2.1x)
+- `ExportCobertura` 9.3 → 7.6 ms (~1.2x, on top of the fmt rewrite)
+- `SerializeAndDeserializeCoverageData` 3.5 → 2.5 ms (~1.4x)
+- `MergeColumnarShards/30` 15.5 → 12.8 ms (~1.2x)
+
+`FileCoverage` is exported from `Plugin.dll`, so this changed the layout; the
+plugin ABI version was bumped to 3. **Caveat:** `flat_map` insertion is O(n),
+so building is cheap only when lines arrive in (roughly) increasing order — the
+common case for PDB-driven collection. If a future path adds lines out of
+order, batch into a vector and use the sorted-range constructor rather than
+per-line `emplace`.
 
 ### 2. Format the Cobertura document without `wostringstream` — DONE
 The exporter previously wrote every element through a `std::wostream` via
@@ -99,6 +113,23 @@ without touching source:
 - **BOLT** post-link layout on the hot debug-event path.
 
 These are measurable end-to-end with `run_engine_benchmark.ps1`.
+
+## Tier 4 — dependency cleanup
+
+### Drop the boost-container / boost-range dependencies for standard C++
+The `boost-container` and `boost-range` vcpkg packages are used in a handful of
+places; with C++23 (and `std::flat_map` now in the STL) most have standard
+replacements. Audit each use and migrate where a standard facility is
+equivalent:
+- `boost::container::flat_map` / `flat_set` → `std::flat_map` / `std::flat_set`.
+- `boost::container::small_vector` / `static_vector` → keep (no standard
+  equivalent yet) or a local implementation, if any are used.
+- `boost::range` adaptors / algorithms → `std::ranges` (views, `join`, etc.).
+- `boost::optional` / `boost::variant`, if present → `std::optional` /
+  `std::variant`.
+Removing them trims the vcpkg build (a large chunk of the first-build time) and
+the custom static-linkage triplet handling. Do it behind the test matrix, one
+header at a time, keeping each step green.
 
 ## Prerequisite: verifiable high-performance paths
 

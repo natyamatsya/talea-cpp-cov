@@ -68,5 +68,7 @@ namespace Plugin
 
 	// The current version of IExportPlugin.
 	// Version 2: LineCoverage was extended with branch coverage data.
-	const int CurrentExportPluginVersion = 2;
+	// Version 3: FileCoverage's line container changed from std::map to
+	//            std::flat_map (a binary-layout / ABI change).
+	const int CurrentExportPluginVersion = 3;
 }

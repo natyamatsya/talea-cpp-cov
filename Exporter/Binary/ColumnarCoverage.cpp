@@ -18,6 +18,7 @@
 #include "ColumnarCoverage.hpp"
 
 #include <algorithm>
+#include <map>
 #include <cstring>
 #include <fstream>
 

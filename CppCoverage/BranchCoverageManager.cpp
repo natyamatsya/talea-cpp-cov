@@ -17,6 +17,7 @@
 #include "stdafx.h"
 #include "BranchCoverageManager.hpp"
 
+#include <map>
 #include <unordered_map>
 
 #include "Tools/Log.hpp"

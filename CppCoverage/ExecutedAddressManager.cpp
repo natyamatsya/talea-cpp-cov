@@ -18,6 +18,7 @@
 #include "ExecutedAddressManager.hpp"
 
 #include <algorithm>
+#include <map>
 
 #include <boost/container/small_vector.hpp>
 
