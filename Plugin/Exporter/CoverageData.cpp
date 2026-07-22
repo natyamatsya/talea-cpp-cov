@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "CoverageData.hpp"
 
 #include "ModuleCoverage.hpp"
@@ -22,7 +23,7 @@
 namespace Plugin
 {
 	//-------------------------------------------------------------------------
-	CoverageData::CoverageData(const std::wstring& name, int exitCode)
+	CoverageData::CoverageData(const std::wstring& name, std::int32_t exitCode)
 		: name_(name)
 		, exitCode_(exitCode)
 	{
@@ -66,7 +67,7 @@ namespace Plugin
 	}
 
 	//-------------------------------------------------------------------------
-	void CoverageData::SetExitCode(int exitCode)
+	void CoverageData::SetExitCode(std::int32_t exitCode)
 	{
 		exitCode_ = exitCode;
 	}
@@ -84,7 +85,7 @@ namespace Plugin
 	}
 		
 	//-------------------------------------------------------------------------	
-	int CoverageData::GetExitCode() const
+	std::int32_t CoverageData::GetExitCode() const
 	{
 		return exitCode_;
 	}

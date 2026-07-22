@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "UnifiedDiffParser.hpp"
 
 #include <sstream>
@@ -106,10 +107,10 @@ namespace FileFilter
 	//---------------------------------------------------------------------
 	struct UnifiedDiffParser::HunksDifferences
 	{
-		int startFrom;
-		int countFrom;
-		int startTo;
-		int countTo;
+		std::int32_t startFrom;
+		std::int32_t countFrom;
+		std::int32_t startTo;
+		std::int32_t countTo;
 	};
 
 	//---------------------------------------------------------------------
@@ -132,7 +133,7 @@ namespace FileFilter
 		}
 
 		std::wistream& istr_;
-		int currentLine_;
+		std::int32_t currentLine_;
 		std::wstring lastLineRead_;
 	};
 
@@ -227,16 +228,16 @@ namespace FileFilter
 	}
 	
 	//-------------------------------------------------------------------------
-	std::vector<int> UnifiedDiffParser::ExtractUpdatedLines(		
+	std::vector<std::int32_t> UnifiedDiffParser::ExtractUpdatedLines(		
 		Stream& stream,
 		const std::wstring& hunksDifferencesLine) const
 	{
 		HunksDifferences hunksDifferences = ExtractHunksDifferences(stream, hunksDifferencesLine);
 
 		std::wstring lineStr;
-		int currentLine = hunksDifferences.startTo;
-		const int endLine = hunksDifferences.startTo + hunksDifferences.countTo;
-		std::vector<int> updatedLines;
+		std::int32_t currentLine = hunksDifferences.startTo;
+		const std::int32_t endLine = hunksDifferences.startTo + hunksDifferences.countTo;
+		std::vector<std::int32_t> updatedLines;
 		while (currentLine < endLine && stream.GetLine(lineStr))
 		{
 			if (!lineStr.starts_with(L"-") &&

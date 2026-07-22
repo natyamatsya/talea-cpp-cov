@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include <array>
 #include <optional>
@@ -32,7 +33,7 @@ namespace
 	struct Spec
 	{
 		bool flag = false;
-		std::optional<int> threads;
+		std::optional<std::int32_t> threads;
 		std::optional<bool> logging;
 		std::string name;
 		std::string program;

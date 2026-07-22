@@ -170,7 +170,7 @@ namespace CppCoverage
 
 		//---------------------------------------------------------------------
 		// The template stem of an instantiation name, or empty when the name is
-		// not a template. "foo<int>" -> "foo"; "ns::v<int>::at" -> "ns::v".
+		// not a template. "foo<std::int32_t>" -> "foo"; "ns::v<std::int32_t>::at" -> "ns::v".
 		std::wstring TemplateStem(const std::wstring& name)
 		{
 			auto pos = name.find(L'<');
@@ -336,7 +336,7 @@ namespace CppCoverage
 					    (instruction.mnemonic == ZYDIS_MNEMONIC_INC ||
 					     instruction.mnemonic == ZYDIS_MNEMONIC_ADD))
 					{
-						for (int i = 0; i < instruction.operand_count; ++i)
+						for (std::int32_t i = 0; i < instruction.operand_count; ++i)
 						{
 							const auto& operand = operands[i];
 							if (operand.type != ZYDIS_OPERAND_TYPE_MEMORY ||
@@ -364,17 +364,17 @@ namespace CppCoverage
 				              leaders.end());
 				auto blockCount = leaders.size();
 
-				auto leaderIndex = [&](std::uint32_t rva) -> int {
+				auto leaderIndex = [&](std::uint32_t rva) -> std::int32_t {
 					auto it = std::upper_bound(
 					    leaders.begin(), leaders.end(), rva);
 					if (it == leaders.begin())
 						return -1;
-					return static_cast<int>((it - 1) - leaders.begin());
+					return static_cast<std::int32_t>((it - 1) - leaders.begin());
 				};
 
 				// Successors of each block, from its terminating instruction.
-				std::vector<std::vector<int>> successors(blockCount);
-				std::vector<std::vector<int>> predecessors(blockCount);
+				std::vector<std::vector<std::int32_t>> successors(blockCount);
+				std::vector<std::vector<std::int32_t>> predecessors(blockCount);
 				std::size_t nextTerminator = 0;
 				for (std::size_t b = 0; b < blockCount; ++b)
 				{
@@ -392,7 +392,7 @@ namespace CppCoverage
 						// Falls straight into the next block.
 						if (b + 1 < blockCount)
 							successors[b].push_back(
-							    static_cast<int>(b + 1));
+							    static_cast<std::int32_t>(b + 1));
 						continue;
 					}
 					switch (terminator->category_)
@@ -417,27 +417,27 @@ namespace CppCoverage
 							}
 							if (b + 1 < blockCount)
 								successors[b].push_back(
-								    static_cast<int>(b + 1));
+								    static_cast<std::int32_t>(b + 1));
 							break;
 						default:
 							if (b + 1 < blockCount)
 								successors[b].push_back(
-								    static_cast<int>(b + 1));
+								    static_cast<std::int32_t>(b + 1));
 							break;
 					}
 				}
 				for (std::size_t b = 0; b < blockCount; ++b)
 					for (auto s : successors[b])
-						predecessors[s].push_back(static_cast<int>(b));
+						predecessors[s].push_back(static_cast<std::int32_t>(b));
 
 				// Known counts per block (-1 = not instrumented).
-				std::vector<int> count(blockCount, -1);
+				std::vector<std::int32_t> count(blockCount, -1);
 				auto setCount = [&](std::uint32_t rva, std::uint32_t value) {
 					auto index = leaderIndex(rva);
 					if (index < 0)
 						return;
-					count[index] = std::max<int>(
-					    count[index], static_cast<int>(value));
+					count[index] = std::max<std::int32_t>(
+					    count[index], static_cast<std::int32_t>(value));
 				};
 				for (const auto& [incRva, value] : increments)
 					setCount(incRva, value);

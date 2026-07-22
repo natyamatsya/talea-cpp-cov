@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include <fstream>
 #include <map>
@@ -63,20 +64,20 @@ namespace CppCoverageTest
 
 			const std::filesystem::path selectedFilename_;
 			std::filesystem::path selectedFullPath_;
-			std::vector<int> lines_;
-			int lineWithLengthCount_ = 0;
+			std::vector<std::int32_t> lines_;
+			std::int32_t lineWithLengthCount_ = 0;
 		};
 
 		//---------------------------------------------------------------------------
-		std::vector<int>
+		std::vector<std::int32_t>
 		GetLineNumbersWithTag(const std::filesystem::path& path,
 		                      const std::wstring& tag)
 		{
-			std::vector<int> lines;
+			std::vector<std::int32_t> lines;
 			std::wifstream ifs(path.wstring());
 			std::wstring line;
 
-			for (int lineNumber = 1; std::getline(ifs, line); ++lineNumber)
+			for (std::int32_t lineNumber = 1; std::getline(ifs, line); ++lineNumber)
 			{
 				if (line.find(tag) != std::wstring::npos)
 					lines.push_back(lineNumber);
@@ -120,7 +121,7 @@ namespace CppCoverageTest
 		struct RecordingHandler : CppCoverage::IDebugInformationHandler
 		{
 			using LineData = std::
-			    tuple<unsigned long, int64_t, unsigned long, unsigned long>;
+			    tuple<std::uint32_t, int64_t, std::uint32_t, std::uint32_t>;
 
 			bool IsSourceFileSelected(const std::filesystem::path&) override
 			{

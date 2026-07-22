@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <Windows.h>
 #include <memory>
@@ -29,7 +30,7 @@ namespace Tools
 	                                  void* buffer,
 	                                  size_t size);
 
-	TOOLS_DLL std::vector<unsigned char>
+	TOOLS_DLL std::vector<std::uint8_t>
 	ReadProcessMemory(HANDLE hProcess, void* address, size_t size);
 
 	TOOLS_DLL void ReadProcessMemory(HANDLE hProcess,

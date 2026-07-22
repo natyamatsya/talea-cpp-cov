@@ -50,7 +50,7 @@ namespace ExporterTest
 		// executed) pairs given.
 		Plugin::CoverageData MakeCoverage(
 		    const std::wstring& name,
-		    int exitCode,
+		    std::int32_t exitCode,
 		    const std::vector<std::pair<std::uint32_t, bool>>& lines)
 		{
 			Plugin::CoverageData coverageData{name, exitCode};

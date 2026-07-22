@@ -15,8 +15,9 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #pragma warning(push)
-#pragma warning(disable: 4267) // 'initializing' : conversion from 'size_t' to 'int'
+#pragma warning(disable: 4267) // 'initializing' : conversion from 'size_t' to 'std::int32_t'
 #include <ctemplate/template.h>
 #pragma warning(pop)

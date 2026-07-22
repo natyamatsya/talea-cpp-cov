@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include "FileFilter/UnifiedDiffParser.hpp"
 #include "FileFilter/File.hpp"
@@ -46,12 +47,12 @@ namespace FileFilterTest
 		}
 
 		//-------------------------------------------------------------------------
-		int GetSelectedLinesCount(
+		std::int32_t GetSelectedLinesCount(
 			const std::vector<File>& files, 
 			const fs::path& path)
 		{
 			const auto& file = GetFile(files, path);
-			return static_cast<int>(file.GetSelectedLines().size());
+			return static_cast<std::int32_t>(file.GetSelectedLines().size());
 		}		
 
 		//---------------------------------------------------------------------------
@@ -66,7 +67,7 @@ namespace FileFilterTest
 		void AssertSingleFile(
 			const std::vector<File>& files,
 			const std::wstring& filename,
-			const std::set<int>& expectedLines)
+			const std::set<std::int32_t>& expectedLines)
 		{
 			ASSERT_EQ(1, files.size());
 			const auto& file = files.at(0);
@@ -134,7 +135,7 @@ namespace FileFilterTest
 
 		const auto& file = GetFile(files, "CppCoverage/ExecutedAddressManager.cpp");
 		const auto& lines = file.GetSelectedLines();
-		const std::set<int> expectedLines =
+		const std::set<std::int32_t> expectedLines =
 				{93, 95, 105, 130, 132, 133, 134, 154, 155, 156, 158, 159, 160, 162};
 
 		ASSERT_EQ(expectedLines, lines);

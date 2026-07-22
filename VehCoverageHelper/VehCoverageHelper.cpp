@@ -82,7 +82,7 @@ namespace
 		volatile LONG threadId_; // 0 = free slot
 		std::uint8_t* address_;  // branch's absolute address to re-plant
 	};
-	constexpr int MaxPendingRearms = 256;
+	constexpr std::int32_t MaxPendingRearms = 256;
 	PendingRearm g_pending[MaxPendingRearms];
 
 	VehCoverage::SharedHeader* g_header = nullptr;
@@ -160,7 +160,7 @@ namespace
 	// flag, or the target would receive an unhandled single-step and fault).
 	bool RememberPendingRearm(LONG threadId, std::uint8_t* address) noexcept
 	{
-		for (int i = 0; i < MaxPendingRearms; ++i)
+		for (std::int32_t i = 0; i < MaxPendingRearms; ++i)
 		{
 			if (InterlockedCompareExchange(
 			        &g_pending[i].threadId_, threadId, 0) == 0)
@@ -178,7 +178,7 @@ namespace
 	// Consumes and returns this thread's pending re-arm address, or null.
 	std::uint8_t* TakePendingRearm(LONG threadId) noexcept
 	{
-		for (int i = 0; i < MaxPendingRearms; ++i)
+		for (std::int32_t i = 0; i < MaxPendingRearms; ++i)
 		{
 			if (g_pending[i].threadId_ == threadId)
 			{
@@ -482,7 +482,7 @@ namespace
 		for (const wchar_t* p = prefix; *p; ++p)
 			*cursor++ = *p;
 		wchar_t digits[16];
-		int count = 0;
+		std::int32_t count = 0;
 		do
 		{
 			digits[count++] = static_cast<wchar_t>(L'0' + pid % 10);
@@ -714,7 +714,7 @@ namespace
 
 		auto pid = GetCurrentProcessId();
 		wchar_t digits[16];
-		int digitCount = 0;
+		std::int32_t digitCount = 0;
 		do
 		{
 			digits[digitCount++] = static_cast<wchar_t>(L'0' + pid % 10);

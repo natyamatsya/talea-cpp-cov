@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <vector>
 #include <memory>
@@ -63,13 +64,13 @@ namespace CppCoverage
 			const std::set<std::filesystem::path>& unmatchPaths,
 			size_t maxUnmatchPaths) const;
 
-		const std::set<int>& GetExecutableLinesSet(const FileFilter::FileInfo&);
+		const std::set<std::int32_t>& GetExecutableLinesSet(const FileFilter::FileInfo&);
 		const UnifiedDiffCoverageFilters unifiedDiffCoverageFilters_;
 
 		struct ExecutableLineCache
 		{
 			std::filesystem::path currentFilePath;
-			std::set<int> executableLinesSet;
+			std::set<std::int32_t> executableLinesSet;
 		};
 
 		ExecutableLineCache executableLineCache_;

@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <filesystem>
 #include "TestHelperExport.hpp"
@@ -33,7 +34,7 @@ namespace TestHelper
 
 	struct ProcessResult
 	{
-		int exitCode = 0;
+		std::int32_t exitCode = 0;
 		std::string output; // stdout + stderr, only when captureOutput is set
 	};
 

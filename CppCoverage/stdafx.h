@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers
@@ -25,4 +26,4 @@
 #include <string>
 #include <vector>
 
-const int PathBufferSize = 40 * 1000;
+const std::int32_t PathBufferSize = 40 * 1000;

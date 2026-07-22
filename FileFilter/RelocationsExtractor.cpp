@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "RelocationsExtractor.hpp"
 #include <memory>
 #include "FileFilterException.hpp"
@@ -30,7 +31,7 @@ namespace FileFilter
 			HANDLE hProcess,
 			DWORD64 baseOfImage,
 			DWORD64 imageBaseRelocationPtr,
-			int sizeOfPointer,
+			std::int32_t sizeOfPointer,
 			std::unordered_set<DWORD64>& relocations)
 		{
 			auto imageBaseRelocation = Tools::ReadStructInProcessMemory<IMAGE_BASE_RELOCATION>(
@@ -68,13 +69,13 @@ namespace FileFilter
 		struct RelocationsDirectoryInfo
 		{
 			IMAGE_DATA_DIRECTORY directory;
-			int sizeOfPointer;
+			std::int32_t sizeOfPointer;
 		};
 
 		//-------------------------------------------------------------------------
 		template <typename T_IMAGE_NT_HEADERS>
 		std::unique_ptr<RelocationsDirectoryInfo>
-			GetRelocationsDirectory(const T_IMAGE_NT_HEADERS& ntHeaders, int sizeOfPointer)
+			GetRelocationsDirectory(const T_IMAGE_NT_HEADERS& ntHeaders, std::int32_t sizeOfPointer)
 		{
 			auto relocationsDirectoryInfo = std::make_unique<RelocationsDirectoryInfo>();
 

@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <optional>
 #include <iosfwd>
@@ -39,7 +40,7 @@ namespace CppCoverage
 	{
 	public:
 		static const char PathSeparator;
-		static const int DosCommandLineMaxSize;
+		static const std::int32_t DosCommandLineMaxSize;
 
 		OptionsParser();
 		explicit OptionsParser(std::shared_ptr<Tools::WarningManager>,

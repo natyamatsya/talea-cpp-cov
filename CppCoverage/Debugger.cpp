@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "Debugger.hpp"
 
 #include "Tools/Log.hpp"
@@ -43,14 +44,14 @@ namespace CppCoverage
 		ProcessStatus() = default;
 
 		ProcessStatus(
-			std::optional<int> exitCode,
+			std::optional<std::int32_t> exitCode,
 			std::optional<DWORD> continueStatus)
 			: exitCode_{ exitCode }
 			, continueStatus_{ continueStatus }
 		{
 		}
 
-		std::optional<int> exitCode_;
+		std::optional<std::int32_t> exitCode_;
 		std::optional<DWORD> continueStatus_;
 	};
 
@@ -66,7 +67,7 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	int Debugger::Debug(
+	std::int32_t Debugger::Debug(
 		const StartInfo& startInfo,
 		IDebugEventsHandler& debugEventsHandler)
 	{
@@ -74,7 +75,7 @@ namespace CppCoverage
 		process.Start((coverChildren_) ? DEBUG_PROCESS: DEBUG_ONLY_THIS_PROCESS);
 		
 		DEBUG_EVENT debugEvent;
-		std::optional<int> exitCode;
+		std::optional<std::int32_t> exitCode;
 
 		processHandles_.clear();
 		threadHandles_.clear();
@@ -211,7 +212,7 @@ namespace CppCoverage
 				{
 					const auto& exceptionRecord = exception.ExceptionRecord;
 					LOG_WARNING("Continue after a C++ exception.");
-					return ProcessStatus{ static_cast<int>(exceptionRecord.ExceptionCode), DBG_CONTINUE };
+					return ProcessStatus{ static_cast<std::int32_t>(exceptionRecord.ExceptionCode), DBG_CONTINUE };
 				}
 				return ProcessStatus{ std::nullopt, DBG_EXCEPTION_NOT_HANDLED };
 			}
@@ -241,7 +242,7 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	int Debugger::OnExitProcess(
+	std::int32_t Debugger::OnExitProcess(
 		const DEBUG_EVENT& debugEvent,
 		HANDLE hProcess,
 		HANDLE hThread,

@@ -43,7 +43,7 @@ namespace CppCoverage
 	//-------------------------------------------------------------------------
 	struct BranchCoverageManager::BranchState
 	{
-		BranchState(unsigned char originalInstruction,
+		BranchState(std::uint8_t originalInstruction,
 		            void* dllBaseOfImage,
 		            BranchCondition condition,
 		            BranchOutcome* outcome)
@@ -54,7 +54,7 @@ namespace CppCoverage
 		{
 		}
 
-		const unsigned char originalInstruction_;
+		const std::uint8_t originalInstruction_;
 		void* const dllBaseOfImage_;
 		const BranchCondition condition_;
 		BranchOutcome* const outcome_;
@@ -118,7 +118,7 @@ namespace CppCoverage
 	    const std::wstring& filename,
 	    std::uint32_t lineNumber,
 	    BranchCondition condition,
-	    unsigned char originalInstruction)
+	    std::uint8_t originalInstruction)
 	{
 		if (branches_.count(address) != 0)
 			THROW("Branch is already registered.");
@@ -144,7 +144,7 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	std::optional<unsigned char>
+	std::optional<std::uint8_t>
 	BranchCoverageManager::GetOriginalInstruction(const Address& address) const
 	{
 		auto it = branches_.find(address);

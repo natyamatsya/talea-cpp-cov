@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#include <cstdint>
+
 // Fixture for the compiler-instrumentation ("fast mode") coverage path. It is
 // compiled with /fsanitize-coverage=inline-8bit-counters and linked with the
 // MSVC fast-mode runtime (see CoverageRuntime), so running it writes a dump to
@@ -26,7 +28,7 @@
 namespace TestFastCovConsole
 {
 	// Never inlined, so the two branches keep distinct line records.
-	__declspec(noinline) int Classify(int value)
+	__declspec(noinline) std::int32_t Classify(std::int32_t value)
 	{
 		if (value > 0)         // taken
 			return value + 1;  // taken

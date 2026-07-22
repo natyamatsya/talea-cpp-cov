@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <Windows.h>
 #include <iosfwd>
@@ -41,9 +42,9 @@ namespace CppCoverage
 		static const std::wstring ExceptionCpp;
 		static const std::wstring ExceptionAccesViolation;
 		static const std::wstring ExceptionUnknown;
-		static const int ExceptionEmulationX86ErrorCode;
-		static const int ExceptionEmulationX86SingleStepErrorCode;
-		static const int CppExceptionErrorCode;
+		static const std::int32_t ExceptionEmulationX86ErrorCode;
+		static const std::int32_t ExceptionEmulationX86SingleStepErrorCode;
+		static const std::int32_t CppExceptionErrorCode;
 
 		ExceptionHandler();
 

@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <filesystem>
 #include <optional>
@@ -33,7 +34,7 @@ namespace CppCoverage
 	struct CPPCOVERAGE_DLL PdbSignature
 	{
 		GUID guid_{};
-		unsigned long age_ = 0;
+		std::uint32_t age_ = 0;
 
 		// The PDB path recorded in the binary (build-machine path). Used to
 		// locate the PDB for the DIA-free reader; not part of the identity.

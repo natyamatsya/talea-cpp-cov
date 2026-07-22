@@ -123,6 +123,6 @@ namespace Exporter
 		         std::map<std::filesystem::path, ColumnarBinary::FileData>>
 		    modules_;
 		std::wstring name_;
-		int lastNotZeroExitCode_ = 0;
+		std::int32_t lastNotZeroExitCode_ = 0;
 	};
 }

@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "OpenCppCoverage.hpp"
 
 #include <iostream>
@@ -207,7 +208,7 @@ namespace OpenCppCoverage
 		}
 
 		//-----------------------------------------------------------------------------
-		int Run(const cov::Options& options,
+		std::int32_t Run(const cov::Options& options,
 		        const Exporter::ExporterPluginManager& exporterPluginManager,
 		        std::shared_ptr<Tools::WarningManager> warningManager)
 		{

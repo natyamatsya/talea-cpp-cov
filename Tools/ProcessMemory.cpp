@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "ProcessMemory.hpp"
 #include "ToolsException.hpp"
 #include "Log.hpp"
@@ -22,10 +23,10 @@
 namespace Tools
 {
 	//-------------------------------------------------------------------------
-	std::vector<unsigned char>
+	std::vector<std::uint8_t>
 	ReadProcessMemory(HANDLE hProcess, void* address, size_t size)
 	{
-		std::vector<unsigned char> data(size);
+		std::vector<std::uint8_t> data(size);
 		ReadProcessMemory(hProcess,
 		                  reinterpret_cast<DWORD64>(address),
 		                  &data[0],

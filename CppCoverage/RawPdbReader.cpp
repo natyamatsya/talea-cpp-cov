@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "RawPdbReader.hpp"
 
 #include <algorithm>
@@ -52,7 +53,7 @@ namespace CppCoverage
 		{
 			if (!utf8 || !*utf8)
 				return {};
-			int length = MultiByteToWideChar(
+			std::int32_t length = MultiByteToWideChar(
 			    CP_UTF8, 0, utf8, -1, nullptr, 0);
 			if (length <= 1)
 				return {};

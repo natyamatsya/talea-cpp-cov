@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include "Tools/ExceptionBase.hpp"
 #include "CppCoverageExport.hpp"
@@ -22,7 +23,7 @@
 
 namespace CppCoverage
 {
-	CPPCOVERAGE_DLL std::wstring GetErrorMessage(int errorCode);
+	CPPCOVERAGE_DLL std::wstring GetErrorMessage(std::int32_t errorCode);
 }
 
 

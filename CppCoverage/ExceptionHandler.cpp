@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "ExceptionHandler.hpp"
 #include "ProgramOptions.hpp"
 
@@ -29,11 +30,11 @@ namespace CppCoverage
 	const std::wstring ExceptionHandler::ExceptionCpp = L"Exception C++";
 	const std::wstring ExceptionHandler::ExceptionAccesViolation = L"EXCEPTION_ACCESS_VIOLATION";
 	const std::wstring ExceptionHandler::ExceptionUnknown = L"Unknown";
-	const int ExceptionHandler::ExceptionEmulationX86ErrorCode = 0x4000001f;
+	const std::int32_t ExceptionHandler::ExceptionEmulationX86ErrorCode = 0x4000001f;
 	// STATUS_WX86_SINGLE_STEP
-	const int ExceptionHandler::ExceptionEmulationX86SingleStepErrorCode =
+	const std::int32_t ExceptionHandler::ExceptionEmulationX86SingleStepErrorCode =
 	    0x4000001e;
-	const int ExceptionHandler::CppExceptionErrorCode = 0xE06D7363;
+	const std::int32_t ExceptionHandler::CppExceptionErrorCode = 0xE06D7363;
 
 	//-------------------------------------------------------------------------
 	ExceptionHandler::ExceptionHandler()

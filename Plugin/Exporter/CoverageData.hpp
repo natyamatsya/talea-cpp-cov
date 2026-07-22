@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <string>
 #include <vector>
@@ -33,7 +34,7 @@ namespace Plugin
 		typedef std::vector<std::unique_ptr<ModuleCoverage>> T_ModuleCoverageCollection;
 
 	public:
-		explicit CoverageData(const std::wstring& name, int exitCode);
+		explicit CoverageData(const std::wstring& name, std::int32_t exitCode);
 		~CoverageData();
 
 		CoverageData(CoverageData&&);			
@@ -41,11 +42,11 @@ namespace Plugin
 		ModuleCoverage& AddModule(const std::filesystem::path& name);
 		
 		void SetName(const std::wstring&);
-		void SetExitCode(int);
+		void SetExitCode(std::int32_t);
 
 		const T_ModuleCoverageCollection& GetModules() const;
 		const std::wstring& GetName() const;
-		int GetExitCode() const;
+		std::int32_t GetExitCode() const;
 
 	private:
 		CoverageData(const CoverageData&) = delete;
@@ -54,7 +55,7 @@ namespace Plugin
 	private:
 		T_ModuleCoverageCollection modules_;
 		std::wstring name_;
-		int exitCode_;
+		std::int32_t exitCode_;
 	};
 }
 

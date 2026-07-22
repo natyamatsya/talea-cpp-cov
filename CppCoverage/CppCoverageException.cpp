@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "CppCoverageException.hpp"
 
 #include <sstream>
@@ -24,7 +25,7 @@
 namespace CppCoverage
 {	
 	//-------------------------------------------------------------------------
-	std::wstring GetErrorMessage(int lastErrorCode)
+	std::wstring GetErrorMessage(std::int32_t lastErrorCode)
 	{			
 		std::vector<wchar_t> sysMsg(64 * 1024);
 		std::wostringstream ostr;
@@ -33,7 +34,7 @@ namespace CppCoverage
 				FORMAT_MESSAGE_FROM_SYSTEM,
 				NULL, lastErrorCode,
 				MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL),
-				&sysMsg[0], static_cast<int>(sysMsg.size()), NULL))
+				&sysMsg[0], static_cast<std::int32_t>(sysMsg.size()), NULL))
 		{
 			ostr << &sysMsg[0];
 		}

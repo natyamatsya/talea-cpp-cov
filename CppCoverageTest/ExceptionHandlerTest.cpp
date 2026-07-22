@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include "CppCoverage/ExceptionHandler.hpp"
 #include "CppCoverage/Debugger.hpp"
@@ -56,7 +57,7 @@ namespace CppCoverageTest
 			}
 			
 			//-----------------------------------------------------------------
-			std::wstring HandleExceptionTwice(int errorCode, bool firstChange)
+			std::wstring HandleExceptionTwice(std::int32_t errorCode, bool firstChange)
 			{
 				auto exceptionDebugInfo = CreateExceptionDebugInfo(errorCode, firstChange);
 
@@ -68,7 +69,7 @@ namespace CppCoverageTest
 
 			//-----------------------------------------------------------------------------
 			EXCEPTION_DEBUG_INFO CreateExceptionDebugInfo(
-				int errorCode = cov::ExceptionHandler::ExceptionEmulationX86ErrorCode,
+				std::int32_t errorCode = cov::ExceptionHandler::ExceptionEmulationX86ErrorCode,
 				bool firstChange = true)
 			{
 				EXCEPTION_DEBUG_INFO exceptionDebugInfo{};

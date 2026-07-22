@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "BreakPoint.hpp"
 
 #include "CppCoverageException.hpp"
@@ -55,7 +56,7 @@ namespace CppCoverage
 		    hProcess, firstAddress, &buffer[0], buffer.size());
 	}
 
-	const unsigned char BreakPoint::breakPointInstruction = 0xCC;
+	const std::uint8_t BreakPoint::breakPointInstruction = 0xCC;
 
 	//-------------------------------------------------------------------------
 	BreakPoint::InstructionCollection
@@ -82,7 +83,7 @@ namespace CppCoverage
 
 	//-------------------------------------------------------------------------
 	void BreakPoint::RemoveBreakPoint(const Address& address,
-	                                  unsigned char oldInstruction) const
+	                                  std::uint8_t oldInstruction) const
 	{
 		Tools::WriteProcessMemory(address.GetProcessHandle(),
 		                          address.GetValue(),

@@ -41,7 +41,7 @@ namespace CppCoverage
 
 		// The code bytes for [rva, rva + size), or empty when the range is not
 		// fully contained in a single initialized section.
-		std::vector<unsigned char> ReadCode(std::uint32_t rva,
+		std::vector<std::uint8_t> ReadCode(std::uint32_t rva,
 		                                     std::uint32_t size) const;
 
 	  private:

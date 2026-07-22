@@ -34,10 +34,10 @@ namespace Tools
 		//-----------------------------------------------------------------------------
 		fs::path GetExecutablePath()
 		{
-			const int PathBufferSize = 40 * 1000;
+			const std::int32_t PathBufferSize = 40 * 1000;
 			std::vector<wchar_t> filename(PathBufferSize);
 
-			if (!GetModuleFileName(nullptr, &filename[0], static_cast<int>(filename.size())))
+			if (!GetModuleFileName(nullptr, &filename[0], static_cast<std::int32_t>(filename.size())))
 				THROW("Cannot get current executable path.");
 
 			return fs::path{ &filename[0] };
@@ -50,11 +50,11 @@ namespace Tools
 				return{};
 
 			auto size = WideCharToMultiByte(pageCode, 0, str.c_str(),
-				static_cast<int>(str.size()), nullptr, 0, nullptr, nullptr);
+				static_cast<std::int32_t>(str.size()), nullptr, 0, nullptr, nullptr);
 			std::vector<char> buffer(size);
 
-			if (!WideCharToMultiByte(pageCode, 0, str.c_str(), static_cast<int>(str.size()),
-				&buffer[0], static_cast<int>(buffer.size()), nullptr, nullptr))
+			if (!WideCharToMultiByte(pageCode, 0, str.c_str(), static_cast<std::int32_t>(str.size()),
+				&buffer[0], static_cast<std::int32_t>(buffer.size()), nullptr, nullptr))
 			{
 				throw std::runtime_error("Error in WideCharToMultiByte.");
 			}
@@ -69,11 +69,11 @@ namespace Tools
 				return{};
 
 			auto size = MultiByteToWideChar(pageCode, 0,
-				str.c_str(), static_cast<int>(str.size()), nullptr, 0);
+				str.c_str(), static_cast<std::int32_t>(str.size()), nullptr, 0);
 			std::vector<wchar_t> buffer(size);
 
-			if (!MultiByteToWideChar(pageCode, 0, str.c_str(), static_cast<int>(str.size()),
-				&buffer[0], static_cast<int>(buffer.size())))
+			if (!MultiByteToWideChar(pageCode, 0, str.c_str(), static_cast<std::int32_t>(str.size()),
+				&buffer[0], static_cast<std::int32_t>(buffer.size())))
 			{
 				throw std::runtime_error("Error in MultiByteToWideChar for " + str);
 			}

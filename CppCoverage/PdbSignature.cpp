@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "PdbSignature.hpp"
 
 #include <mio/mmap.hpp>
@@ -173,15 +174,15 @@ namespace CppCoverage
 						       pathBytes[length] != '\0')
 							++length;
 						std::string utf8{pathBytes, pathBytes + length};
-						int wideLength = MultiByteToWideChar(
+						std::int32_t wideLength = MultiByteToWideChar(
 						    CP_UTF8, 0, utf8.data(),
-						    static_cast<int>(utf8.size()), nullptr, 0);
+						    static_cast<std::int32_t>(utf8.size()), nullptr, 0);
 						if (wideLength > 0)
 						{
 							signature.pdbPath_.resize(wideLength);
 							MultiByteToWideChar(
 							    CP_UTF8, 0, utf8.data(),
-							    static_cast<int>(utf8.size()),
+							    static_cast<std::int32_t>(utf8.size()),
 							    signature.pdbPath_.data(), wideLength);
 						}
 					}

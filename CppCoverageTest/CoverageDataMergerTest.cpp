@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include <random>
 #include <filesystem>
@@ -38,7 +39,7 @@ namespace CppCoverageTest
 
 		//---------------------------------------------------------------------
 		std::vector<Plugin::CoverageData> CreateCoverageDataCollection(
-			const std::initializer_list<std::pair<std::wstring, int>>& coverageDataArguments)
+			const std::initializer_list<std::pair<std::wstring, std::int32_t>>& coverageDataArguments)
 		{
 			std::vector<Plugin::CoverageData> coverageDataCollection;
 
@@ -62,7 +63,7 @@ namespace CppCoverageTest
 		//-------------------------------------------------------------------------
 		void AddLinesToFileCoverage(
 			Plugin::FileCoverage& fileCoverage,
-			const std::initializer_list<std::pair<int, bool>>& lineArgCollection)
+			const std::initializer_list<std::pair<std::int32_t, bool>>& lineArgCollection)
 		{
 			for (const auto& lineArg : lineArgCollection)
 				fileCoverage.AddLine(lineArg.first, lineArg.second);
@@ -73,7 +74,7 @@ namespace CppCoverageTest
 			Plugin::CoverageData& coverageData,
 			const fs::path& modulePath,
 			const fs::path& filePath,
-			const std::initializer_list<std::pair<int, bool>>& lineArgCollection)
+			const std::initializer_list<std::pair<std::int32_t, bool>>& lineArgCollection)
 		{
 			auto& file = coverageData.AddModule(modulePath).AddFile(filePath);
 
@@ -83,7 +84,7 @@ namespace CppCoverageTest
 		//-------------------------------------------------------------------------
 		void CheckLineHasBeenExecuted(
 			const std::unique_ptr<Plugin::FileCoverage>& file,
-			int lineNumber,
+			std::int32_t lineNumber,
 			bool exectedValue)
 		{
 			ASSERT_NE(nullptr, file);
@@ -98,7 +99,7 @@ namespace CppCoverageTest
 	TEST(CoverageDataMergerTest, MergeBranches)
 	{
 		auto coverageDatas = CreateCoverageDataCollection(2);
-		const int lineNumber = 42;
+		const std::int32_t lineNumber = 42;
 
 		auto& file1 =
 		    coverageDatas[0].AddModule(modulePath).AddFile(filePath);

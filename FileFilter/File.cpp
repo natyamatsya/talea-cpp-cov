@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "File.hpp"
 
 namespace FileFilter
@@ -26,7 +27,7 @@ namespace FileFilter
 	}
 
 	//----------------------------------------------------------------------------
-	void File::AddSelectedLines(const std::vector<int>& lines)
+	void File::AddSelectedLines(const std::vector<std::int32_t>& lines)
 	{
 		selectedLines_.insert(lines.begin(), lines.end());
 	}
@@ -44,13 +45,13 @@ namespace FileFilter
 	}
 
 	//----------------------------------------------------------------------------
-	const std::set<int>& File::GetSelectedLines() const
+	const std::set<std::int32_t>& File::GetSelectedLines() const
 	{
 		return selectedLines_;
 	}
 
 	//----------------------------------------------------------------------------
-	bool File::IsLineSelected(int lineNumber) const
+	bool File::IsLineSelected(std::int32_t lineNumber) const
 	{
 		return selectedLines_.find(lineNumber) != selectedLines_.end();
 	}

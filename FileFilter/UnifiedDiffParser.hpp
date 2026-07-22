@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <filesystem>
 #include "FileFilterExport.hpp"
@@ -47,7 +48,7 @@ namespace FileFilter
 							const Stream&, 
 							const std::wstring& hunksDifferencesLine) const;
 
-		std::vector<int> ExtractUpdatedLines(
+		std::vector<std::int32_t> ExtractUpdatedLines(
 							Stream&, 
 							const std::wstring& hunksDifferencesLine) const;
 

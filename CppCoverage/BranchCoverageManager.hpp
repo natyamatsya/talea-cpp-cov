@@ -52,10 +52,10 @@ namespace CppCoverage
 		                    const std::wstring& filename,
 		                    std::uint32_t lineNumber,
 		                    BranchCondition,
-		                    unsigned char originalInstruction);
+		                    std::uint8_t originalInstruction);
 
 		bool IsMonitoredBranch(const Address&) const;
-		std::optional<unsigned char> GetOriginalInstruction(const Address&) const;
+		std::optional<std::uint8_t> GetOriginalInstruction(const Address&) const;
 
 		void OnBreakPointHit(const Address&, HANDLE hThread, const BreakPoint&);
 		bool OnSingleStep(HANDLE hProcess, HANDLE hThread, const BreakPoint&);

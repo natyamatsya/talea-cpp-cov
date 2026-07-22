@@ -1256,7 +1256,7 @@ namespace CppCoverage
 		}
 
 		auto coverageData = manager.CreateCoverageData(
-		    coverageName, static_cast<int>(exitCode));
+		    coverageName, static_cast<std::int32_t>(exitCode));
 		DecorateBranches(coverageData, branchResults);
 		return coverageData;
 	}

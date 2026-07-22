@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "OpenCppCoverageTestTools.hpp"
 
 #include <filesystem>
@@ -59,7 +60,7 @@ namespace OpenCppCoverageTest
 	}
 
 	//-------------------------------------------------------------------------
-	int RunCoverageFor(
+	std::int32_t RunCoverageFor(
 		const std::vector<std::pair<std::string, std::string>>& coverageArguments,
 		const std::filesystem::path& programToRun,
 		const std::vector<std::wstring>& arguments,

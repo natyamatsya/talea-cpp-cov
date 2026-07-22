@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include "CppCoverage/FilterAssistant.hpp"
 #include <optional>
@@ -50,7 +51,7 @@ namespace CppCoverageTest
 
 		//---------------------------------------------------------------------
 		void AddFile(const std::filesystem::path& path,
-					 int time,
+					 std::int32_t time,
 		             bool isSelected)
 		{
 			EXPECT_CALL(*fileSystem_, GetLastWriteTime(path))

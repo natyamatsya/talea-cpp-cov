@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <iosfwd> 
 
@@ -36,23 +37,23 @@ namespace Exporter
 
 	public:
 		HtmlFileCoverageExporter(
-			int maxSourceLineCount = 8000, 
-			int maxSourceLineStyleChangesCount = 1000,
-			int maxStyleChangesCount = 2000);
+			std::int32_t maxSourceLineCount = 8000, 
+			std::int32_t maxSourceLineStyleChangesCount = 1000,
+			std::int32_t maxStyleChangesCount = 2000);
 
 		bool Export(
 			const Plugin::FileCoverage&,
 			std::wostream& output) const;
 		
-		bool MustEnableCodePrettify(int lineCount, int styleChangedCount) const;
+		bool MustEnableCodePrettify(std::int32_t lineCount, std::int32_t styleChangedCount) const;
 
 	private:
 		HtmlFileCoverageExporter(const HtmlFileCoverageExporter&) = delete;
 		HtmlFileCoverageExporter& operator=(const HtmlFileCoverageExporter&) = delete;
 
-		int maxSourceLineCount_;
-		int maxSourceLineStyleChangesCount_;
-		int maxStyleChangesCount_;
+		std::int32_t maxSourceLineCount_;
+		std::int32_t maxSourceLineStyleChangesCount_;
+		std::int32_t maxStyleChangesCount_;
 	};
 }
 

@@ -37,7 +37,7 @@ namespace CppCoverage
 	// Because the compiler emits a distinct function per template instantiation,
 	// the importer also recovers a per-template, per-instantiation view: every
 	// basic block is attributed to its containing function (the instantiation),
-	// so a line covered for foo<int> but not foo<double> is visible instead of
+	// so a line covered for foo<std::int32_t> but not foo<double> is visible instead of
 	// collapsed into a single boolean.
 	class CPPCOVERAGE_DLL FastCoverageImporter
 	{
@@ -50,7 +50,7 @@ namespace CppCoverage
 			std::uint32_t count_;
 		};
 
-		// One template instantiation (e.g. "foo<int>"), its definition file,
+		// One template instantiation (e.g. "foo<std::int32_t>"), its definition file,
 		// and its per-line counts.
 		struct Instantiation
 		{

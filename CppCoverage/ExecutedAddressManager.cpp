@@ -35,13 +35,13 @@ namespace CppCoverage
 	//-------------------------------------------------------------------------
 	struct ExecutedAddressManager::AddressData
 	{
-		AddressData(unsigned char instructionToRestore, void* dllBaseOfImage)
+		AddressData(std::uint8_t instructionToRestore, void* dllBaseOfImage)
 			: instructionToRestore_{instructionToRestore}
 			, dllBaseOfImage_{dllBaseOfImage}
 		{
 		}
 
-		unsigned char instructionToRestore_;
+		std::uint8_t instructionToRestore_;
 		void* dllBaseOfImage_;
 		// Probe ids reached by this address (indices, stable across growth).
 		boost::container::small_vector<std::uint32_t, 1> probes_;
@@ -135,7 +135,7 @@ namespace CppCoverage
 		const Address& address,
 		const std::wstring& filename,
 		std::uint32_t lineNumber,
-		unsigned char instructionValue)
+		std::uint8_t instructionValue)
 	{
 		if (!hasLastModule_)
 			THROW("Cannot get last module.");
@@ -162,7 +162,7 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	std::optional<unsigned char> ExecutedAddressManager::MarkAddressAsExecuted(
+	std::optional<std::uint8_t> ExecutedAddressManager::MarkAddressAsExecuted(
 		const Address& address)
 	{
 		auto it = addressMap_.find(address);
@@ -175,7 +175,7 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	std::optional<unsigned char>
+	std::optional<std::uint8_t>
 	ExecutedAddressManager::GetOriginalInstruction(const Address& address) const
 	{
 		auto it = addressMap_.find(address);
@@ -187,7 +187,7 @@ namespace CppCoverage
 	//-------------------------------------------------------------------------
 	Plugin::CoverageData ExecutedAddressManager::CreateCoverageData(
 		const std::wstring& name,
-		int exitCode) const
+		std::int32_t exitCode) const
 	{
 		Plugin::CoverageData coverageData{ name, exitCode };
 

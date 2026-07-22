@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <string>
 #include <optional>
@@ -63,12 +64,12 @@ namespace Plugin
 		// Get the IExportPlugin interface version.
 		// Must be implemented as return Plugin::CurrentExportPluginVersion.
 		//---------------------------------------------------------------------
-		virtual int GetExportPluginVersion() const = 0;
+		virtual std::int32_t GetExportPluginVersion() const = 0;
 	};
 
 	// The current version of IExportPlugin.
 	// Version 2: LineCoverage was extended with branch coverage data.
 	// Version 3: FileCoverage's line container changed from std::map to
 	//            std::flat_map (a binary-layout / ABI change).
-	const int CurrentExportPluginVersion = 3;
+	const std::int32_t CurrentExportPluginVersion = 3;
 }

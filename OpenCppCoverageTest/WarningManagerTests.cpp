@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include "OpenCppCoverageTestTools.hpp"
 #include "TestCoverageConsole/TestCoverageConsole.hpp"
@@ -45,7 +46,7 @@ namespace OpenCppCoverageTest
 		               arguments,
 		               &stdOut);
 		ASSERT_EQ("", stdOut);
-		for (int i = 0; i < OptionsParser::DosCommandLineMaxSize / 10; ++i)
+		for (std::int32_t i = 0; i < OptionsParser::DosCommandLineMaxSize / 10; ++i)
 			arguments.push_back(L"01223456789");
 
 		RunCoverageFor(coverageArguments,

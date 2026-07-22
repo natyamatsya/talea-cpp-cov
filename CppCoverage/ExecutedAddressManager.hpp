@@ -52,12 +52,12 @@ namespace CppCoverage
 			const Address&,
 			const std::wstring& filename,
 			std::uint32_t line,
-			unsigned char instruction);
+			std::uint8_t instruction);
 
-		std::optional<unsigned char> MarkAddressAsExecuted(const Address&);
-		std::optional<unsigned char> GetOriginalInstruction(const Address&) const;
+		std::optional<std::uint8_t> MarkAddressAsExecuted(const Address&);
+		std::optional<std::uint8_t> GetOriginalInstruction(const Address&) const;
 
-		Plugin::CoverageData CreateCoverageData(const std::wstring& name, int exitCode) const;
+		Plugin::CoverageData CreateCoverageData(const std::wstring& name, std::int32_t exitCode) const;
 		void OnExitProcess(HANDLE hProcess);
 
 	private:

@@ -41,15 +41,15 @@ namespace ExporterTest
 		void AddRandomFiles(
 			Plugin::ModuleCoverage& module,
 			std::default_random_engine& generator,
-			std::uniform_int_distribution<int>& distribution)
+			std::uniform_int_distribution<std::int32_t>& distribution)
 		{
-			for (int fileIndex = 0; fileIndex < 10; ++fileIndex)
+			for (std::int32_t fileIndex = 0; fileIndex < 10; ++fileIndex)
 			{
 				if (distribution(generator))
 				{
 					auto& file = module.AddFile(std::to_wstring(fileIndex));
 
-					for (int line = 0; line < 100; ++line)
+					for (std::int32_t line = 0; line < 100; ++line)
 					{
 						file.AddLine(line, distribution(generator) != 0);
 
@@ -76,9 +76,9 @@ namespace ExporterTest
 		{
 			Plugin::CoverageData coverageData{ L"Test\u00E9", 42 };
 			std::default_random_engine generator;
-			std::uniform_int_distribution<int> distribution(0, 1);
+			std::uniform_int_distribution<std::int32_t> distribution(0, 1);
 			
-			for (int moduleIndex = 0; moduleIndex < 100; ++moduleIndex)
+			for (std::int32_t moduleIndex = 0; moduleIndex < 100; ++moduleIndex)
 			{
 				if (distribution(generator))
 				{
@@ -116,9 +116,9 @@ namespace ExporterTest
 		std::ofstream ofs{ path.GetPath().string(), std::ios::binary};
 
 		std::default_random_engine generator;		
-		std::uniform_int_distribution<int> distribution(0, 1);
+		std::uniform_int_distribution<std::int32_t> distribution(0, 1);
 
-		for (int i = 0; i < 100; ++i)
+		for (std::int32_t i = 0; i < 100; ++i)
 			ofs << distribution(generator);
 
 		ASSERT_THROW(deserializer.Deserialize(path.GetPath(), "todo"), std::runtime_error);

@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "CoverageRate.hpp"
 
 namespace CppCoverage
@@ -26,16 +27,16 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	CoverageRate::CoverageRate(int executedLinesCount, int unexecutedLinesCount)
+	CoverageRate::CoverageRate(std::int32_t executedLinesCount, std::int32_t unexecutedLinesCount)
 		: CoverageRate{ executedLinesCount, unexecutedLinesCount, 0, 0 }
 	{
 	}
 
 	//-------------------------------------------------------------------------
-	CoverageRate::CoverageRate(int executedLinesCount,
-	                           int unexecutedLinesCount,
-	                           int coveredBranchCount,
-	                           int totalBranchCount)
+	CoverageRate::CoverageRate(std::int32_t executedLinesCount,
+	                           std::int32_t unexecutedLinesCount,
+	                           std::int32_t coveredBranchCount,
+	                           std::int32_t totalBranchCount)
 		: executedLinesCount_{ executedLinesCount }
 		, unexecutedLinesCount_{ unexecutedLinesCount }
 		, coveredBranchCount_{ coveredBranchCount }
@@ -44,19 +45,19 @@ namespace CppCoverage
 	}
 		
 	//-------------------------------------------------------------------------
-	int CoverageRate::GetExecutedLinesCount() const
+	std::int32_t CoverageRate::GetExecutedLinesCount() const
 	{
 		return executedLinesCount_;
 	}
 
 	//-------------------------------------------------------------------------
-	int CoverageRate::GetUnExecutedLinesCount() const
+	std::int32_t CoverageRate::GetUnExecutedLinesCount() const
 	{
 		return unexecutedLinesCount_;
 	}
 
 	//-------------------------------------------------------------------------
-	int CoverageRate::GetTotalLinesCount() const
+	std::int32_t CoverageRate::GetTotalLinesCount() const
 	{
 		return executedLinesCount_ + unexecutedLinesCount_;
 	}
@@ -72,19 +73,19 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	int CoverageRate::GetPercentRate() const
+	std::int32_t CoverageRate::GetPercentRate() const
 	{
-		return static_cast<int>(GetRate() * 100);
+		return static_cast<std::int32_t>(GetRate() * 100);
 	}
 
 	//-------------------------------------------------------------------------
-	int CoverageRate::GetCoveredBranchCount() const
+	std::int32_t CoverageRate::GetCoveredBranchCount() const
 	{
 		return coveredBranchCount_;
 	}
 
 	//-------------------------------------------------------------------------
-	int CoverageRate::GetTotalBranchCount() const
+	std::int32_t CoverageRate::GetTotalBranchCount() const
 	{
 		return totalBranchCount_;
 	}

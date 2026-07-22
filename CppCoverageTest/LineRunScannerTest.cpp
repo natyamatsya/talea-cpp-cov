@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include "CppCoverage/LineRunScanner.hpp"
 
@@ -31,7 +32,7 @@ namespace CppCoverageTest
 
 		//---------------------------------------------------------------------
 		std::optional<std::vector<CppCoverage::LineRun>>
-		ComputeRuns(const std::vector<unsigned char>& code,
+		ComputeRuns(const std::vector<std::uint8_t>& code,
 		            const std::vector<CppCoverage::LineRunLine>& lines)
 		{
 			CppCoverage::LineRunScanner scanner{true};
@@ -40,7 +41,7 @@ namespace CppCoverageTest
 		}
 
 		//---------------------------------------------------------------------
-		CppCoverage::LineRunLine LineAt(DWORD64 offset, unsigned long length)
+		CppCoverage::LineRunLine LineAt(DWORD64 offset, std::uint32_t length)
 		{
 			return {StartAddress + offset, length};
 		}
@@ -50,7 +51,7 @@ namespace CppCoverageTest
 	TEST(LineRunScannerTest, StraightLineCodeIsOneRun)
 	{
 		// inc rax; inc rax; inc rax; ret
-		std::vector<unsigned char> code = {
+		std::vector<std::uint8_t> code = {
 		    0x48, 0xFF, 0xC0, 0x48, 0xFF, 0xC0, 0x48, 0xFF, 0xC0, 0xC3};
 		auto runs =
 		    ComputeRuns(code, {LineAt(0, 3), LineAt(3, 3), LineAt(6, 4)});
@@ -67,7 +68,7 @@ namespace CppCoverageTest
 		// 0: je +2 (target 4); 2: nop; 3: nop; 4: nop; 5: ret
 		// Runs: [0,2) jcc-terminated, [2,4) ends before the target,
 		// [4,6) from the target to the ret.
-		std::vector<unsigned char> code = {0x74, 0x02, 0x90, 0x90, 0x90, 0xC3};
+		std::vector<std::uint8_t> code = {0x74, 0x02, 0x90, 0x90, 0x90, 0xC3};
 		auto runs = ComputeRuns(
 		    code, {LineAt(0, 2), LineAt(2, 2), LineAt(4, 2)});
 
@@ -87,7 +88,7 @@ namespace CppCoverageTest
 		// A callee can throw: the line after the call must not be provable
 		// from the run leader alone.
 		// 0: call +0 (next instruction); 5: nop; 6: ret
-		std::vector<unsigned char> code = {
+		std::vector<std::uint8_t> code = {
 		    0xE8, 0x00, 0x00, 0x00, 0x00, 0x90, 0xC3};
 		auto runs = ComputeRuns(code, {LineAt(0, 5), LineAt(5, 2)});
 
@@ -102,7 +103,7 @@ namespace CppCoverageTest
 	{
 		// One line covering both sides of a call: entering either run
 		// executes part of the line.
-		std::vector<unsigned char> code = {
+		std::vector<std::uint8_t> code = {
 		    0xE8, 0x00, 0x00, 0x00, 0x00, 0x90, 0xC3};
 		auto runs = ComputeRuns(code, {LineAt(0, 7)});
 
@@ -116,7 +117,7 @@ namespace CppCoverageTest
 	TEST(LineRunScannerTest, IndirectJumpRejectsFunction)
 	{
 		// jmp rax: a jump table's targets are unknown statically.
-		std::vector<unsigned char> code = {0xFF, 0xE0, 0x90, 0xC3};
+		std::vector<std::uint8_t> code = {0xFF, 0xE0, 0x90, 0xC3};
 		ASSERT_FALSE(ComputeRuns(code, {LineAt(2, 2)}).has_value());
 	}
 
@@ -124,7 +125,7 @@ namespace CppCoverageTest
 	TEST(LineRunScannerTest, UndecodableCodeRejectsFunction)
 	{
 		// A truncated call instruction cannot be decoded.
-		std::vector<unsigned char> code = {0xE8, 0x00};
+		std::vector<std::uint8_t> code = {0xE8, 0x00};
 		ASSERT_FALSE(ComputeRuns(code, {LineAt(0, 2)}).has_value());
 	}
 
@@ -132,7 +133,7 @@ namespace CppCoverageTest
 	TEST(LineRunScannerTest, RunsWithoutLinesAreDropped)
 	{
 		// Only the code after the jump target carries a line.
-		std::vector<unsigned char> code = {0x74, 0x02, 0x90, 0x90, 0x90, 0xC3};
+		std::vector<std::uint8_t> code = {0x74, 0x02, 0x90, 0x90, 0x90, 0xC3};
 		auto runs = ComputeRuns(code, {LineAt(4, 2)});
 
 		ASSERT_TRUE(runs.has_value());

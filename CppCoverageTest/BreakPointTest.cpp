@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include "CppCoverage/BreakPoint.hpp"
 #include <random>
@@ -26,7 +27,7 @@ namespace CppCoverageTest
 	namespace
 	{
 		//-------------------------------------------------------------------------
-		std::set<size_t> GetRandomIndexes(int count, int maxValue)
+		std::set<size_t> GetRandomIndexes(std::int32_t count, std::int32_t maxValue)
 		{
 			std::mt19937 gen;
 			std::uniform_int_distribution<> dis(0, maxValue);
@@ -38,10 +39,10 @@ namespace CppCoverageTest
 		}
 
 		//---------------------------------------------------------------------
-		std::vector<unsigned char> GenerateValues(int valueCount,
-		                                          int moduloValue)
+		std::vector<std::uint8_t> GenerateValues(std::int32_t valueCount,
+		                                          std::int32_t moduloValue)
 		{
-			std::vector<unsigned char> values;
+			std::vector<std::uint8_t> values;
 
 			for (auto i = 0; i < valueCount; ++i)
 				values.push_back(i % moduloValue);
@@ -49,12 +50,12 @@ namespace CppCoverageTest
 		}
 
 		//---------------------------------------------------------------------
-		std::map<DWORD64, unsigned char> BuildOldInstructionsMap(
+		std::map<DWORD64, std::uint8_t> BuildOldInstructionsMap(
 		    BreakPoint::InstructionCollection& oldInstructionCollection,
 		    const std::vector<DWORD64>& addresses)
 		{
 			std::set<DWORD64> addressesSet{addresses.begin(), addresses.end()};
-			std::map<DWORD64, unsigned char> oldInstructionsMap;
+			std::map<DWORD64, std::uint8_t> oldInstructionsMap;
 
 			for (const auto& pair : oldInstructionCollection)
 			{
@@ -81,7 +82,7 @@ namespace CppCoverageTest
 		BreakPoint breakPoint;
 
 		auto values = GenerateValues(20000, 100);
-		auto randomIndexes = GetRandomIndexes(100, static_cast<int>(values.size() - 1));
+		auto randomIndexes = GetRandomIndexes(100, static_cast<std::int32_t>(values.size() - 1));
 
 		std::vector<DWORD64> addresses;
 		for (auto index : randomIndexes)
@@ -111,7 +112,7 @@ namespace CppCoverageTest
 	TEST(BreakPointTest, SetBreakPointsSingle)
 	{
 		CppCoverage::BreakPoint breakPoint;
-		unsigned char value = 42;
+		std::uint8_t value = 42;
 
 		auto oldInstructionCollection =
 		    breakPoint.SetBreakPoints(GetCurrentProcess(), {ToDWORD64(&value)});

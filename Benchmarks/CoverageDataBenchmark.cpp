@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#include <cstdint>
 #include <benchmark/benchmark.h>
 
 #include <filesystem>
@@ -41,26 +42,26 @@
 
 namespace
 {
-	const int ModuleCount = 3;
-	const int FileCount = 20;
-	const int LineCount = 500;
+	const std::int32_t ModuleCount = 3;
+	const std::int32_t FileCount = 20;
+	const std::int32_t LineCount = 500;
 
 	//-------------------------------------------------------------------------
 	Plugin::CoverageData CreateCoverageData()
 	{
 		Plugin::CoverageData coverageData{L"Benchmark", 0};
 
-		for (int moduleIndex = 0; moduleIndex < ModuleCount; ++moduleIndex)
+		for (std::int32_t moduleIndex = 0; moduleIndex < ModuleCount; ++moduleIndex)
 		{
 			auto& module =
 			    coverageData.AddModule(L"Module" + std::to_wstring(moduleIndex));
 
-			for (int fileIndex = 0; fileIndex < FileCount; ++fileIndex)
+			for (std::int32_t fileIndex = 0; fileIndex < FileCount; ++fileIndex)
 			{
 				auto& file =
 				    module.AddFile(L"File" + std::to_wstring(fileIndex));
 
-				for (int line = 1; line <= LineCount; ++line)
+				for (std::int32_t line = 1; line <= LineCount; ++line)
 				{
 					file.AddLine(line, line % 2 == 0);
 					if (line % 10 == 0)
@@ -139,7 +140,7 @@ namespace
 	// format_to into a wide buffer. Both {}-formatters are ~4x faster than the
 	// stream; fmt is a further ~10% over std::format, which is why the exporter
 	// uses fmt. This trio guards against regressing.
-	constexpr int LineFormatCount = 100000;
+	constexpr std::int32_t LineFormatCount = 100000;
 
 	//---------------------------------------------------------------------
 	// The exporter escapes every attribute value; replicated so the current
@@ -164,11 +165,11 @@ namespace
 	}
 
 	//---------------------------------------------------------------------
-	std::vector<std::pair<int, bool>> MakeLines()
+	std::vector<std::pair<std::int32_t, bool>> MakeLines()
 	{
-		std::vector<std::pair<int, bool>> lines;
+		std::vector<std::pair<std::int32_t, bool>> lines;
 		lines.reserve(LineFormatCount);
-		for (int i = 1; i <= LineFormatCount; ++i)
+		for (std::int32_t i = 1; i <= LineFormatCount; ++i)
 			lines.emplace_back(i, i % 2 == 0);
 		return lines;
 	}
@@ -186,7 +187,7 @@ namespace
 			std::wostringstream ostr;
 			for (const auto& [number, executed] : lines)
 			{
-				for (int i = 0; i < 8; ++i)
+				for (std::int32_t i = 0; i < 8; ++i)
 					ostr << L' ';
 				ostr << L'<' << L"line";
 				ostr << L' ' << L"number" << L"=\""

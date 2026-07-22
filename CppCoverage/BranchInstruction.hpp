@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <Windows.h>
 
@@ -49,7 +50,7 @@ namespace CppCoverage
 	struct BranchInstruction
 	{
 		BranchInstruction(DWORD64 virtualAddress,
-		                  unsigned char length,
+		                  std::uint8_t length,
 		                  BranchCondition condition)
 		    : virtualAddress_{virtualAddress},
 		      length_{length},
@@ -58,7 +59,7 @@ namespace CppCoverage
 		}
 
 		DWORD64 virtualAddress_;
-		unsigned char length_;
+		std::uint8_t length_;
 		BranchCondition condition_;
 	};
 }

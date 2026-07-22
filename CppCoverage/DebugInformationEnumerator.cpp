@@ -15,6 +15,7 @@
 //// along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "DebugInformationEnumerator.hpp"
 
 #include <Windows.h>
@@ -429,7 +430,7 @@ namespace CppCoverage
 						    return;
 					    }
 
-					    // The demangled name (e.g. "foo<int>") is the
+					    // The demangled name (e.g. "foo<std::int32_t>") is the
 					    // template-instantiation identity, resolved only
 					    // when a caller asks for it.
 					    std::wstring name;
@@ -442,7 +443,7 @@ namespace CppCoverage
 
 					    lineTable->functions_.push_back(
 					        {static_cast<int64_t>(virtualAddress),
-					         static_cast<unsigned long>(length),
+					         static_cast<std::uint32_t>(length),
 					         std::move(name)});
 				    });
 			}
@@ -475,8 +476,10 @@ namespace CppCoverage
 
 			// findSymbolByVA is a full symbol-table query per line record and
 			// its result (the symbol index) is only used by the optimized
-			// build filter, so skip it entirely otherwise.
-			unsigned long symIndex = 0;
+			// build filter, so skip it entirely otherwise. Kept as the DIA
+			// out-parameter type (DWORD) at the boundary; narrowed to the
+			// first-party std::uint32_t when the Line is built (ADR-0001).
+			DWORD symIndex = 0;
 			if (needSymbolIndex_)
 			{
 				CComPtr<IDiaSymbol> symbol;
@@ -496,7 +499,10 @@ namespace CppCoverage
 			if (lineNumber.get_length(&length) != S_OK)
 				THROW("DIA: Cannot get line length");
 
-			lines.emplace_back(linenum, virtualAddress, symIndex, length);
+			lines.emplace_back(static_cast<std::uint32_t>(linenum),
+			                   static_cast<int64_t>(virtualAddress),
+			                   static_cast<std::uint32_t>(symIndex),
+			                   static_cast<std::uint32_t>(length));
 		}
 	}
 

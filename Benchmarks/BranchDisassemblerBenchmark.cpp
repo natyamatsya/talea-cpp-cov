@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#include <cstdint>
 #include <benchmark/benchmark.h>
 
 #include <vector>
@@ -23,17 +24,17 @@
 namespace
 {
 	//-------------------------------------------------------------------------
-	std::vector<unsigned char> CreateCodeBuffer(size_t patternCount)
+	std::vector<std::uint8_t> CreateCodeBuffer(size_t patternCount)
 	{
 		// cmp eax, ebx; je +2; mov eax, 1; jne -11
-		const unsigned char pattern[] = {
+		const std::uint8_t pattern[] = {
 		    0x3B, 0xC3,                    // cmp eax, ebx
 		    0x74, 0x02,                    // je +2
 		    0xB8, 0x01, 0x00, 0x00, 0x00,  // mov eax, 1
 		    0x75, 0xF5                     // jne -11
 		};
 
-		std::vector<unsigned char> buffer;
+		std::vector<std::uint8_t> buffer;
 		buffer.reserve(patternCount * sizeof(pattern));
 		for (size_t i = 0; i < patternCount; ++i)
 			buffer.insert(buffer.end(), std::begin(pattern), std::end(pattern));

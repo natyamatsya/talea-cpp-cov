@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <Windows.h>
 #include <memory>
@@ -34,7 +35,7 @@ namespace CppCoverage
 		~BranchDisassembler();
 
 		std::vector<BranchInstruction>
-		FindConditionalBranches(const unsigned char* buffer,
+		FindConditionalBranches(const std::uint8_t* buffer,
 		                        size_t size,
 		                        DWORD64 startVirtualAddress) const;
 

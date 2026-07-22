@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include <chrono>
 #include <concepts>
@@ -69,14 +70,14 @@ namespace Exporter
 		}
 
 		//---------------------------------------------------------------------
-		int GetCoveredOutcomeCount(const Plugin::BranchCoverage& branch)
+		std::int32_t GetCoveredOutcomeCount(const Plugin::BranchCoverage& branch)
 		{
 			return (branch.HasBeenTaken() ? 1 : 0) +
 			       (branch.HasBeenFallenThrough() ? 1 : 0);
 		}
 
 		//---------------------------------------------------------------------
-		std::wstring GetPercentString(int covered, int total)
+		std::wstring GetPercentString(std::int32_t covered, std::int32_t total)
 		{
 			auto percent = (total == 0) ? 0 : (100 * covered) / total;
 			return fmt::format(L"{}%", percent);
@@ -200,7 +201,7 @@ namespace Exporter
 
 			std::wostream& ostr_;
 			std::wstring buffer_;
-			int depth_ = 0;
+			std::int32_t depth_ = 0;
 		};
 
 		//---------------------------------------------------------------------
@@ -221,8 +222,8 @@ namespace Exporter
 		    XmlWriter& writer,
 		    const std::vector<Plugin::BranchCoverage>& branches)
 		{
-			int coveredOutcomes = 0;
-			int totalOutcomes = 0;
+			std::int32_t coveredOutcomes = 0;
+			std::int32_t totalOutcomes = 0;
 			for (const auto& branch : branches)
 			{
 				// A conditional branch has two outcomes: taken and fall through.

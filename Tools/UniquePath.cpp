@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "UniquePath.hpp"
 
 #include <format>
@@ -29,7 +30,7 @@ namespace Tools
 		auto uniquePath = path;
 		auto filenameWithoutExtension = path.filename().replace_extension(L"");
 
-		for (int i = 2; existingPathSet_.count(uniquePath) != 0; ++i)
+		for (std::int32_t i = 2; existingPathSet_.count(uniquePath) != 0; ++i)
 		{
 			auto filename = std::format(L"{}{}{}",
 			                            filenameWithoutExtension.wstring(),

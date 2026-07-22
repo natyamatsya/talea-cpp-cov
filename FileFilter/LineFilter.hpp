@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include "FileFilterExport.hpp"
 #include <filesystem>
@@ -42,8 +43,8 @@ namespace FileFilter
 		~LineFilter();
 
 		bool IsLineSelected(const FileInfo&, const LineInfo&);
-		bool IsLineSelected(const std::filesystem::path&, int lineNumber);
-		int GetFileReadCount() const;
+		bool IsLineSelected(const std::filesystem::path&, std::int32_t lineNumber);
+		std::int32_t GetFileReadCount() const;
 
 	private:
 		LineFilter(const LineFilter&) = delete;
@@ -57,7 +58,7 @@ namespace FileFilter
 		std::vector<Tools::Regex> excludedLineRegexes_;
 		std::filesystem::path filePath_;
 		std::unique_ptr<Tools::MappedFile> mappedFileForFilePath_;
-		int fileReadCount_;
+		std::int32_t fileReadCount_;
 		const bool enableLog_;
 	};
 }

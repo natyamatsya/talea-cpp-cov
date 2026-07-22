@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <memory>
 #include <optional>
@@ -30,7 +31,7 @@ namespace CppCoverage
 	struct LineRunLine
 	{
 		DWORD64 virtualAddress_;
-		unsigned long length_;
+		std::uint32_t length_;
 	};
 
 	// A maximal straight-line instruction sequence: entered only at its
@@ -70,7 +71,7 @@ namespace CppCoverage
 		// touch at least one line, or nullopt when the function cannot be
 		// analyzed soundly.
 		std::optional<std::vector<LineRun>>
-		ComputeRuns(const unsigned char* buffer,
+		ComputeRuns(const std::uint8_t* buffer,
 		            size_t size,
 		            DWORD64 startVirtualAddress,
 		            const std::vector<LineRunLine>& lines) const;

@@ -64,11 +64,11 @@ namespace CppCoverage
 		// The byte read from memory at an already-armed branch breakpoint is
 		// the 0xCC, not the real instruction; returns the branch manager's
 		// recorded original byte in that case, otherwise oldInstruction.
-		unsigned char ResolveOriginalInstruction(
-		    const Address&, unsigned char oldInstruction) const;
+		std::uint8_t ResolveOriginalInstruction(
+		    const Address&, std::uint8_t oldInstruction) const;
 
 		using LineNumberByAddress =
-		    std::unordered_map<DWORD64, std::vector<int>>;
+		    std::unordered_map<DWORD64, std::vector<std::int32_t>>;
 		void SetBreakPoint(const std::filesystem::path&,
 		                   HANDLE hProcess,
 		                   std::vector<DWORD64>&&,
@@ -78,7 +78,7 @@ namespace CppCoverage
 		{
 			std::uint32_t lineNumber_;
 			DWORD64 startAddress_;
-			unsigned long length_;
+			std::uint32_t length_;
 		};
 		void RegisterBranches(const std::filesystem::path&,
 		                      HANDLE hProcess,
@@ -87,7 +87,7 @@ namespace CppCoverage
 		void RegisterPendingLines();
 		void RestoreOriginalBytes(HANDLE hProcess,
 		                          DWORD64 startAddress,
-		                          std::vector<unsigned char>& buffer) const;
+		                          std::vector<std::uint8_t>& buffer) const;
 
 		const FileFilter::ModuleInfo& GetModuleInfo() const;
 
@@ -108,7 +108,7 @@ namespace CppCoverage
 		struct PendingLine
 		{
 			DWORD64 address_;
-			unsigned long length_;
+			std::uint32_t length_;
 			std::uint32_t lineNumber_;
 			size_t fileIndex_;
 		};

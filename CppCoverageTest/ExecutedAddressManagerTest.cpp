@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include "CppCoverage/ExecutedAddressManager.hpp"
 #include "CppCoverage/CppCoverageException.hpp"
@@ -31,9 +32,9 @@ namespace CppCoverageTest
 	namespace
 	{
 		#pragma warning(push)
-		#pragma warning(disable: 4312) // 'reinterpret_cast': conversion from 'int' to 'void *' of greater size
+		#pragma warning(disable: 4312) // 'reinterpret_cast': conversion from 'std::int32_t' to 'void *' of greater size
 		//-------------------------------------------------------------------------
-		cov::Address CreateAddress(int addressValue)
+		cov::Address CreateAddress(std::int32_t addressValue)
 		{
 			return cov::Address{ nullptr, reinterpret_cast<void*>(addressValue) };
 		}

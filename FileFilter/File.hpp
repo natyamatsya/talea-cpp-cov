@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include "FileFilterExport.hpp"
 #include <set>
@@ -29,13 +30,13 @@ namespace FileFilter
 		File(File&&) = default;
 		File& operator=(File&&) = default;
 
-		void AddSelectedLines(const std::vector<int>&);
+		void AddSelectedLines(const std::vector<std::int32_t>&);
 
 		const std::filesystem::path& GetPath() const;
 		void SetPath(const std::filesystem::path&);
 
-		bool IsLineSelected(int) const;
-		const std::set<int>& GetSelectedLines() const;
+		bool IsLineSelected(std::int32_t) const;
+		const std::set<std::int32_t>& GetSelectedLines() const;
 
 		bool operator==(const File&) const;
 
@@ -44,7 +45,7 @@ namespace FileFilter
 		File& operator=(const File&) = delete;
 
 		std::filesystem::path path_;
-		std::set<int> selectedLines_;
+		std::set<std::int32_t> selectedLines_;
 	};
 }
 

@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "LineRunScanner.hpp"
 
 #include <algorithm>
@@ -54,7 +55,7 @@ namespace CppCoverage
 
 	//-------------------------------------------------------------------------
 	std::optional<std::vector<LineRun>>
-	LineRunScanner::ComputeRuns(const unsigned char* buffer,
+	LineRunScanner::ComputeRuns(const std::uint8_t* buffer,
 	                            size_t size,
 	                            DWORD64 startVirtualAddress,
 	                            const std::vector<LineRunLine>& lines) const
@@ -195,7 +196,7 @@ namespace CppCoverage
 			auto lineStart = lines[lineIndex].virtualAddress_;
 			auto lineEnd =
 			    lineStart +
-			    std::max<unsigned long>(1, lines[lineIndex].length_);
+			    std::max<std::uint32_t>(1, lines[lineIndex].length_);
 
 			while (firstCandidateRun < runRanges.size() &&
 			       runRanges[firstCandidateRun].second <= lineStart)

@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include "FileFilterExport.hpp"
 #include <unordered_set>
@@ -56,7 +57,7 @@ namespace FileFilter
 		{
 			std::filesystem::path path_;
 			std::unordered_set<DWORD64> lastSymbolAddresses_;
-			std::unordered_map<int, int> addressCountByLine_;
+			std::unordered_map<std::int32_t, std::int32_t> addressCountByLine_;
 		};
 
 		struct ModuleData

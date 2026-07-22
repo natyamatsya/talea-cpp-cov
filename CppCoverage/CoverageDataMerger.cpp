@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "CoverageDataMerger.hpp"
 
 #include <functional>
@@ -35,7 +36,7 @@ namespace CppCoverage
 		Plugin::CoverageData CreateCoverageData(const std::vector<Plugin::CoverageData>& coverageDataCollection)
 		{
 			std::wstring name;
-			int lastNotZeroExitCode = 0;
+			std::int32_t lastNotZeroExitCode = 0;
 
 			for (const auto& coverageData : coverageDataCollection)
 			{

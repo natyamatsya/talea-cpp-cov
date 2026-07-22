@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <optional>
 
@@ -36,7 +37,7 @@ namespace CppCoverage
 			bool continueAfterCppException,
             bool stopOnAssert);
 
-		int Debug(const StartInfo&, IDebugEventsHandler&);
+		std::int32_t Debug(const StartInfo&, IDebugEventsHandler&);
 		size_t GetRunningProcesses() const;
 		size_t GetRunningThreads() const;
 
@@ -48,7 +49,7 @@ namespace CppCoverage
 			const DEBUG_EVENT& debugEvent,
 			IDebugEventsHandler& debugEventsHandler);
 
-		int OnExitProcess(
+		std::int32_t OnExitProcess(
 			const DEBUG_EVENT& debugEvent,
 			HANDLE hProcess,
 			HANDLE hThread,

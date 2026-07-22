@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include <Windows.h>
 #include <filesystem>
@@ -46,7 +47,7 @@ namespace OpenCppCoverageTest
 		}
 
 		//---------------------------------------------------------------------
-		int RunCoverageForProgram(
+		std::int32_t RunCoverageForProgram(
 		    const std::vector<std::pair<std::string, std::string>>&
 		        additionalCoverageArguments,
 		    const fs::path& programToRun,
@@ -62,12 +63,12 @@ namespace OpenCppCoverageTest
 		}
 
 		//---------------------------------------------------------------------
-		int RunCoverageForProgram(const fs::path& programToRun,
+		std::int32_t RunCoverageForProgram(const fs::path& programToRun,
 		                          const std::vector<std::wstring>& arguments)
 		{
 			TestHelper::TemporaryPath tempFolder;
 
-			int exitCode = RunCoverageForProgram(
+			std::int32_t exitCode = RunCoverageForProgram(
 			{ BuildExportTypeString(cov::ExportOptionParser::ExportTypeHtmlValue,
 									  tempFolder.GetPath()) },
 			    programToRun,
@@ -147,7 +148,7 @@ namespace OpenCppCoverageTest
 		        cov::ExportOptionParser::ExportTypeBinaryValue,
 		        tempFolder.GetPath())};
 
-		int exitCode = RunCoverageForProgram(
+		std::int32_t exitCode = RunCoverageForProgram(
 		    additionalCoverageArguments,
 		    testCoverageConsole,
 		    {TestCoverageConsole::TestThrowUnHandledCppException});

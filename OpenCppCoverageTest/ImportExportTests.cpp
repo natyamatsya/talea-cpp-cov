@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include <filesystem>
 
@@ -55,7 +56,7 @@ namespace OpenCppCoverageTest
 			
 			AddDefaultFilters(coverageArguments, testCoverageConsole);
 			coverageArguments.emplace_back(cov::ProgramOptions::QuietOption, "");
-			int exitCode = RunCoverageFor(coverageArguments, testCoverageConsole, {});
+			std::int32_t exitCode = RunCoverageFor(coverageArguments, testCoverageConsole, {});
 			
 			ASSERT_EQ(0, exitCode);		
 			ASSERT_TRUE(Tools::FileExists(output));

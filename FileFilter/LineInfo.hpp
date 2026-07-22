@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <vector>
 
@@ -24,7 +25,7 @@ namespace FileFilter
 	{
 	public:
 		LineInfo(
-			int lineNumber,
+			std::int32_t lineNumber,
 			DWORD64 virtualAddress,
 			ULONG symbolIndex)
 			: lineNumber_{ lineNumber }
@@ -32,7 +33,7 @@ namespace FileFilter
 			, virtualAddress_{ virtualAddress }
 		{}
 
-		const int lineNumber_;
+		const std::int32_t lineNumber_;
 		const ULONG symbolIndex_;
 		const DWORD64 virtualAddress_;
 	};

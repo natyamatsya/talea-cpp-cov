@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include <format>
 #include <sstream>
 
@@ -59,16 +60,16 @@ namespace CppCoverage
 		}
 
 		//-------------------------------------------------------------------------
-		std::optional<int> GetExecutableLineOrPreviousOne(
-			int lineNumber,
-			const std::set<int>& executableLinesSet)
+		std::optional<std::int32_t> GetExecutableLineOrPreviousOne(
+			std::int32_t lineNumber,
+			const std::set<std::int32_t>& executableLinesSet)
 		{
 			auto it = executableLinesSet.lower_bound(lineNumber);
 
 			if (it != executableLinesSet.end() && *it == lineNumber)
 				return lineNumber;
 
-			return (it == executableLinesSet.begin()) ? std::optional<int>{} : *(--it);
+			return (it == executableLinesSet.begin()) ? std::optional<std::int32_t>{} : *(--it);
 		}
 
 		//-------------------------------------------------------------------------
@@ -174,7 +175,7 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	const std::set<int>& UnifiedDiffCoverageFilterManager::GetExecutableLinesSet(
+	const std::set<std::int32_t>& UnifiedDiffCoverageFilterManager::GetExecutableLinesSet(
 		const FileFilter::FileInfo& fileInfo)
 	{
 		auto filePath = fileInfo.filePath_;

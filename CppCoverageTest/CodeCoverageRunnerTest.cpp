@@ -178,7 +178,7 @@ namespace CppCoverageTest
 		Plugin::CoverageData coverageData = ComputeCoverageData(TestCoverageConsole::TestBasic, testBasicFilename);
 		auto& file = GetFirstFileCoverage(coverageData);
 
-		int line = TestCoverageConsole::GetTestBasicLine() + 1;
+		std::int32_t line = TestCoverageConsole::GetTestBasicLine() + 1;
 		TestLine(file, line++, true);
 #ifdef __clang__
 		// clang-cl folds the `if (false)` block away even at /Od, so neither
@@ -293,7 +293,7 @@ namespace CppCoverageTest
 			TestCoverageSharedLib::GetOutputBinaryPath().wstring(), mainSharedLibFile);
 		auto& file = GetFirstFileCoverage(coverageData);
 
-		int line = 31;
+		std::int32_t line = 31;
 		TestLine(file, line++, true);
 		TestLine(file, line++, true);
 		TestLine(file, line++, true);
@@ -309,7 +309,7 @@ namespace CppCoverageTest
 		Plugin::CoverageData coverageData = ComputeCoverageData(TestCoverageConsole::TestThread, filter);
 		auto& file = GetFirstFileCoverage(coverageData);
 
-		int line = 28;
+		std::int32_t line = 28;
 
 		TestLine(file, line++, true);
 		// The lambda opening brace may or may not have debug
@@ -417,7 +417,7 @@ namespace CppCoverageTest
 
 		auto& file = GetFirstFileCoverage(mergedCoverageData);
 
-		int mainLine = TestCoverageConsole::GetTestCoverageConsoleCppMainStartLine();
+		std::int32_t mainLine = TestCoverageConsole::GetTestCoverageConsoleCppMainStartLine();
 		TestLine(file, mainLine + 15, false); // TestThrowHandledException
 		TestLine(file, mainLine + 17, true); // TestThrowUnHandledCppException
 		TestLine(file, mainLine + 19, true); // TestThrowUnHandledSEHException

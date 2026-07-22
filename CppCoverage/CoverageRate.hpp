@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include "CppCoverageExport.hpp"
 
@@ -24,32 +25,32 @@ namespace CppCoverage
 	{
 	public:
 		CoverageRate();
-		CoverageRate(int executedLinesCount, int unexecutedLinesCount);
-		CoverageRate(int executedLinesCount,
-		             int unexecutedLinesCount,
-		             int coveredBranchCount,
-		             int totalBranchCount);
+		CoverageRate(std::int32_t executedLinesCount, std::int32_t unexecutedLinesCount);
+		CoverageRate(std::int32_t executedLinesCount,
+		             std::int32_t unexecutedLinesCount,
+		             std::int32_t coveredBranchCount,
+		             std::int32_t totalBranchCount);
 
 		CoverageRate& operator=(const CoverageRate&) = delete;
 		CoverageRate(const CoverageRate&) = default;
 
-		int GetExecutedLinesCount() const;
-		int GetUnExecutedLinesCount() const;
-		int GetTotalLinesCount() const;
-		int GetPercentRate() const;
+		std::int32_t GetExecutedLinesCount() const;
+		std::int32_t GetUnExecutedLinesCount() const;
+		std::int32_t GetTotalLinesCount() const;
+		std::int32_t GetPercentRate() const;
 		double GetRate() const;
 
-		int GetCoveredBranchCount() const;
-		int GetTotalBranchCount() const;
+		std::int32_t GetCoveredBranchCount() const;
+		std::int32_t GetTotalBranchCount() const;
 		double GetBranchRate() const;
 
 		CoverageRate& operator+=(const CoverageRate&);
 
 	private:
-		int executedLinesCount_;
-		int unexecutedLinesCount_;
-		int coveredBranchCount_;
-		int totalBranchCount_;
+		std::int32_t executedLinesCount_;
+		std::int32_t unexecutedLinesCount_;
+		std::int32_t coveredBranchCount_;
+		std::int32_t totalBranchCount_;
 	};
 }
 

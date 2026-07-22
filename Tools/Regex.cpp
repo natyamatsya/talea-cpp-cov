@@ -54,7 +54,7 @@ namespace Tools
 			if (options.fullMatch)
 				compileOptions |= PCRE2_ANCHORED | PCRE2_ENDANCHORED;
 
-			int errorCode = 0;
+			std::int32_t errorCode = 0;
 			PCRE2_SIZE errorOffset = 0;
 			auto* code = pcre2_compile(AsBytes(pattern),
 			                           pattern.size(),
@@ -130,7 +130,7 @@ namespace Tools
 		// PCRE2; hand it a valid empty buffer instead.
 		auto* start = subject.empty() ? AsBytes(std::string_view{""})
 		                              : AsBytes(subject);
-		int rc = pcre2_match(
+		std::int32_t rc = pcre2_match(
 		    code, start, subject.size(), 0, 0, matchData, nullptr);
 
 		pcre2_match_data_free(matchData);
@@ -146,7 +146,7 @@ namespace Tools
 
 		auto* start = subject.empty() ? AsBytes(std::string_view{""})
 		                              : AsBytes(subject);
-		int rc = pcre2_match(
+		std::int32_t rc = pcre2_match(
 		    code, start, subject.size(), 0, 0, matchData, nullptr);
 
 		std::vector<std::optional<std::string>> groups;
@@ -161,7 +161,7 @@ namespace Tools
 				// leaves their ovector slots undefined, so treat them (and any
 				// explicitly unset slot) as absent.
 				const PCRE2_SIZE begin = ovector[2 * i];
-				if (static_cast<int>(i) >= rc || begin == PCRE2_UNSET)
+				if (static_cast<std::int32_t>(i) >= rc || begin == PCRE2_UNSET)
 					groups.emplace_back(std::nullopt);
 				else
 					groups.emplace_back(std::string{

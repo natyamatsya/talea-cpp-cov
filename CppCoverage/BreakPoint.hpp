@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <Windows.h>
 #include "CppCoverageExport.hpp"
@@ -28,13 +29,13 @@ namespace CppCoverage
 	  public:
 		BreakPoint() = default;
 
-		static const unsigned char breakPointInstruction;
+		static const std::uint8_t breakPointInstruction;
 
 		void RemoveBreakPoint(const Address&,
-		                      unsigned char oldInstruction) const;
+		                      std::uint8_t oldInstruction) const;
 
 		using InstructionCollection =
-		    std::vector<std::pair<unsigned char, DWORD64>>;
+		    std::vector<std::pair<std::uint8_t, DWORD64>>;
 
 		InstructionCollection
 		SetBreakPoints(HANDLE hProcess, std::vector<DWORD64>&& addresses) const;

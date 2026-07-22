@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "CodeCoverageRunner.hpp"
 
 #include <algorithm>
@@ -181,7 +182,7 @@ namespace CppCoverage
 			    startInfo, settings, *coverageFilterManager_, pdbLineTableCache);
 		}
 
-		int exitCode = debugger.Debug(startInfo, *this);
+		std::int32_t exitCode = debugger.Debug(startInfo, *this);
 		const auto& path = startInfo.GetPath();
 
 		if (pdbLineTableCache)

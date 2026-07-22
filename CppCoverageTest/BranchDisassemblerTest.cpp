@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include "CppCoverage/BranchDisassembler.hpp"
 
@@ -31,7 +32,7 @@ namespace CppCoverageTest
 	TEST(BranchDisassemblerTest, ShortConditionalJump)
 	{
 		// cmp eax, ebx; je +0x10; mov eax, 1
-		const unsigned char buffer[] = {
+		const std::uint8_t buffer[] = {
 		    0x3B, 0xC3,             // cmp eax, ebx
 		    0x74, 0x10,             // je +0x10
 		    0xB8, 0x01, 0x00, 0x00, 0x00 // mov eax, 1
@@ -51,7 +52,7 @@ namespace CppCoverageTest
 	TEST(BranchDisassemblerTest, LongConditionalJump)
 	{
 		// jne near +0x1000
-		const unsigned char buffer[] = {
+		const std::uint8_t buffer[] = {
 		    0x0F, 0x85, 0x00, 0x10, 0x00, 0x00 // jne near
 		};
 
@@ -68,7 +69,7 @@ namespace CppCoverageTest
 	//-------------------------------------------------------------------------
 	TEST(BranchDisassemblerTest, UnconditionalNotDetected)
 	{
-		const unsigned char buffer[] = {
+		const std::uint8_t buffer[] = {
 		    0xEB, 0x10,                   // jmp short
 		    0xE9, 0x00, 0x10, 0x00, 0x00, // jmp near
 		    0xE8, 0x00, 0x10, 0x00, 0x00, // call
@@ -85,7 +86,7 @@ namespace CppCoverageTest
 	//-------------------------------------------------------------------------
 	TEST(BranchDisassemblerTest, ConditionalMoveNotDetected)
 	{
-		const unsigned char buffer[] = {
+		const std::uint8_t buffer[] = {
 		    0x0F, 0x44, 0xC1, // cmove eax, ecx
 		    0x0F, 0x94, 0xC0  // sete al
 		};
@@ -100,7 +101,7 @@ namespace CppCoverageTest
 	//-------------------------------------------------------------------------
 	TEST(BranchDisassemblerTest, SeveralConditions)
 	{
-		const unsigned char buffer[] = {
+		const std::uint8_t buffer[] = {
 		    0x72, 0x02, // jb +2
 		    0x77, 0x00, // ja +0
 		    0x7C, 0x00, // jl +0
@@ -122,7 +123,7 @@ namespace CppCoverageTest
 	TEST(BranchDisassemblerTest, X86Mode)
 	{
 		// dec eax (x86 one byte encoding); jnz -3
-		const unsigned char buffer[] = {
+		const std::uint8_t buffer[] = {
 		    0x48,       // dec eax in 32 bits mode (REX prefix in 64 bits mode)
 		    0x75, 0xFD  // jnz -3
 		};

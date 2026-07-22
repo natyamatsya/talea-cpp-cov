@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "Tools.hpp"
 #include "Tools/Tool.hpp"
 
@@ -171,7 +172,7 @@ namespace TestHelper
 		WaitForSingleObject(processInfo.hProcess, INFINITE);
 		DWORD exitCode = 0;
 		GetExitCodeProcess(processInfo.hProcess, &exitCode);
-		result.exitCode = static_cast<int>(exitCode);
+		result.exitCode = static_cast<std::int32_t>(exitCode);
 		CloseHandle(processInfo.hThread);
 		CloseHandle(processInfo.hProcess);
 		return result;

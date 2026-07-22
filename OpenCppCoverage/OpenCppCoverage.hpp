@@ -15,12 +15,13 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <iosfwd>
 
 namespace OpenCppCoverage
 {
-	const int FailureExitCode = 0x9F8C8E5C;
+	const std::int32_t FailureExitCode = 0x9F8C8E5C;
 
 	class OpenCppCoverage
 	{

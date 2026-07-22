@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "HtmlFileCoverageExporter.hpp"
 
 #include <fstream>
@@ -120,9 +121,9 @@ namespace Exporter
 
 	//-------------------------------------------------------------------------
 	HtmlFileCoverageExporter::HtmlFileCoverageExporter(
-		int maxSourceLineCount,
-		int maxSourceLineStyleChangesCount,
-		int maxStyleChangesCount)
+		std::int32_t maxSourceLineCount,
+		std::int32_t maxSourceLineStyleChangesCount,
+		std::int32_t maxStyleChangesCount)
 		: maxSourceLineCount_{ maxSourceLineCount }
 		, maxSourceLineStyleChangesCount_{ maxSourceLineStyleChangesCount }
 		, maxStyleChangesCount_{ maxStyleChangesCount }
@@ -142,9 +143,9 @@ namespace Exporter
 
 		std::wstring line;
 		const Plugin::LineCoverage* previousLineCoverage = nullptr;
-		int styleChangesCount = 0;
-		int lineCount = 0;
-		for (int i = 1; std::getline(ifs, line); ++i)
+		std::int32_t styleChangesCount = 0;
+		std::int32_t lineCount = 0;
+		for (std::int32_t i = 1; std::getline(ifs, line); ++i)
 		{			
 			auto lineCoverage = fileCoverage[i];
 			
@@ -162,8 +163,8 @@ namespace Exporter
 
 	//-------------------------------------------------------------------------
 	bool HtmlFileCoverageExporter::MustEnableCodePrettify(
-		int lineCount,
-		int styleChangesCount) const
+		std::int32_t lineCount,
+		std::int32_t styleChangesCount) const
 	{
 		if (lineCount > maxSourceLineCount_)
 			return false;

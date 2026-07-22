@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include <fstream>
 #include <sstream>
@@ -72,7 +73,7 @@ namespace FileFilter
 	}
 
 	//-------------------------------------------------------------------------
-	bool UnifiedDiffCoverageFilter::IsLineSelected(const std::filesystem::path& path, int lineNumber)
+	bool UnifiedDiffCoverageFilter::IsLineSelected(const std::filesystem::path& path, std::int32_t lineNumber)
 	{
 		auto file = SearchFile(path);
 

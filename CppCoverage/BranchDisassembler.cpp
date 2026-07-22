@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "BranchDisassembler.hpp"
 
 #include <optional>
@@ -94,7 +95,7 @@ namespace CppCoverage
 
 	//-------------------------------------------------------------------------
 	std::vector<BranchInstruction> BranchDisassembler::FindConditionalBranches(
-	    const unsigned char* buffer,
+	    const std::uint8_t* buffer,
 	    size_t size,
 	    DWORD64 startVirtualAddress) const
 	{

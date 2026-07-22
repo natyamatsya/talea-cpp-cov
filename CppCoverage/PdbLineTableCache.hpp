@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <filesystem>
 #include <map>
@@ -73,9 +74,9 @@ namespace CppCoverage
 		void Store(const PdbSignature&,
 		           std::shared_ptr<const ModuleLineTable>);
 
-		int GetMemoryHitCount() const;
-		int GetDiskHitCount() const;
-		int GetMissCount() const;
+		std::int32_t GetMemoryHitCount() const;
+		std::int32_t GetDiskHitCount() const;
+		std::int32_t GetMissCount() const;
 
 	  private:
 		PdbLineTableCache(const PdbLineTableCache&) = delete;
@@ -92,8 +93,8 @@ namespace CppCoverage
 		mutable std::mutex mutex_; // guards tables_ and the hit counters
 		std::map<std::wstring, std::shared_ptr<const ModuleLineTable>>
 		    tables_;
-		int memoryHitCount_ = 0;
-		int diskHitCount_ = 0;
-		int missCount_ = 0;
+		std::int32_t memoryHitCount_ = 0;
+		std::int32_t diskHitCount_ = 0;
+		std::int32_t missCount_ = 0;
 	};
 }

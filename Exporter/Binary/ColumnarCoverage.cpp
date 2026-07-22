@@ -47,7 +47,7 @@ namespace Exporter
 
 			void U32(std::uint32_t v)
 			{
-				for (int i = 0; i < 4; ++i)
+				for (std::int32_t i = 0; i < 4; ++i)
 					U8(static_cast<std::uint8_t>(v >> (8 * i)));
 			}
 
@@ -100,7 +100,7 @@ namespace Exporter
 			std::uint32_t U32()
 			{
 				std::uint32_t v = 0;
-				for (int i = 0; i < 4; ++i)
+				for (std::int32_t i = 0; i < 4; ++i)
 					v |= static_cast<std::uint32_t>(U8()) << (8 * i);
 				return v;
 			}
@@ -110,7 +110,7 @@ namespace Exporter
 			std::uint64_t Varint()
 			{
 				std::uint64_t v = 0;
-				int shift = 0;
+				std::int32_t shift = 0;
 				for (;;)
 				{
 					std::uint8_t b = U8();
@@ -417,7 +417,7 @@ namespace Exporter
 			if (ifs.gcount() != 4)
 				return false;
 			std::uint32_t magic = 0;
-			for (int i = 0; i < 4; ++i)
+			for (std::int32_t i = 0; i < 4; ++i)
 				magic |= static_cast<std::uint32_t>(
 				             static_cast<std::uint8_t>(header[i]))
 				         << (8 * i);

@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include "CppCoverage/UnifiedDiffCoverageFilterManager.hpp"
 #include "CppCoverage/UnifiedDiffSettings.hpp"
@@ -35,7 +36,7 @@ namespace CppCoverageTest
 		//-------------------------------------------------------------------------
 		UnifiedDiffCoverageFilters CreateFilter(
 			const std::vector<fs::path>& paths,
-			const std::vector<int>& selectedLines = {})
+			const std::vector<std::int32_t>& selectedLines = {})
 		{
 			UnifiedDiffCoverageFilters filters;
 			std::vector<FileFilter::File> files;
@@ -113,8 +114,8 @@ namespace CppCoverageTest
 
 	//-------------------------------------------------------------------------
 	bool IsLineSelected(
-		int lineNumber,
-		const std::vector<int>& selectedLines)
+		std::int32_t lineNumber,
+		const std::vector<std::int32_t>& selectedLines)
 	{
 		const fs::path filename = L"diff";
 		auto filters = CreateFilter({ filename }, selectedLines);
@@ -133,7 +134,7 @@ namespace CppCoverageTest
 	//-------------------------------------------------------------------------
 	TEST(UnifiedDiffCoverageFilterManagerTest, IsLineSelected)
 	{
-		const std::vector<int> selectedLines = { 3, 5, 10 };
+		const std::vector<std::int32_t> selectedLines = { 3, 5, 10 };
 
 		ASSERT_TRUE(IsLineSelected(3, selectedLines));
 		ASSERT_TRUE(IsLineSelected(5, selectedLines));

@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <vector>
 #include <string>
@@ -34,7 +35,7 @@ namespace OpenCppCoverageTest
 		const std::string& exportType,
 		const std::filesystem::path& output);
 	
-	int RunCoverageFor(
+	std::int32_t RunCoverageFor(
 		const std::vector<std::pair<std::string, std::string>>& coverageArguments,
 		const std::filesystem::path& programToRun,
 		const std::vector<std::wstring>& arguments,

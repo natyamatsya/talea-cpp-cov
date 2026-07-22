@@ -178,21 +178,21 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	int PdbLineTableCache::GetMemoryHitCount() const
+	std::int32_t PdbLineTableCache::GetMemoryHitCount() const
 	{
 		std::lock_guard<std::mutex> lock(mutex_);
 		return memoryHitCount_;
 	}
 
 	//-------------------------------------------------------------------------
-	int PdbLineTableCache::GetDiskHitCount() const
+	std::int32_t PdbLineTableCache::GetDiskHitCount() const
 	{
 		std::lock_guard<std::mutex> lock(mutex_);
 		return diskHitCount_;
 	}
 
 	//-------------------------------------------------------------------------
-	int PdbLineTableCache::GetMissCount() const
+	std::int32_t PdbLineTableCache::GetMissCount() const
 	{
 		std::lock_guard<std::mutex> lock(mutex_);
 		return missCount_;
@@ -280,7 +280,7 @@ namespace CppCoverage
 			auto virtualAddress = reader.Read<int64_t>();
 			auto length = reader.Read<uint32_t>();
 			table->functions_.push_back(
-			    {virtualAddress, static_cast<unsigned long>(length)});
+			    {virtualAddress, static_cast<std::uint32_t>(length)});
 		}
 
 		if (reader.failed_ || reader.Remaining() != 0)

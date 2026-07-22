@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include "FileFilterExport.hpp"
 
@@ -40,7 +41,7 @@ namespace FileFilter
 			const std::optional<std::filesystem::path>& rootDiffFolder);
 
 		bool IsSourceFileSelected(const std::filesystem::path&);
-		bool IsLineSelected(const std::filesystem::path&, int lineNumber);
+		bool IsLineSelected(const std::filesystem::path&, std::int32_t lineNumber);
 		std::vector<std::filesystem::path> GetUnmatchedPaths() const;
 
 	private:

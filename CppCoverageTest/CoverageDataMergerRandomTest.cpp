@@ -112,7 +112,7 @@ namespace CppCoverageTest
 
 		//---------------------------------------------------------------------
 		std::vector<Plugin::CoverageData> AddRandomCoverageDataCollection(
-			int maxRandomValue,
+			std::int32_t maxRandomValue,
 			LineInfoHasBeenExecuted& mergedLineInfo)
 		{
 			std::default_random_engine generator;

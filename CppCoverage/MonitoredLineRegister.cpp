@@ -119,8 +119,8 @@ namespace CppCoverage
 	MonitoredLineRegister::~MonitoredLineRegister() = default;
 
 	//----------------------------------------------------------------------------
-	unsigned char MonitoredLineRegister::ResolveOriginalInstruction(
-	    const Address& address, unsigned char oldInstruction) const
+	std::uint8_t MonitoredLineRegister::ResolveOriginalInstruction(
+	    const Address& address, std::uint8_t oldInstruction) const
 	{
 		// At an already-armed branch breakpoint the byte read from memory is
 		// the 0xCC, so substitute the real original byte the branch manager
@@ -400,7 +400,7 @@ namespace CppCoverage
 	void MonitoredLineRegister::RestoreOriginalBytes(
 	    HANDLE hProcess,
 	    DWORD64 startAddress,
-	    std::vector<unsigned char>& buffer) const
+	    std::vector<std::uint8_t>& buffer) const
 	{
 		for (size_t i = 0; i < buffer.size(); ++i)
 		{
@@ -423,7 +423,7 @@ namespace CppCoverage
 	{
 		// Functions larger than this are not disassembled (their lines fall
 		// back to one breakpoint each). Purely a robustness bound.
-		constexpr unsigned long MaxScannedFunctionSize = 1 << 20;
+		constexpr std::uint32_t MaxScannedFunctionSize = 1 << 20;
 
 		if (pendingLines_.empty())
 			return;

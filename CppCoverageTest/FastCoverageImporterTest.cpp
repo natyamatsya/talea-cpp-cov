@@ -59,9 +59,9 @@ namespace CppCoverageTest
 	{
 		cov::FastCoverageImporter::TemplateReport report;
 		report.stem_ = L"foo";
-		// Line 1 runs for both; line 2 only for <int>; line 3 only for <double>.
+		// Line 1 runs for both; line 2 only for <std::int32_t>; line 3 only for <double>.
 		report.instantiations_.push_back(
-		    MakeInstantiation(L"foo<int>", {{1, 5}, {2, 5}, {3, 0}}));
+		    MakeInstantiation(L"foo<std::int32_t>", {{1, 5}, {2, 5}, {3, 0}}));
 		report.instantiations_.push_back(
 		    MakeInstantiation(L"foo<double>", {{1, 5}, {2, 0}, {3, 5}}));
 
@@ -69,7 +69,7 @@ namespace CppCoverageTest
 		    cov::FastCoverageImporter::FormatTemplateReport({report});
 
 		EXPECT_NE(std::wstring::npos, markdown.find(L"## foo"));
-		EXPECT_NE(std::wstring::npos, markdown.find(L"foo<int>"));
+		EXPECT_NE(std::wstring::npos, markdown.find(L"foo<std::int32_t>"));
 		EXPECT_NE(std::wstring::npos, markdown.find(L"foo<double>"));
 
 		// Lines 2 and 3 are gaps (covered in one instantiation only); line 1

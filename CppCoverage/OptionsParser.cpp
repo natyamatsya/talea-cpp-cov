@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "OptionsParser.hpp"
 
 #include <format>
@@ -254,7 +255,7 @@ namespace CppCoverage
 		                        Tools::WarningManager& warningManager)
 		{
 			size_t estimatedSize = 0;
-			for (int i = 0; i < argc; ++i)
+			for (std::int32_t i = 0; i < argc; ++i)
 			{
 				auto argument = argv[i];
 				if (argument)
@@ -304,7 +305,7 @@ namespace CppCoverage
 		SplitArgs SplitArguments(int argc, const char** argv)
 		{
 			SplitArgs split;
-			for (int i = 1; i < argc; ++i)
+			for (std::int32_t i = 1; i < argc; ++i)
 			{
 				std::string token = argv[i] ? argv[i] : "";
 				if (!split.hasSeparator && token == "--")
@@ -323,7 +324,7 @@ namespace CppCoverage
 
 	//-------------------------------------------------------------------------
 	const char OptionsParser::PathSeparator = '?';
-	const int OptionsParser::DosCommandLineMaxSize = 8191;
+	const std::int32_t OptionsParser::DosCommandLineMaxSize = 8191;
 
 	//-------------------------------------------------------------------------
 	OptionsParser::OptionsParser(

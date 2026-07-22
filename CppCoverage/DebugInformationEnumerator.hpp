@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <cstdint>
 
 #include <filesystem>
 #include <memory>
@@ -37,10 +38,10 @@ namespace CppCoverage
 	  public:
 		struct Line
 		{
-			Line(unsigned long lineNumber,
+			Line(std::uint32_t lineNumber,
 			     int64_t virtualAddress,
-			     unsigned long symbolIndex,
-			     unsigned long length)
+			     std::uint32_t symbolIndex,
+			     std::uint32_t length)
 			    : lineNumber_{lineNumber},
 			      symbolIndex_{symbolIndex},
 			      virtualAddress_{virtualAddress},
@@ -51,21 +52,21 @@ namespace CppCoverage
 
 			Line& operator=(const Line&) = default;
 
-			unsigned long lineNumber_;
-			unsigned long symbolIndex_;
+			std::uint32_t lineNumber_;
+			std::uint32_t symbolIndex_;
 			int64_t virtualAddress_;
-			unsigned long length_;
+			std::uint32_t length_;
 		};
 
 		// A function's code range, from the PDB function symbols. Straight
 		// -line run analysis never crosses these boundaries. name_ is the
-		// demangled symbol (e.g. "foo<int>"), populated only when the
+		// demangled symbol (e.g. "foo<std::int32_t>"), populated only when the
 		// enumerator is asked for function names (the template/instantiation
 		// axis); it is empty otherwise and never cached.
 		struct FunctionRange
 		{
 			int64_t virtualAddress_;
-			unsigned long length_;
+			std::uint32_t length_;
 			std::wstring name_;
 		};
 

@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include "CppCoverage/CoverageRate.hpp"
 
@@ -25,8 +26,8 @@ namespace CppCoverageTest
 	//-------------------------------------------------------------------------
 	TEST(CoverageRateTest, BasicAccessors)
 	{
-		const int executedLinesCount = 42;
-		const int unexecutedLinesCount = 10;
+		const std::int32_t executedLinesCount = 42;
+		const std::int32_t unexecutedLinesCount = 10;
 
 		cov::CoverageRate rate{ executedLinesCount, unexecutedLinesCount };
 

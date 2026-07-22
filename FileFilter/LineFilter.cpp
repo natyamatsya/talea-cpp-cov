@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "LineFilter.hpp"
 
 #include "FileFilter/FileInfo.hpp"
@@ -56,7 +57,7 @@ namespace FileFilter
 	//-------------------------------------------------------------------------
 	bool LineFilter::IsLineSelected(
 		const std::filesystem::path& filePath,
-		int lineNumber)
+		std::int32_t lineNumber)
 	{
 		// Without any exclusion regex there is nothing to check, so avoid
 		// reading and line-splitting the whole source file per line record.
@@ -68,7 +69,7 @@ namespace FileFilter
 		if (!lines)
 			return true;
 	
-		if (lineNumber <= 0 || lineNumber > static_cast<int>(lines->size()))
+		if (lineNumber <= 0 || lineNumber > static_cast<std::int32_t>(lines->size()))
 		{
 			if (enableLog_)
 				LOG_DEBUG("{} line {} does not exist, skipped", filePath.wstring(), lineNumber);
@@ -107,7 +108,7 @@ namespace FileFilter
 	}
 
 	//-------------------------------------------------------------------------
-	int LineFilter::GetFileReadCount() const
+	std::int32_t LineFilter::GetFileReadCount() const
 	{
 		return fileReadCount_;
 	}

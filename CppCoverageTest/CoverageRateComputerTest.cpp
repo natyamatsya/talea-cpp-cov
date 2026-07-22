@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include <memory>
 
@@ -54,14 +55,14 @@ namespace CppCoverageTest
 			//-----------------------------------------------------------------
 			static void SetFileLineCount(
 				Plugin::FileCoverage& file, 
-				int executedCount, 
-				int unexecutedCount)
+				std::int32_t executedCount, 
+				std::int32_t unexecutedCount)
 			{
-				int line = 0;
+				std::int32_t line = 0;
 
-				for (int i = 0; i < executedCount; ++i)
+				for (std::int32_t i = 0; i < executedCount; ++i)
 					file.AddLine(++line, true);
-				for (int i = 0; i < unexecutedCount; ++i)
+				for (std::int32_t i = 0; i < unexecutedCount; ++i)
 					file.AddLine(++line, false);
 			}
 

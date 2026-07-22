@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include "TestHelper/TemporaryPath.hpp"
 #include "TestHelper/Tools.hpp"
@@ -59,7 +60,7 @@ namespace ExporterTest
 			MOCK_METHOD1(CheckArgument,
 			             void(const std::optional<std::wstring>&));
 			MOCK_METHOD0(GetArgumentHelpDescription, std::wstring());
-			MOCK_CONST_METHOD0(GetExportPluginVersion, int());
+			MOCK_CONST_METHOD0(GetExportPluginVersion, std::int32_t());
 		};
 	}
 
@@ -105,7 +106,7 @@ namespace ExporterTest
 
 		//---------------------------------------------------------------------
 		std::unique_ptr<ExportPluginMock> CreateExportPluginMock(
-		    int pluginVersion = Plugin::CurrentExportPluginVersion) const
+		    std::int32_t pluginVersion = Plugin::CurrentExportPluginVersion) const
 		{
 			auto exportPlugin = std::make_unique<ExportPluginMock>();
 

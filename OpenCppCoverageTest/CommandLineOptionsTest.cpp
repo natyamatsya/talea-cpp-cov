@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 
 #include <filesystem>
 #include "Tools/StringUtils.hpp"
@@ -59,7 +60,7 @@ namespace OpenCppCoverageTest
 		{
 		public:
 			//-----------------------------------------------------------------
-			int RunCoverageOnProgramWithExitCode(
+			std::int32_t RunCoverageOnProgramWithExitCode(
 				std::vector<std::pair<std::string, std::string>> coverageArguments,
 				bool useSourceInSolutionDir = true)
 			{
@@ -80,7 +81,7 @@ namespace OpenCppCoverageTest
 				std::vector<std::pair<std::string, std::string>> coverageArguments,
 				bool useSourceInSolutionDir = true)
 			{
-				int exitCode = RunCoverageOnProgramWithExitCode(coverageArguments,
+				std::int32_t exitCode = RunCoverageOnProgramWithExitCode(coverageArguments,
 					useSourceInSolutionDir);
 
 				ASSERT_EQ(0, exitCode);

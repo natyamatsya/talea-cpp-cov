@@ -114,7 +114,7 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	std::vector<unsigned char>
+	std::vector<std::uint8_t>
 	PeImageFileReader::ReadCode(std::uint32_t rva, std::uint32_t size) const
 	{
 		if (size == 0)
@@ -144,9 +144,9 @@ namespace CppCoverage
 				return {};
 			}
 
-			auto* begin = reinterpret_cast<const unsigned char*>(
+			auto* begin = reinterpret_cast<const std::uint8_t*>(
 			    impl_->file_.data() + fileOffset);
-			return std::vector<unsigned char>(begin, begin + size);
+			return std::vector<std::uint8_t>(begin, begin + size);
 		}
 
 		return {};

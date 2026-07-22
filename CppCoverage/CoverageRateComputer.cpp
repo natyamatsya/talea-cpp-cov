@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "CoverageRateComputer.hpp"
 
 #include "Plugin/Exporter/CoverageData.hpp"
@@ -29,10 +30,10 @@ namespace CppCoverage
 		//---------------------------------------------------------------------
 		CoverageRate ComputeFileCoverage(const Plugin::FileCoverage& file)
 		{
-			int executedLines = 0;
-			int unexecutedLines = 0;
-			int coveredBranches = 0;
-			int totalBranches = 0;
+			std::int32_t executedLines = 0;
+			std::int32_t unexecutedLines = 0;
+			std::int32_t coveredBranches = 0;
+			std::int32_t totalBranches = 0;
 
 			for (const auto& [lineNumber, lineCoverage] : file.GetLineCollection())
 			{

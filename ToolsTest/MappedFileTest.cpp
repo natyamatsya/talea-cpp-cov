@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <cstdint>
 #include "Tools/MappedFile.hpp"
 #include <fstream>
 
@@ -76,7 +77,7 @@ namespace ToolsTests
 		auto lines = GetLines(__FILE__);
 		auto file = Tools::MappedFile::TryCreate(__FILE__);
 
-		ASSERT_LT(0, static_cast<int>(lines.size()));
+		ASSERT_LT(0, static_cast<std::int32_t>(lines.size()));
 		ASSERT_EQ(lines, file->GetLines());
 	}
 

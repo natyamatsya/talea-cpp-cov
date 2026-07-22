@@ -35,7 +35,7 @@ namespace TestHelper
 		auto now = std::chrono::system_clock::now().time_since_epoch();
 		auto seed = static_cast<std::uint32_t>(now.count());
 		std::default_random_engine generator(seed);
-		std::uniform_int_distribution<int> distribution;
+		std::uniform_int_distribution<std::int32_t> distribution;
 		auto temp_directory = fs::temp_directory_path();
 
 		do
