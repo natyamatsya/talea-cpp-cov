@@ -179,23 +179,45 @@ known imports) on a worker while the loader runs would hide most of the 2.3 ms
 per-module parse behind work that happens regardless. Consider making
 pre-parse the default when the import count crosses a threshold.
 
-### 8. Arena-allocate the transient merge/build structures
-The remaining container-heavy hot paths — `MergeCoverageData`,
-`MergeColumnarShards` — build and tear down many small `std::flat_map` /
-`std::vector` / hash nodes per run, one `malloc`/`free` each. A
-`std::pmr::monotonic_buffer_resource` (a stack-backed bump arena) feeding
-`std::pmr` versions of those transient containers would collapse that allocator
-traffic into pointer bumps and a single bulk release, without hand-writing an
-allocator. This is the standard tool for "optimized allocator for our workload";
-the columnar `.cov` format (struct-of-arrays + varint) and `gch::small_vector`
-in `ExecutedAddressManager` already cover the "optimized data layout" half.
-- **Validate first:** profile `MergeCoverageData` to confirm allocator traffic
-  is a real fraction of the 1.48 ms before threading a memory resource through
-  the data model — the win is real only if allocation is actually the cost.
-- **Watch the ABI:** `Plugin::FileCoverage` etc. are part of the exported data
-  model; a `pmr` allocator on their members would change their layout, so scope
-  the arena to *transient* merge scratch, not the persisted model, unless a
-  layout change is intended.
+### 8. Arena-allocate the merge output — PROFILED, worth ~22%
+The container-heavy hot paths (`MergeCoverageData`, `MergeColumnarShards`) build
+many small `std::flat_map` / `std::vector` / `std::wstring` nodes, one
+`malloc`/`free` each. A `std::pmr::monotonic_buffer_resource` (bump arena) would
+collapse that traffic into pointer bumps and a single bulk release, without
+hand-writing an allocator. (The columnar `.cov` format — struct-of-arrays +
+varint — and `gch::small_vector` in `ExecutedAddressManager` already cover the
+"optimized data layout" half.)
+
+**Profiled** (`Benchmarks/MergeAllocProfile.cpp`, a throwaway harness that hooks
+global `new`/`delete`; merging 2 × (3 modules × 20 files × 500 lines), release):
+
+| | MSVC | clang-cl |
+|---|---:|---:|
+| allocations / merge | 13,488 | 13,488 |
+| bytes / merge | 4.51 MiB (~351 B avg) | 4.51 MiB |
+| baseline (malloc/free) | 1.401 ms | 1.629 ms |
+| bump arena | 1.081 ms | 1.265 ms |
+| recoverable | **0.32 ms (22.8%)** | **0.36 ms (22.4%)** |
+
+So allocator traffic is a real ~22% of the merge on both compilers — worth
+doing. Two findings shape the implementation:
+
+- **Most of those allocations are the *output*, not transient scratch.** The
+  arena experiment recovered 22% precisely because *every* allocation — including
+  the merged `CoverageData` that the function returns — came from the arena. A
+  per-call arena reset after the merge would therefore free the result. To
+  capture the full 22%, the data model (`CoverageData` / `ModuleCoverage` /
+  `FileCoverage` / `LineCoverage`, their `flat_map`/`vector`/`wstring` members)
+  must become `std::pmr`-aware and each `CoverageData` must own the
+  `monotonic_buffer_resource` its contents allocate from — so the whole tree is
+  released in one shot when the `CoverageData` dies. Arena-ing only transient
+  scratch would recover much less than 22%.
+- **The ABI blocker is gone.** `Plugin::FileCoverage` etc. used to be an exported
+  cross-DLL/plugin ABI, so changing their layout was off-limits. After the
+  single-static-exe conversion (no external plugins, one static image) there is
+  no external consumer of that layout, so making the data model `pmr` is now
+  safe. It is still a sizeable change to the core model — sequence it deliberately
+  and keep the serializer's golden round-trip green.
 
 ## Tier 3 — build-level wins for the tool itself
 
