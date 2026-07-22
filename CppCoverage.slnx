@@ -7,7 +7,6 @@
   <Project Path="CppCoverageTest/CppCoverageTest.vcxproj">
     <BuildDependency Project="CppCoverage/CppCoverage.vcxproj" />
     <BuildDependency Project="TestCoverageConsole/TestCoverageConsole.vcxproj" />
-    <BuildDependency Project="TestCppCli/TestCppCli.vcxproj" />
     <BuildDependency Project="VehCoverageHelper/VehCoverageHelper.vcxproj" />
   </Project>
   <Project Path="Exporter/Exporter.vcxproj" />
@@ -31,7 +30,6 @@
   <Project Path="TestCoverageConsole/TestCoverageConsole.vcxproj" />
   <Project Path="TestCoverageOptimizedBuild/TestCoverageOptimizedBuild.vcxproj" />
   <Project Path="TestCoverageSharedLib/TestCoverageSharedLib.vcxproj" />
-  <Project Path="TestCppCli/TestCppCli.vcxproj" />
   <Project Path="TestHelper/TestHelper.vcxproj" />
   <Project Path="Tools/Tools.vcxproj" />
   <Project Path="ToolsTest/ToolsTest.vcxproj" />
