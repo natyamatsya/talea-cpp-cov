@@ -55,10 +55,19 @@ first-party code. Concretely, the exempt cases are:
 
 - Platform / debug-API types (`DWORD`, `ULONG`, `BYTE`, `HANDLE`, `HRESULT`,
   Win32 / DIA / CRT parameters and out-parameters).
-- `main`'s `argc` / `argv` and process exit codes, whose `int` is fixed by the
-  hosting environment.
+- The `int main(int argc, ...)` signature the C runtime dictates (its `int`
+  return, `argc`, and the `argv` element type).
 - Signatures dictated by a third-party framework — e.g. GoogleTest fixtures and
   macros — where the `int` (or other type) belongs to that API, not to us.
+
+The exemption is the boundary *itself*, not the value once it has crossed. A
+process exit code is a case in point: it enters as a `DWORD` from
+`GetExitCodeProcess` and leaves as `main`'s `int` return — those two edges are
+exempt — but everywhere in between (the field that stores it, the function that
+returns it, the parameter that carries it through our own code) it is
+first-party and typed `std::int32_t`, with the conversion done by a clean cast
+at each edge. The rule is never to pull the external type inward to avoid a
+cast; convert at the boundary and keep first-party code fixed-width.
 
 Anything that is genuinely our own — including every `for` loop counter over
 our own data — is first-party and takes a fixed-width type.
