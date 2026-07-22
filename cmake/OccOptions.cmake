@@ -27,8 +27,14 @@ target_compile_options(occ_defaults INTERFACE
 	# on the command line, so a per-target -Wno would be re-enabled by -Wall.
 	$<$<CXX_COMPILER_ID:Clang>:-Wno-unused-command-line-argument;-Wno-unused-variable>)
 # Full PDBs and COMDAT folding in Release, as the old build produced.
+# OCC_PROFILE disables /OPT:ICF (identical-COMDAT folding): ICF gives several
+# distinct functions one address, which a sampling profiler / flame graph then
+# misattributes to a single symbol. Everything else (/O2, /DEBUG, /OPT:REF)
+# stays, so the profile still reflects Release codegen.
 target_link_options(occ_defaults INTERFACE
-	$<$<CONFIG:Release>:/DEBUG /OPT:REF /OPT:ICF /INCREMENTAL:NO>)
+	$<$<CONFIG:Release>:/DEBUG /OPT:REF /INCREMENTAL:NO>
+	$<$<AND:$<CONFIG:Release>,$<NOT:$<BOOL:${OCC_PROFILE}>>>:/OPT:ICF>
+	$<$<AND:$<CONFIG:Release>,$<BOOL:${OCC_PROFILE}>>:/OPT:NOICF>)
 
 # --- Default optimization levels (opt-in; see the root CMakeLists.txt) ------
 add_library(occ_opt_default INTERFACE)

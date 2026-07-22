@@ -13,6 +13,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 option(OCC_WERROR "Treat compiler warnings as errors (/WX)" ON)
 option(OCC_MSVC_LTO "Whole-program optimization (/GL, /LTCG) in Release builds with cl" ON)
 option(OCC_MIMALLOC "Use mimalloc as the global allocator (overrides operator new/delete)" OFF)
+option(OCC_PROFILE "Profiling build: Release codegen but /OPT:NOICF for clean flame-graph symbols" OFF)
 set(OCC_SANITIZER "none" CACHE STRING
 	"Sanitizer to build first-party code with: none, address, undefined, address+undefined")
 set_property(CACHE OCC_SANITIZER PROPERTY STRINGS none address undefined address+undefined)
