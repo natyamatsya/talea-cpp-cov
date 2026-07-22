@@ -103,12 +103,19 @@ These are measurable end-to-end with `run_engine_benchmark.ps1`.
 
 ## Prerequisite: verifiable high-performance paths
 
-Two of the fastest paths are under-tested (see the test-matrix analysis), which
-blocks confident optimization — you cannot safely tune what has no equivalence
-check:
-- **FastCov** has *no* debugger-parity test; `FastCoverageImporterTest` only
-  checks report formatting. Add an end-to-end "fastcov == debugger" test before
-  optimizing the fast-mode path.
+The fastest paths were under-tested (see the test-matrix analysis); the gaps
+are now mostly closed, so optimization can be gated on an equivalence check:
+- **FastCov** now has an end-to-end "fastcov == debugger" parity test
+  (`FastCoverageImporterTest.MatchesDebugger`): it runs the instrumented
+  `TestFastCovConsole` fixture, imports the dump and compares to the debugger
+  over the same binary. It is MSVC-only (the clang-cl fast-mode runtime needs
+  lld) and skips under clang-cl. **Open finding:** the same fixture built in
+  the Release preset emits a much smaller `.sancov` region and imports as empty
+  coverage, while a standalone optimized build (and the Debug preset) instrument
+  correctly — so the test runs in Debug and skips in Release pending a fix. The
+  fixture source compiles identically across presets, so the cause is in the
+  Release build environment (linker or the runtime TU under `NDEBUG`), and it
+  may indicate a real fast-mode gap for release-built targets worth chasing.
 - The **VEH** parity matrix (`VehCoverageEngineTest`) now also covers
   multi-module and unhandled access violations. Extending it surfaced two real
   VEH divergences from the debugger, both reproduced with the CLI

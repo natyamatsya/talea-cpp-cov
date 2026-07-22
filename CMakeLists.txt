@@ -92,6 +92,7 @@ add_subdirectory(TestHelper)
 add_subdirectory(TestCoverageSharedLib)
 add_subdirectory(TestCoverageOptimizedBuild)
 add_subdirectory(TestCoverageConsole)
+add_subdirectory(TestFastCovConsole)
 
 # Tests and benchmarks
 add_subdirectory(ToolsTest)

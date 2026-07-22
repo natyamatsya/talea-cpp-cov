@@ -42,6 +42,10 @@ target_link_libraries(CppCoverageTest PRIVATE
 
 # Fixtures this suite runs under its debugger at test time.
 add_dependencies(CppCoverageTest TestCoverageConsole VehCoverageHelper)
+# The fast-mode fixture exists only under MSVC (see TestFastCovConsole).
+if(TARGET TestFastCovConsole)
+	add_dependencies(CppCoverageTest TestFastCovConsole)
+endif()
 
 target_precompile_headers(CppCoverageTest PRIVATE stdafx.h)
 # End-to-end suite: spawns debuggers and child processes. Each case runs in
