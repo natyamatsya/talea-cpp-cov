@@ -109,10 +109,19 @@ check:
 - **FastCov** has *no* debugger-parity test; `FastCoverageImporterTest` only
   checks report formatting. Add an end-to-end "fastcov == debugger" test before
   optimizing the fast-mode path.
-- The **VEH** parity matrix (`VehCoverageEngineTest`) covers basic, threads,
-  handled exceptions, branch, child/nested processes and DLLs, but not
-  optimized-build, multi-module, unload/reload, or unhandled exceptions. Close
-  these before items 5–6.
+- The **VEH** parity matrix (`VehCoverageEngineTest`) now also covers
+  multi-module and unhandled access violations. Extending it surfaced two real
+  VEH divergences from the debugger, both reproduced with the CLI
+  (`--experimental_veh`) and captured as `DISABLED_` parity tests to enable
+  once fixed:
+  - **Unload / reload of a DLL**: VEH does not re-instrument a module after it
+    is unloaded and loaded again, so the reloaded code reads as uncovered.
+  - **Optimized build**: VEH diverges on optimized code where line records
+    share addresses (e.g. over-reporting a line that shares an address with an
+    executed one).
+  A third difference is benign: after an unhandled C++ exception the debugger
+  reports the exception code as the exit code while VEH reports the CRT abort
+  code — coverage matches, only the exit code differs.
 
 Land the parity tests first; then each optimization above can be gated on "still
 matches the debugger, and faster."

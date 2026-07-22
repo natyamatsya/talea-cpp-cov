@@ -19,7 +19,9 @@
 #include "TestTools.hpp"
 #include "TestCoverageConsole/TestCoverageConsole.hpp"
 #include "TestCoverageSharedLib/TestCoverageSharedLib.hpp"
+#include "TestCoverageOptimizedBuild/TestCoverageOptimizedBuild.hpp"
 #include "TestHelper/CoverageDataComparer.hpp"
+#include "TestHelper/Tools.hpp"
 #include "Plugin/Exporter/CoverageData.hpp"
 
 namespace CppCoverageTest
@@ -43,15 +45,20 @@ namespace CppCoverageTest
 		//---------------------------------------------------------------------
 		// The VEH engine must produce exactly the debugger's coverage: it is
 		// a different collection mechanism, not a different measurement.
-		void AssertVehMatchesDebugger(const std::wstring& testArgument)
+		void AssertVehMatchesDebuggerArgs(const TestTools::CoverageArgs& args)
 		{
-			auto args = VehArgs(testArgument);
 			auto debuggerCoverage =
 			    TestTools::ComputeCoverageDataPatterns(args);
 			auto vehCoverage = TestTools::ComputeCoverageDataVeh(args);
 
 			TestHelper::CoverageDataComparer().AssertEquals(debuggerCoverage,
 			                                                vehCoverage);
+		}
+
+		//---------------------------------------------------------------------
+		void AssertVehMatchesDebugger(const std::wstring& testArgument)
+		{
+			AssertVehMatchesDebuggerArgs(VehArgs(testArgument));
 		}
 	}
 
@@ -156,10 +163,73 @@ namespace CppCoverageTest
 		    TestCoverageSharedLib::GetMainCppPath().wstring()};
 		args.coverChildren_ = false;
 
-		auto debuggerCoverage = TestTools::ComputeCoverageDataPatterns(args);
-		auto vehCoverage = TestTools::ComputeCoverageDataVeh(args);
+		AssertVehMatchesDebuggerArgs(args);
+	}
 
-		TestHelper::CoverageDataComparer().AssertEquals(debuggerCoverage,
-		                                                vehCoverage);
+	//-------------------------------------------------------------------------
+	// Optimized code: line records share addresses and functions are
+	// reordered, exercising the VEH engine's line/address handling on the
+	// optimized-build path.
+	//
+	// Known VEH limitation (see docs/PERFORMANCE_ROADMAP.md): it diverges from
+	// the debugger on optimized code (e.g. over-reporting a line that shares an
+	// address with an executed one). Reproduced with the CLI, so it is an
+	// engine gap. Enable this test once VEH matches the debugger here.
+	TEST(VehCoverageEngineTest, DISABLED_OptimizedBuildMatchesDebugger)
+	{
+		TestTools::CoverageArgs args{
+		    {TestCoverageConsole::TestOptimizedBuild},
+		    TestCoverageOptimizedBuild::GetOutputBinaryPath().wstring(),
+		    TestCoverageOptimizedBuild::GetMainCppPath().filename().wstring()};
+		args.coverChildren_ = false;
+		args.optimizedBuildSupport_ = true;
+
+		AssertVehMatchesDebuggerArgs(args);
+	}
+
+	//-------------------------------------------------------------------------
+	// The same source file compiled into two modules: the VEH engine patches
+	// both the executable and the DLL and must produce the debugger's
+	// per-module coverage for each.
+	TEST(VehCoverageEngineTest, MultipleModulesMatchesDebugger)
+	{
+		TestTools::CoverageArgs args{
+		    {TestCoverageConsole::TestFileInSeveralModules},
+		    TestCoverageSharedLib::GetOutputBinaryPath().wstring(),
+		    TestCoverageSharedLib::GetSharedFunctionFilename().wstring()};
+		args.modulePatternCollection_.push_back(
+		    TestCoverageConsole::GetOutputBinaryPath().wstring());
+		args.coverChildren_ = false;
+
+		AssertVehMatchesDebuggerArgs(args);
+	}
+
+	//-------------------------------------------------------------------------
+	// A DLL loaded, unloaded and loaded again: the VEH engine should re-patch
+	// it on the second load and cover it, matching the debugger.
+	//
+	// Known VEH limitation (see docs/PERFORMANCE_ROADMAP.md): it does not, so
+	// the reloaded module's executed lines read as uncovered. Reproduced with
+	// the CLI (--experimental_veh), so it is an engine gap, not a test
+	// artifact. Enable this test once VEH re-instruments reloaded modules.
+	TEST(VehCoverageEngineTest, DISABLED_UnloadReloadDllMatchesDebugger)
+	{
+		TestTools::CoverageArgs args{
+		    {TestCoverageConsole::TestUnloadReloadDll},
+		    TestHelper::GetOutputBinaryPath().wstring(),
+		    TestHelper::GetTestUnloadDllFilename().wstring()};
+		args.coverChildren_ = false;
+
+		AssertVehMatchesDebuggerArgs(args);
+	}
+
+	//-------------------------------------------------------------------------
+	// An unhandled access violation terminates the target mid-run. The
+	// injected VEH handler sits in the exception path, so coverage collected
+	// up to the fault must still match the debugger's.
+	TEST(VehCoverageEngineTest, UnhandledSehExceptionMatchesDebugger)
+	{
+		AssertVehMatchesDebugger(
+		    TestCoverageConsole::TestThrowUnHandledSEHException);
 	}
 }

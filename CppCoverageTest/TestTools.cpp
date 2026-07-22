@@ -192,9 +192,14 @@ namespace CppCoverageTest
 			    args.unifiedDiffSettingsCollection_,
 			    args.excludedLineRegexes_,
 			    args.substitutePdbSourcePath_);
-			settings.SetLineMergingEnabled(args.lineMerging_);
-			settings.SetBranchCoverage(args.branchCoverage_);
+			// Keep this in sync with ComputeCoverageDataPatterns so a VEH-vs-
+			// debugger comparison differs only by collection mechanism.
 			settings.SetCoverChildren(args.coverChildren_);
+			settings.SetContinueAfterCppException(args.continueAfterCppException_);
+			settings.SetOptimizedBuildSupport(args.optimizedBuildSupport_);
+			settings.SetBranchCoverage(args.branchCoverage_);
+			settings.SetLineMergingEnabled(args.lineMerging_);
+			settings.SetPreparseImports(args.preparseImports_);
 
 			return vehEngine.RunCoverage(settings);
 		}
