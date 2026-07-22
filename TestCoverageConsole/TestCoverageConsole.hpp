@@ -24,7 +24,12 @@ namespace TestCoverageConsole
 	//-------------------------------------------------------------------------
 	inline std::filesystem::path GetMainCppPath()
 	{
-		return std::filesystem::path(__FILE__).replace_extension("cpp");
+		// clang-cl's __FILE__ uses forward slashes; normalize to the native
+		// separator so paths built from it satisfy OpenCppCoverage's
+		// backslash-only --sources validation.
+		return std::filesystem::path(__FILE__)
+		    .replace_extension("cpp")
+		    .make_preferred();
 	}
 
 	//-------------------------------------------------------------------------

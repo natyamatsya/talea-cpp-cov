@@ -73,7 +73,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		else if (type == TestCoverageConsole::TestThrowUnHandledCppException)
 			throw 42;
 		else if (type == TestCoverageConsole::TestThrowUnHandledSEHException)
-			*reinterpret_cast<int*>(0) = 42;
+			*[] { static int* volatile p = nullptr; return p; }() = 42; // deliberate AV; volatile hides the null so clang keeps it
 		else if (type == TestCoverageConsole::TestBreakPoint)
 			DebugBreak();
 		else if (type == TestCoverageConsole::TestChildProcess)
