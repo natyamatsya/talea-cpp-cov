@@ -77,6 +77,9 @@ namespace CppCoverage
 	BranchDisassembler::BranchDisassembler(bool is64BitCode)
 	    : impl_{std::make_unique<Impl>()}
 	{
+		// Full decode (not ZYDIS_DECODER_MODE_MINIMAL): rejecting inline data
+		// needs the instruction category and the branch operand type, which
+		// the minimal mode does not populate.
 		auto status =
 		    is64BitCode
 		        ? ZydisDecoderInit(&impl_->decoder_,
@@ -87,17 +90,6 @@ namespace CppCoverage
 		                           ZYDIS_STACK_WIDTH_32);
 		impl_->valid_ = ZYAN_SUCCESS(status);
 
-		// Minimal decode: we only need the mnemonic (to classify the Jcc) and
-		// the instruction length - not operands, category, CPU flags or ISA
-		// metadata. This skips Zydis's semantic-analysis pass, which is the bulk
-		// of per-instruction decode cost.
-		if (impl_->valid_)
-		{
-			status = ZydisDecoderEnableMode(
-			    &impl_->decoder_, ZYDIS_DECODER_MODE_MINIMAL, ZYAN_TRUE);
-			impl_->valid_ = ZYAN_SUCCESS(status);
-		}
-
 		if (!impl_->valid_)
 			LOG_ERROR("Cannot initialize Zydis decoder.");
 	}
@@ -106,36 +98,46 @@ namespace CppCoverage
 	BranchDisassembler::~BranchDisassembler() = default;
 
 	//-------------------------------------------------------------------------
-	std::vector<BranchInstruction> BranchDisassembler::FindConditionalBranches(
+	std::optional<std::vector<BranchInstruction>>
+	BranchDisassembler::FindConditionalBranches(
 	    const std::uint8_t* buffer,
 	    size_t size,
 	    DWORD64 startVirtualAddress) const
 	{
 		std::vector<BranchInstruction> branches;
 		if (!impl_->valid_)
-			return branches;
+			return std::nullopt;
 		size_t offset = 0;
 
 		while (offset < size)
 		{
 			ZydisDecodedInstruction instruction;
-			auto status = ZydisDecoderDecodeInstruction(&impl_->decoder_,
-			                                            nullptr,
-			                                            buffer + offset,
-			                                            size - offset,
-			                                            &instruction);
+			ZydisDecodedOperand operands[ZYDIS_MAX_OPERAND_COUNT];
+			auto status = ZydisDecoderDecodeFull(&impl_->decoder_,
+			                                     buffer + offset,
+			                                     size - offset,
+			                                     &instruction,
+			                                     operands);
 			if (!ZYAN_SUCCESS(status))
 			{
-				// Line ranges from the PDB are instruction aligned, so this
-				// is a defensive path only: skip one byte and resync.
-				++offset;
-				continue;
+				// Not decodable as code: the range contains data (e.g. an
+				// inline switch jump table). Nothing found in it can be
+				// trusted as a patch target.
+				return std::nullopt;
 			}
 
-			// Classify purely by mnemonic: GetBranchCondition returns a value
-			// only for the conditional-jump mnemonics and std::nullopt for
-			// everything else, so no category check is needed (and category is
-			// not decoded in minimal mode anyway). LOOP* are excluded there.
+			if ((instruction.meta.category == ZYDIS_CATEGORY_COND_BR ||
+			     instruction.meta.category == ZYDIS_CATEGORY_UNCOND_BR) &&
+			    operands[0].type != ZYDIS_OPERAND_TYPE_IMMEDIATE)
+			{
+				// Indirect jump: a switch jump table or similar, whose table
+				// bytes live inline in the function's range (see the header).
+				return std::nullopt;
+			}
+
+			// Classify by mnemonic: GetBranchCondition returns a value only
+			// for the conditional-jump mnemonics and std::nullopt for
+			// everything else. LOOP* are excluded there.
 			if (auto condition = GetBranchCondition(instruction.mnemonic))
 			{
 				branches.emplace_back(

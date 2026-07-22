@@ -42,10 +42,11 @@ namespace CppCoverageTest
 		auto branches = disassembler.FindConditionalBranches(
 		    buffer, sizeof(buffer), StartAddress);
 
-		ASSERT_EQ(1u, branches.size());
-		ASSERT_EQ(StartAddress + 2, branches[0].virtualAddress_);
-		ASSERT_EQ(2, branches[0].length_);
-		ASSERT_EQ(cov::BranchCondition::Zero, branches[0].condition_);
+		ASSERT_TRUE(branches.has_value());
+		ASSERT_EQ(1u, branches->size());
+		ASSERT_EQ(StartAddress + 2, (*branches)[0].virtualAddress_);
+		ASSERT_EQ(2, (*branches)[0].length_);
+		ASSERT_EQ(cov::BranchCondition::Zero, (*branches)[0].condition_);
 	}
 
 	//-------------------------------------------------------------------------
@@ -60,10 +61,11 @@ namespace CppCoverageTest
 		auto branches = disassembler.FindConditionalBranches(
 		    buffer, sizeof(buffer), StartAddress);
 
-		ASSERT_EQ(1u, branches.size());
-		ASSERT_EQ(StartAddress, branches[0].virtualAddress_);
-		ASSERT_EQ(6, branches[0].length_);
-		ASSERT_EQ(cov::BranchCondition::NotZero, branches[0].condition_);
+		ASSERT_TRUE(branches.has_value());
+		ASSERT_EQ(1u, branches->size());
+		ASSERT_EQ(StartAddress, (*branches)[0].virtualAddress_);
+		ASSERT_EQ(6, (*branches)[0].length_);
+		ASSERT_EQ(cov::BranchCondition::NotZero, (*branches)[0].condition_);
 	}
 
 	//-------------------------------------------------------------------------
@@ -80,7 +82,8 @@ namespace CppCoverageTest
 		auto branches = disassembler.FindConditionalBranches(
 		    buffer, sizeof(buffer), StartAddress);
 
-		ASSERT_TRUE(branches.empty());
+		ASSERT_TRUE(branches.has_value());
+		ASSERT_TRUE(branches->empty());
 	}
 
 	//-------------------------------------------------------------------------
@@ -95,7 +98,8 @@ namespace CppCoverageTest
 		auto branches = disassembler.FindConditionalBranches(
 		    buffer, sizeof(buffer), StartAddress);
 
-		ASSERT_TRUE(branches.empty());
+		ASSERT_TRUE(branches.has_value());
+		ASSERT_TRUE(branches->empty());
 	}
 
 	//-------------------------------------------------------------------------
@@ -112,11 +116,12 @@ namespace CppCoverageTest
 		auto branches = disassembler.FindConditionalBranches(
 		    buffer, sizeof(buffer), StartAddress);
 
-		ASSERT_EQ(4u, branches.size());
-		ASSERT_EQ(cov::BranchCondition::Below, branches[0].condition_);
-		ASSERT_EQ(cov::BranchCondition::Above, branches[1].condition_);
-		ASSERT_EQ(cov::BranchCondition::Less, branches[2].condition_);
-		ASSERT_EQ(cov::BranchCondition::Greater, branches[3].condition_);
+		ASSERT_TRUE(branches.has_value());
+		ASSERT_EQ(4u, branches->size());
+		ASSERT_EQ(cov::BranchCondition::Below, (*branches)[0].condition_);
+		ASSERT_EQ(cov::BranchCondition::Above, (*branches)[1].condition_);
+		ASSERT_EQ(cov::BranchCondition::Less, (*branches)[2].condition_);
+		ASSERT_EQ(cov::BranchCondition::Greater, (*branches)[3].condition_);
 	}
 
 	//-------------------------------------------------------------------------
@@ -132,8 +137,50 @@ namespace CppCoverageTest
 		auto branches = disassembler.FindConditionalBranches(
 		    buffer, sizeof(buffer), StartAddress);
 
-		ASSERT_EQ(1u, branches.size());
-		ASSERT_EQ(StartAddress + 1, branches[0].virtualAddress_);
-		ASSERT_EQ(cov::BranchCondition::NotZero, branches[0].condition_);
+		ASSERT_TRUE(branches.has_value());
+		ASSERT_EQ(1u, branches->size());
+		ASSERT_EQ(StartAddress + 1, (*branches)[0].virtualAddress_);
+		ASSERT_EQ(cov::BranchCondition::NotZero, (*branches)[0].condition_);
+	}
+
+	//-------------------------------------------------------------------------
+	TEST(BranchDisassemblerTest, IndirectJumpRejectsFunction)
+	{
+		// The dispatch shape MSVC emits for a switch jump table: a range
+		// guard, an indirect jmp through the table, and the table DATA inline
+		// after the code. Everything must be rejected - a breakpoint patched
+		// into the table bytes corrupts the dispatch.
+		const std::uint8_t buffer[] = {
+		    0x83, 0xF9, 0x12,             // cmp ecx, 18
+		    0x77, 0x02,                   // ja +2
+		    0xFF, 0xE0,                   // jmp rax   (indirect)
+		    0xC3,                         // ret
+		    0xA5, 0x62, 0x00, 0x00,       // inline jump-table data
+		    0xA8, 0x62, 0x00, 0x00
+		};
+
+		cov::BranchDisassembler disassembler{true};
+		auto branches = disassembler.FindConditionalBranches(
+		    buffer, sizeof(buffer), StartAddress);
+
+		ASSERT_FALSE(branches.has_value());
+	}
+
+	//-------------------------------------------------------------------------
+	TEST(BranchDisassemblerTest, UndecodableBytesRejectFunction)
+	{
+		// A conditional jump followed by bytes that cannot decode as x64 code
+		// (inline data): the whole range is rejected, including the real Jcc
+		// before the data.
+		const std::uint8_t buffer[] = {
+		    0x74, 0x02,      // je +2
+		    0x62, 0x00, 0x00 // invalid EVEX encoding in 64-bit mode
+		};
+
+		cov::BranchDisassembler disassembler{true};
+		auto branches = disassembler.FindConditionalBranches(
+		    buffer, sizeof(buffer), StartAddress);
+
+		ASSERT_FALSE(branches.has_value());
 	}
 }

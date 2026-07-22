@@ -20,6 +20,7 @@
 #include "MonitoredLineRegister.hpp"
 
 #include <algorithm>
+#include <iterator>
 
 #include "ICoverageFilterManager.hpp"
 #include "Address.hpp"
@@ -43,6 +44,11 @@ namespace CppCoverage
 {
 	namespace
 	{
+		// Functions larger than this are not disassembled (their lines fall
+		// back to one breakpoint each; their branches are not instrumented).
+		// Purely a robustness bound.
+		constexpr std::uint32_t MaxScannedFunctionSize = 1 << 20;
+
 		struct ModuleKind : private Tools::IPEFileHeaderHandler
 		{
 			//----------------------------------------------------------------------------
@@ -165,6 +171,7 @@ namespace CppCoverage
 		pendingLines_.clear();
 		pendingFiles_.clear();
 		functionRanges_.clear();
+		functionBranchCache_.clear();
 
 		if (!debugInformationEnumerator_->Enumerate(modulePath, *this))
 			return false;
@@ -325,21 +332,22 @@ namespace CppCoverage
 			if (selectedLine.length_ == 0)
 				continue;
 
-			auto buffer = Tools::ReadProcessMemory(
-			    hProcess,
-			    reinterpret_cast<void*>(selectedLine.startAddress_),
-			    selectedLine.length_);
+			// PDB line ranges can extend past the code into inline data (the
+			// last record of a jump-table function covers the table bytes), so
+			// they must never be disassembled raw: take the branches from the
+			// enclosing function's validated scan instead and keep only those
+			// inside this line's range.
+			const auto* functionBranches =
+			    GetFunctionBranches(hProcess, selectedLine.startAddress_);
+			if (!functionBranches)
+				continue;
 
-			// Restore the bytes already patched with breakpoints
-			// before disassembling.
-			RestoreOriginalBytes(
-			    hProcess, selectedLine.startAddress_, buffer);
-
-			auto branches = branchDisassembler_->FindConditionalBranches(
-			    buffer.data(), buffer.size(), selectedLine.startAddress_);
-
-			for (const auto& branch : branches)
+			auto lineEnd = selectedLine.startAddress_ + selectedLine.length_;
+			for (const auto& branch : *functionBranches)
 			{
+				if (branch.virtualAddress_ < selectedLine.startAddress_ ||
+				    branch.virtualAddress_ >= lineEnd)
+					continue;
 				Address address{
 				    hProcess,
 				    reinterpret_cast<void*>(branch.virtualAddress_)};
@@ -397,6 +405,66 @@ namespace CppCoverage
 	}
 
 	//--------------------------------------------------------------------------
+	const std::vector<BranchInstruction>*
+	MonitoredLineRegister::GetFunctionBranches(HANDLE hProcess,
+	                                           DWORD64 lineAddress)
+	{
+		const auto& moduleInfo = GetModuleInfo();
+		auto baseOfImage = reinterpret_cast<DWORD64>(moduleInfo.baseOfImage_);
+		auto rva = static_cast<std::int64_t>(lineAddress - baseOfImage);
+
+		// functionRanges_ is sorted by address (OnModuleFunctions contract):
+		// locate the last function starting at or before the line address.
+		auto next = std::upper_bound(
+		    functionRanges_.begin(),
+		    functionRanges_.end(),
+		    rva,
+		    [](std::int64_t value, const FunctionRange& function) {
+			    return value < function.virtualAddress_;
+		    });
+		if (next == functionRanges_.begin())
+			return nullptr;
+		const auto& function = *std::prev(next);
+		if (rva >= function.virtualAddress_ +
+		               static_cast<std::int64_t>(function.length_))
+		{
+			// Between functions: not provably code, no branch instrumentation.
+			return nullptr;
+		}
+
+		auto functionStart =
+		    static_cast<DWORD64>(function.virtualAddress_) + baseOfImage;
+		auto [cached, inserted] =
+		    functionBranchCache_.emplace(functionStart, nullptr);
+		if (!inserted)
+			return cached->second.get();
+
+		if (function.length_ > MaxScannedFunctionSize)
+			return nullptr;
+		try
+		{
+			auto buffer = Tools::ReadProcessMemory(
+			    hProcess,
+			    reinterpret_cast<void*>(functionStart),
+			    function.length_);
+			RestoreOriginalBytes(hProcess, functionStart, buffer);
+			auto branches = branchDisassembler_->FindConditionalBranches(
+			    buffer.data(), buffer.size(), functionStart);
+			if (branches)
+			{
+				cached->second =
+				    std::make_shared<const std::vector<BranchInstruction>>(
+				        std::move(*branches));
+			}
+		}
+		catch (const std::exception&)
+		{
+			// Unreadable code: keep the negative cache entry.
+		}
+		return cached->second.get();
+	}
+
+	//--------------------------------------------------------------------------
 	void MonitoredLineRegister::RestoreOriginalBytes(
 	    HANDLE hProcess,
 	    DWORD64 startAddress,
@@ -421,10 +489,6 @@ namespace CppCoverage
 	//--------------------------------------------------------------------------
 	void MonitoredLineRegister::RegisterPendingLines()
 	{
-		// Functions larger than this are not disassembled (their lines fall
-		// back to one breakpoint each). Purely a robustness bound.
-		constexpr std::uint32_t MaxScannedFunctionSize = 1 << 20;
-
 		if (pendingLines_.empty())
 			return;
 

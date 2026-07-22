@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <format>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -347,19 +348,80 @@ namespace CppCoverage
 		}
 
 		//---------------------------------------------------------------------
-		// Disassembles each selected line's code range (from the PE file, no
-		// live process) to find its conditional jumps, and records a branch
-		// probe per distinct Jcc. Mirrors the debugger's RegisterBranches,
-		// minus the process: same Zydis discovery, same per-line branch index.
-		void DiscoverBranches(const std::filesystem::path& modulePath,
-		                      const std::vector<SelectedLine>& selectedLines,
-		                      ModuleProbes& out)
+		// Disassembles the function enclosing each selected line (from the PE
+		// file, no live process) to find its conditional jumps, and records a
+		// branch probe per distinct Jcc inside the line's range. Mirrors the
+		// debugger's RegisterBranches: same function-scoped, validated Zydis
+		// discovery (PDB line ranges can cover inline jump-table data, so a
+		// raw per-line sweep must never be patched), same per-line branch
+		// index.
+		void DiscoverBranches(
+		    const std::filesystem::path& modulePath,
+		    const std::vector<IDebugInformationHandler::FunctionRange>&
+		        functions,
+		    const std::vector<SelectedLine>& selectedLines,
+		    ModuleProbes& out)
 		{
 			auto reader = PeImageFileReader::TryCreate(modulePath);
 			if (!reader)
 				return;
 
 			BranchDisassembler disassembler{/*is64BitCode*/ true};
+
+			// One validated scan per function, cached: the code bytes (for
+			// the original byte under each probe) and the branches, or
+			// std::nullopt when the function was rejected.
+			struct ScannedFunction
+			{
+				std::uint32_t startRva_;
+				std::vector<std::uint8_t> code_;
+				std::optional<std::vector<BranchInstruction>> branches_;
+			};
+			std::unordered_map<std::uint32_t, ScannedFunction>
+			    scannedFunctions;
+			constexpr std::uint32_t MaxScannedFunctionSize = 1 << 20;
+
+			auto scanEnclosingFunction =
+			    [&](std::uint32_t lineRva) -> const ScannedFunction* {
+				auto next = std::upper_bound(
+				    functions.begin(),
+				    functions.end(),
+				    lineRva,
+				    [](std::uint32_t value,
+				       const IDebugInformationHandler::FunctionRange&
+				           function) {
+					    return static_cast<std::int64_t>(value) <
+					           function.virtualAddress_;
+				    });
+				if (next == functions.begin())
+					return nullptr;
+				const auto& function = *std::prev(next);
+				if (static_cast<std::int64_t>(lineRva) >=
+				    function.virtualAddress_ +
+				        static_cast<std::int64_t>(function.length_))
+					return nullptr;
+
+				auto startRva =
+				    static_cast<std::uint32_t>(function.virtualAddress_);
+				auto [cached, inserted] = scannedFunctions.emplace(
+				    startRva, ScannedFunction{startRva, {}, std::nullopt});
+				auto& scanned = cached->second;
+				if (!inserted)
+					return &scanned;
+
+				if (function.length_ <= MaxScannedFunctionSize)
+				{
+					scanned.code_ =
+					    reader->ReadCode(startRva, function.length_);
+					if (!scanned.code_.empty())
+						scanned.branches_ =
+						    disassembler.FindConditionalBranches(
+						        scanned.code_.data(),
+						        scanned.code_.size(),
+						        startRva);
+				}
+				return &scanned;
+			};
 
 			std::map<std::pair<std::wstring, std::uint32_t>, std::uint32_t>
 			    branchIndexByLine;
@@ -369,16 +431,17 @@ namespace CppCoverage
 			{
 				if (line.length_ == 0)
 					continue;
-				auto buffer = reader->ReadCode(line.rva_, line.length_);
-				if (buffer.empty())
+				const auto* scanned = scanEnclosingFunction(line.rva_);
+				if (!scanned || !scanned->branches_)
 					continue;
 
-				auto branches = disassembler.FindConditionalBranches(
-				    buffer.data(), buffer.size(), line.rva_);
-				for (const auto& branch : branches)
+				auto lineEnd = line.rva_ + line.length_;
+				for (const auto& branch : *scanned->branches_)
 				{
 					auto rva =
 					    static_cast<std::uint32_t>(branch.virtualAddress_);
+					if (rva < line.rva_ || rva >= lineEnd)
+						continue;
 					if (!seenRvas.insert(rva).second)
 						continue;
 
@@ -387,7 +450,7 @@ namespace CppCoverage
 					auto branchIndex = branchIndexByLine[key]++;
 					out.branches_.push_back(
 					    ModuleBranch{rva,
-					                 buffer[rva - line.rva_],
+					                 scanned->code_[rva - scanned->startRva_],
 					                 ToVehCondition(branch.condition_),
 					                 line.filePath_,
 					                 line.lineNumber_,
@@ -435,8 +498,10 @@ namespace CppCoverage
 				return std::nullopt;
 
 			if (settings.GetBranchCoverage())
-				DiscoverBranches(
-				    modulePath, collector.GetSelectedLines(), probes);
+				DiscoverBranches(modulePath,
+				                 collector.GetFunctions(),
+				                 collector.GetSelectedLines(),
+				                 probes);
 			return probes;
 		}
 

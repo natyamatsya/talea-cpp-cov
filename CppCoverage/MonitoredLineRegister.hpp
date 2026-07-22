@@ -18,6 +18,7 @@
 #include <cstdint>
 
 #include "DebugInformationEnumerator.hpp"
+#include "BranchInstruction.hpp"
 #include <memory>
 #include <unordered_map>
 #include <filesystem>
@@ -84,6 +85,13 @@ namespace CppCoverage
 		                      HANDLE hProcess,
 		                      const std::vector<SelectedLine>&);
 
+		// The validated conditional branches of the function containing
+		// lineAddress, or nullptr when there is no enclosing function or its
+		// code range was rejected (inline jump-table data, unreadable or
+		// oversized). Scanned once per function and cached for the module.
+		const std::vector<BranchInstruction>*
+		GetFunctionBranches(HANDLE hProcess, DWORD64 lineAddress);
+
 		void RegisterPendingLines();
 		void RestoreOriginalBytes(HANDLE hProcess,
 		                          DWORD64 startAddress,
@@ -115,5 +123,10 @@ namespace CppCoverage
 		std::vector<PendingLine> pendingLines_;
 		std::vector<std::filesystem::path> pendingFiles_;
 		std::vector<FunctionRange> functionRanges_;
+
+		// function start address -> its validated branches; nullptr = rejected.
+		std::unordered_map<DWORD64,
+		                   std::shared_ptr<const std::vector<BranchInstruction>>>
+		    functionBranchCache_;
 	};
 }

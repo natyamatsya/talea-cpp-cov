@@ -19,6 +19,7 @@
 
 #include <Windows.h>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "CppCoverageExport.hpp"
@@ -34,7 +35,20 @@ namespace CppCoverage
 		explicit BranchDisassembler(bool is64BitCode);
 		~BranchDisassembler();
 
-		std::vector<BranchInstruction>
+		// Disassembles a whole function's code range and returns its
+		// conditional branches. Returns std::nullopt when the range cannot be
+		// proven to be pure code: any decode failure or any indirect jump
+		// rejects the whole function, the same rule LineRunScanner applies.
+		//
+		// The rejection is what makes patching safe: MSVC stores switch jump
+		// tables INLINE in .text (a DWORD target table plus a BYTE index
+		// table, inside the function's range and covered by its PDB line
+		// records). Sweeping those data bytes finds fake "Jcc"s, and a branch
+		// breakpoint written into a jump table corrupts the values the
+		// dispatch sequence later reads - a wild jump in the profiled
+		// program. Every jump-table function necessarily contains an indirect
+		// jmp, so rejecting on indirection catches exactly that case.
+		std::optional<std::vector<BranchInstruction>>
 		FindConditionalBranches(const std::uint8_t* buffer,
 		                        size_t size,
 		                        DWORD64 startVirtualAddress) const;
