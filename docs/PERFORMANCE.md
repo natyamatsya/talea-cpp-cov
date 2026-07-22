@@ -45,6 +45,46 @@ Worst cases are 100k-line programs; Release build, warm PDB cache unless noted.
 | 30-shard `.cov` merge (5,000 files each) | 1,360 ms | 655 ms | columnar `.cov` v2 + bitmap-OR merge |
 | cold startup, 8 import DLLs | ~130 ms | ~115 ms | `--preparse_imports` |
 
+## Engine comparison vs the official release
+
+The levers above, in one place: the same workload — collecting line coverage of
+`CppCoverageTest.exe` (134 unit tests) — run by three tools: the last official
+OpenCppCoverage release (0.9.9.0, debugger only), this fork's debugger engine,
+and this fork's in-process VEH engine. Wall-clock is best-of-5; identical
+`--sources`/`--modules` filters and binary export.
+
+| Tool / engine | Wall-clock | vs official |
+|---|--:|--:|
+| Official 0.9.9.0 (debugger) | 4,551 ms | 1.0× |
+| This fork (debugger) | 2,344 ms | **1.9× faster** |
+| This fork (`--experimental_veh`) | 875 ms | **5.2× faster** (2.7× vs the fork's own debugger) |
+
+The fork's debugger engine alone is ~2× the official release — run merging, the
+DIA-free raw_pdb parser, the `flat_map` / fmt+`to_chars` export & merge paths,
+and mimalloc. VEH compounds it past 5× by removing the cross-process debug-event
+round trip. Coverage output is identical in all three; these are pure
+performance differences.
+
+An ETW CPU-sampling flame graph of `OpenCppCoverage.exe` (self-time, 8 kHz)
+shows *why*:
+
+| Bucket | Debugger | VEH |
+|---|--:|--:|
+| kernel / debug loop | ~80% | ~30% |
+| disassembly + probe setup | ~5% | ~27% |
+| address & hash maps | ~3% | ~4% |
+| mimalloc | ~2% | ~8% |
+
+Under the debugger, ~80% of the tool's CPU is in the kernel — a debug-event
+round trip plus `Read`/`WriteProcessMemory` per breakpoint hit. VEH moves
+servicing into the target (a vectored exception handler records the hit
+in-process), collapsing the tool's kernel work ~9× in absolute samples and
+leaving it bound by one-time probe *setup* (disassembling the target to place
+one breakpoint per straight-line run). Allocation is a non-issue in both,
+absorbed by mimalloc — none of the profiled optimizations surface as hotspots.
+See [`docs/profiling/`](profiling/README.md) for the capture-and-flame-graph
+method used here.
+
 ## Startup (lever 1)
 
 - **Single-pass debug-info enumeration.** The dominant startup cost used to be a
@@ -213,6 +253,11 @@ Two harnesses live under `Benchmarks/`:
   `--experimental_veh`, and cold-cache startup with/without `--preparse_imports`.
   Point it at a representative target (hit-heavy, many/large import DLLs) —
   a trivial program shows every engine within noise.
+
+For CPU flame graphs and the engine comparison above, see
+[`docs/profiling/`](profiling/README.md): a `clang-cl-profile` build preset
+(Release + `/OPT:NOICF` for clean symbols), an ETW capture script, a streaming
+folder that emits a flame-graph SVG, and a best-of-N engine timer.
 
 ## References
 
