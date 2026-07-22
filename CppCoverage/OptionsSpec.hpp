@@ -174,8 +174,9 @@ namespace CppCoverage
 		                  "Format: <pdbStartPath>?<localPath>."}},
 		    std::pair{std::string_view{"export_type"},
 		              std::string_view{
-		                  "Export type: html, cobertura, binary, or a plugin, "
-		                  "each optionally :<output>. Multiple occurrences."}}};
+		                  "Export type: html, cobertura or binary, each "
+		                  "optionally :<output>. Multiple occurrences. Defaults "
+		                  "to html when omitted."}}};
 	};
 }
 
