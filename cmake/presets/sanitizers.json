@@ -1,0 +1,38 @@
+{
+  "version": 10,
+  "include": ["msvc.json", "clang-cl.json"],
+  "configurePresets": [
+    {
+      "name": "msvc-asan",
+      "displayName": "cl.exe x64 Debug + AddressSanitizer",
+      "inherits": "msvc",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "OCC_SANITIZER": "address"
+      }
+    },
+    {
+      "name": "clang-cl-asan",
+      "displayName": "clang-cl x64 Debug + AddressSanitizer",
+      "inherits": "clang-cl",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "OCC_SANITIZER": "address"
+      }
+    },
+    {
+      "name": "clang-cl-ubsan",
+      "displayName": "clang-cl x64 Debug + UndefinedBehaviorSanitizer",
+      "inherits": "clang-cl",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "OCC_SANITIZER": "undefined"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "msvc-asan", "configurePreset": "msvc-asan" },
+    { "name": "clang-cl-asan", "configurePreset": "clang-cl-asan" },
+    { "name": "clang-cl-ubsan", "configurePreset": "clang-cl-ubsan" }
+  ]
+}

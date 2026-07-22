@@ -1,0 +1,42 @@
+{
+  "version": 10,
+  "include": ["base.json"],
+  "configurePresets": [
+    {
+      "name": "clang-cl",
+      "hidden": true,
+      "inherits": "base",
+      "cacheVariables": {
+        "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/x64-clang-cl.cmake"
+      }
+    },
+    {
+      "name": "clang-cl-debug",
+      "displayName": "clang-cl x64 Debug",
+      "inherits": "clang-cl",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "clang-cl-release",
+      "displayName": "clang-cl x64 Release",
+      "inherits": "clang-cl",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "clang-cl-debug", "configurePreset": "clang-cl-debug" },
+    { "name": "clang-cl-release", "configurePreset": "clang-cl-release" }
+  ],
+  "testPresets": [
+    {
+      "name": "clang-cl-debug",
+      "configurePreset": "clang-cl-debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "clang-cl-release",
+      "configurePreset": "clang-cl-release",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}

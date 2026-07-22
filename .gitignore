@@ -15,6 +15,9 @@ nuget.exe
 vcpkg_installed/
 Build/ThirdParty/vcpkg
 
+# CMake preset build trees
+out/
+
 .clang-format
 
 # Local reference material, not part of the fork
