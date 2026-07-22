@@ -116,3 +116,24 @@ check:
 
 Land the parity tests first; then each optimization above can be gated on "still
 matches the debugger, and faster."
+
+## Known clang-cl limitations (coverage of clang-cl-built targets)
+
+Two coverage behaviours differ when the *profiled target* is built with
+clang-cl rather than cl. They are not build-system issues and are tracked here
+because closing them is real feature work; the corresponding tests are skipped
+on clang-cl with these reasons.
+
+1. **Exception-handler funclets are not covered.** clang-cl emits `catch`
+   blocks as separate funclets invoked by the unwinder; the debugger line
+   instrumentation does not record execution inside them, so a `catch` body
+   reads as uncovered even though it runs (cl's handler code is covered).
+   Verified by giving a `catch` a real statement, which is also reported
+   uncovered. Fixing it means instrumenting clang-cl's EH funclet code ranges.
+2. **`--continue_after_cpp_exception` cannot resume.** The feature works by
+   letting execution fall through the throw site after an unhandled C++
+   exception. cl leaves a valid instruction there; clang-cl marks
+   `__CxxThrowException` `noreturn` and emits no continuation, so resuming runs
+   into invalid code. Supporting it on clang-cl would require explicitly
+   redirecting the instruction pointer to a safe continuation, which the throw
+   site does not provide.

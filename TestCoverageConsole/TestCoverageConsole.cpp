@@ -84,7 +84,7 @@ int _tmain(int argc, _TCHAR* argv[])
 			TestFileInSeveralModules();
 		else if (type == TestCoverageConsole::TestSpecialLineInfo)
 			TestCoverageConsole::SpecialLineInfo();
-		else if (false) // to have GetFileWithSpecialChars symbol in release.
+		else if (TestCoverageConsole::NeverTrue()) // keep the symbol; opaque so clang-cl /Od can't fold the branch away
 			TestCoverageConsole::GetFileWithSpecialChars();
 		else if (type == TestCoverageConsole::TestUnloadReloadDll)
 			TestCoverageConsole::UnloadReloadDll();

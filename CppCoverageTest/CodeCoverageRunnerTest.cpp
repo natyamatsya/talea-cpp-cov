@@ -457,8 +457,13 @@ namespace CppCoverageTest
 	TEST_F(CodeCoverageRunnerTest, SpecialLineInfo)
 	{
 #ifdef __clang__
-		GTEST_SKIP() << "Pins cl's line table for the 0x00feefee compiler-"
-		                "generated marker; clang-cl emits different line records.";
+		// Known limitation: the debugger line instrumentation does not cover
+		// clang-cl's exception-handler funclets, so the catch block reads as
+		// unexecuted even though it runs (cl's handler code is covered). See
+		// docs/PERFORMANCE_ROADMAP.md. Not a line-table difference: verified by
+		// giving the catch a real statement, which is also reported uncovered.
+		GTEST_SKIP() << "clang-cl catch-handler funclets are not covered by the "
+		                "debugger line instrumentation (tool limitation).";
 #endif
 		const auto specialLineInfoFilename = TestCoverageConsole::GetSpecialLineInfoFilename().wstring();
 
@@ -473,10 +478,6 @@ namespace CppCoverageTest
 	//-------------------------------------------------------------------------
 	TEST_F(CodeCoverageRunnerTest, UnifiedDiff)
 	{
-#ifdef __clang__
-		GTEST_SKIP() << "Asserts cl's exact executed-line set; clang-cl emits a "
-		                "different line table for the fixture.";
-#endif
 		auto diffPath = std::filesystem::path(PROJECT_DIR) / "Data" / "TestDiff.diff";
 
 		CoverageArgs args{ 
@@ -497,10 +498,6 @@ namespace CppCoverageTest
 	//-------------------------------------------------------------------------
 	TEST_F(CodeCoverageRunnerTest, SpecialChars)
 	{
-#ifdef __clang__
-		GTEST_SKIP() << "clang-cl encodes the non-ASCII source filename "
-		                "differently in the PDB, so the --sources pattern misses.";
-#endif
 		const auto fileWithSpecialChars = TestCoverageConsole::GetFileWithSpecialChars();
 		CoverageArgs args{ 
 			{ L"" },

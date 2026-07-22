@@ -23,7 +23,7 @@ namespace TestCoverageConsole
 	// this function is never called.
 	void __declspec(dllexport) TestDebugInformationEnumerator()
 	{ // @DebugInfoExpected
-		if (false) // @DebugInfoExpected
+		if (NeverTrue()) // @DebugInfoExpected
 		{
 			int answer = 42; // @DebugInfoExpected
 		}

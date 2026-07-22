@@ -18,6 +18,8 @@
 
 #include <filesystem>
 
+#include "OpaqueConditions.hpp"
+
 namespace TestCoverageConsole
 {
 	void FilterByDiff();
