@@ -535,7 +535,7 @@ namespace CppCoverage
 			    hProcess, nullptr, byteSize, MEM_COMMIT, PAGE_READWRITE);
 			if (!remoteMemory)
 			{
-				LOG_ERROR_STREAM << L"VEH: cannot allocate memory in the target.";
+				LOG_ERROR("VEH: cannot allocate memory in the target.");
 				return false;
 			}
 
@@ -577,7 +577,7 @@ namespace CppCoverage
 			}
 
 			if (!success)
-				LOG_ERROR_STREAM << L"VEH: cannot inject the coverage helper.";
+				LOG_ERROR("VEH: cannot inject the coverage helper.");
 
 			VirtualFreeEx(hProcess, remoteMemory, 0, MEM_RELEASE);
 			return success;
@@ -596,13 +596,12 @@ namespace CppCoverage
 				if (status == static_cast<std::uint32_t>(
 				                  VehCoverage::HelperStatus::Error))
 				{
-					LOG_ERROR_STREAM << L"VEH: helper reported error code "
-					          << header->helperErrorCode << L".";
+					LOG_ERROR("VEH: helper reported error code {}.", header->helperErrorCode);
 					return false;
 				}
 				if (GetTickCount64() >= deadline)
 				{
-					LOG_ERROR_STREAM << L"VEH: timed out waiting for the helper.";
+					LOG_ERROR("VEH: timed out waiting for the helper.");
 					return false;
 				}
 				Sleep(1);
@@ -1014,9 +1013,7 @@ namespace CppCoverage
 						     child.ready.get()});
 					else if (!warnedCap)
 					{
-						LOG_WARNING_STREAM << L"VEH: watching the maximum number of "
-						               L"processes for child spawns; deeper "
-						               L"descendants are not instrumented.";
+						LOG_WARNING("VEH: watching the maximum number of processes for child spawns; deeper descendants are not instrumented.");
 						warnedCap = true;
 					}
 				}
@@ -1181,8 +1178,7 @@ namespace CppCoverage
 						// every spawned child would block waiting on a ready
 						// signal that never comes. The header is read by the
 						// helper only after injection below.
-						LOG_WARNING_STREAM << L"VEH: child-process registration "
-						               L"unavailable; child coverage disabled.";
+						LOG_WARNING("VEH: child-process registration unavailable; child coverage disabled.");
 						header->coverChildren = 0;
 						coverChildren = false;
 					}
@@ -1191,12 +1187,11 @@ namespace CppCoverage
 				if (InjectHelper(processHandle.get(), helperDllPath))
 					WaitForHelperReady(header);
 				else
-					LOG_WARNING_STREAM << L"VEH: continuing without instrumentation.";
+					LOG_WARNING("VEH: continuing without instrumentation.");
 			}
 			else
 			{
-				LOG_ERROR_STREAM << L"VEH: cannot create the shared section; "
-				             L"running without instrumentation.";
+				LOG_ERROR("VEH: cannot create the shared section; running without instrumentation.");
 			}
 		}
 

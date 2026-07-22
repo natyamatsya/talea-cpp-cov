@@ -86,9 +86,9 @@ namespace CppCoverage
 		bool isSelected = Match(filename, *moduleFilter_, ostr);
 
 		if (isSelected)
-			LOG_INFO_STREAM << ostr.str();
+			LOG_INFO("{}", ostr.str());
 		else
-			LOG_DEBUG_STREAM << ostr.str();
+			LOG_DEBUG("{}", ostr.str());
 
 		return isSelected;
 	}
@@ -99,7 +99,7 @@ namespace CppCoverage
 		std::wostringstream ostr;
 		bool isSelected = Match(filename, *sourceFilter_, ostr);
 
-		LOG_DEBUG_STREAM << L"Filename" << ostr.str();
+		LOG_DEBUG("Filename{}", ostr.str());
 		return isSelected;		
 	}
 

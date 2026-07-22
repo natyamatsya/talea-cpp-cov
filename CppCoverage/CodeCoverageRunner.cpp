@@ -186,18 +186,13 @@ namespace CppCoverage
 
 		if (pdbLineTableCache)
 		{
-			LOG_DEBUG_STREAM << L"PDB line-table cache: "
-			          << pdbLineTableCache->GetMemoryHitCount()
-			          << L" memory hit(s), "
-			          << pdbLineTableCache->GetDiskHitCount()
-			          << L" disk hit(s), "
-			          << pdbLineTableCache->GetMissCount() << L" miss(es).";
+			LOG_DEBUG("PDB line-table cache: {} memory hit(s), {} disk hit(s), {} miss(es).", pdbLineTableCache->GetMemoryHitCount(), pdbLineTableCache->GetDiskHitCount(), pdbLineTableCache->GetMissCount());
 		}
 
 		auto warningMessageLines = coverageFilterManager_->ComputeWarningMessageLines(
 			settings.GetMaxUnmatchPathsForWarning());
 		for (const auto& line : warningMessageLines)
-				LOG_WARNING_STREAM << line;
+				LOG_WARNING("{}", line);
 		auto filterAdviceMessage = filterAssistant_->GetAdviceMessage();
 		if (filterAdviceMessage)
 			warningManager_->AddWarning(*filterAdviceMessage);
@@ -294,13 +289,13 @@ namespace CppCoverage
 			}
 			case CppCoverage::ExceptionHandlerStatus::Error:
 			{
-				LOG_ERROR_STREAM << exceptionMessage_.str();
+				LOG_ERROR("{}", exceptionMessage_.str());
 
 				return IDebugEventsHandler::ExceptionType::Error;
 			}
 			case CppCoverage::ExceptionHandlerStatus::CppError:
 			{
-				LOG_ERROR_STREAM << exceptionMessage_.str();
+				LOG_ERROR("{}", exceptionMessage_.str());
 
 				return IDebugEventsHandler::ExceptionType::CppError;
 			}

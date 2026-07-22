@@ -267,7 +267,7 @@ namespace CppCoverage
 			                        4))
 			{
 				auto tooLongCmd = OptionsParser::GetTooLongCommandLineMessage();
-				LOG_WARNING_STREAM << tooLongCmd;
+				LOG_WARNING("{}", tooLongCmd);
 				warningManager.AddWarning(tooLongCmd);
 			}
 		}

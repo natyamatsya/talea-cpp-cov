@@ -144,8 +144,7 @@ namespace CppCoverage
 		if (!moduleKind.IsNativeModule(
 		        hProcess, reinterpret_cast<DWORD64>(baseOfImage)))
 		{
-			LOG_INFO_STREAM << modulePath.wstring()
-			         << " is skipped as it is a managed module.";
+			LOG_INFO("{} is skipped as it is a managed module.", modulePath.wstring());
 			return false;
 		}
 

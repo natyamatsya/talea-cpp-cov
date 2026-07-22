@@ -667,16 +667,14 @@ namespace CppCoverage
 			    ModuleCollector collector{filterManager, modulePath};
 			    if (!enumerator.Enumerate(modulePath, collector))
 			    {
-				    LOG_WARNING_STREAM << L"Fast coverage: no debug information for "
-				                << modulePath.wstring();
+				    LOG_WARNING("Fast coverage: no debug information for {}", modulePath.wstring());
 				    return;
 			    }
 
 			    auto reader = PeImageFileReader::TryCreate(modulePath);
 			    if (!reader)
 			    {
-				    LOG_WARNING_STREAM << L"Fast coverage: cannot read module "
-				                << modulePath.wstring();
+				    LOG_WARNING("Fast coverage: cannot read module {}", modulePath.wstring());
 				    return;
 			    }
 			    auto blocks = ReconstructCoverage(*reader,
