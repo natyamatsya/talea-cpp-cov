@@ -134,7 +134,7 @@ namespace OpenCppCoverage
 
 			for (const auto& path : options.GetInputCoveragePaths())
 			{
-				LOG_INFO_STREAM << L"Load coverage file: " << path.wstring();
+				LOG_INFO("Load coverage file: {}", path.wstring());
 				if (!merger.AddColumnarFile(path))
 				{
 					auto errorMsg =
@@ -156,9 +156,7 @@ namespace OpenCppCoverage
 			if (fastCovPaths.empty())
 			{
 				if (options.GetFastCovTemplateReportPath())
-					LOG_WARNING_STREAM
-					    << L"--fastcov_template_report has no effect without "
-					       L"--input_fastcov; no report was written.";
+					LOG_WARNING("--fastcov_template_report has no effect without --input_fastcov; no report was written.");
 				return;
 			}
 
@@ -174,7 +172,7 @@ namespace OpenCppCoverage
 
 			for (const auto& path : fastCovPaths)
 			{
-				LOG_INFO_STREAM << L"Import fast coverage dump: " << path.wstring();
+				LOG_INFO("Import fast coverage dump: {}", path.wstring());
 				auto result = importer.Import(path);
 				coverageDatas.push_back(std::move(result.coverageData_));
 				for (auto& report : result.templates_)
@@ -188,8 +186,7 @@ namespace OpenCppCoverage
 				    cov::FastCoverageImporter::FormatTemplateReport(templates);
 				std::ofstream ofs{*reportPath, std::ios::binary};
 				ofs << Tools::ToUtf8String(markdown);
-				LOG_INFO_STREAM << L"Wrote template coverage report: "
-				         << reportPath->wstring();
+				LOG_INFO("Wrote template coverage report: {}", reportPath->wstring());
 			}
 		}
 
@@ -227,7 +224,7 @@ namespace OpenCppCoverage
 			
 			std::wostringstream ostr;
 			ostr << std::endl << options;
-			LOG_INFO_STREAM << L"Start Program:" << ostr.str();
+			LOG_INFO("Start Program:{}", ostr.str());
 
 			cov::CodeCoverageRunner codeCoverageRunner{ warningManager };
 			cov::CoverageFilterSettings coverageFilterSettings{ options.GetModulePatterns(), options.GetSourcePatterns() };
@@ -260,9 +257,7 @@ namespace OpenCppCoverage
 				if (options.IsExperimentalVehModeEnabled())
 				{
 					if (options.IsCoverChildrenModeEnabled())
-						LOG_WARNING_STREAM << L"--experimental_veh child-process "
-						               L"coverage is experimental (in-process "
-						               L"CreateProcess hook).";
+						LOG_WARNING("--experimental_veh child-process coverage is experimental (in-process CreateProcess hook).");
 
 					cov::VehCoverageEngine vehEngine{warningManager};
 					coverageData.emplace(
@@ -289,11 +284,10 @@ namespace OpenCppCoverage
 			}
 
 			Export(options, exporterPluginManager, coverageData);
-			LOG_INFO_STREAM << L"The code coverage report is not what you expect? See the FAQ "
-				L"https://github.com/OpenCppCoverage/OpenCppCoverage/wiki/FAQ.";
+			LOG_INFO("The code coverage report is not what you expect? See the FAQ https://github.com/OpenCppCoverage/OpenCppCoverage/wiki/FAQ.");
 
 			if (exitCode)
-				LOG_ERROR_STREAM << L"Your program stop with error code: " << exitCode;
+				LOG_ERROR("Your program stop with error code: {}", exitCode);
 			return exitCode;
 		}
 	}
@@ -327,11 +321,11 @@ namespace OpenCppCoverage
 			}
 			catch (const std::exception& e)
 			{
-				LOG_ERROR_STREAM << "Error: " << e.what();
+				LOG_ERROR("Error: {}", e.what());
 			}
 			catch (...)
 			{
-				LOG_ERROR_STREAM << "Unkown Error";
+				LOG_ERROR("Unkown Error");
 			}
 
 			warningManager->DisplayWarnings();

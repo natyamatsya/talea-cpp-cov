@@ -65,9 +65,7 @@ namespace FileFilter
 		if (mModuleData_->relocations_.count(lineAddress) == 0)
 			return true;
 
-		LOG_DEBUG_STREAM << "Optimized build support ignores line "
-			<< lineInfo.lineNumber_
-			<< " of " << fileInfo.filePath_.wstring();
+		LOG_DEBUG("Optimized build support ignores line {} of {}", lineInfo.lineNumber_, fileInfo.filePath_.wstring());
 		return false;
 	}
 

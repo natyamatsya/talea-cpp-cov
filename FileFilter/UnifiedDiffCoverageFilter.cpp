@@ -38,11 +38,11 @@ namespace FileFilter
 				throw std::runtime_error("The file " + unifiedDiffPath.string() + " cannot be opened.");
 
 			auto files = UnifiedDiffParser{}.Parse(ifs);
-			LOG_DEBUG_STREAM << L"Unified diff: " << unifiedDiffPath;
+			LOG_DEBUG("Unified diff: {}", unifiedDiffPath);
 			for (const auto& file : files)
 			{
-				LOG_DEBUG_STREAM << L"Selected lines for " << file.GetPath().wstring() << L": ";
-				LOG_DEBUG_STREAM << file.GetSelectedLines();
+				LOG_DEBUG("Selected lines for {}: ", file.GetPath().wstring());
+				LOG_DEBUG("{}", Tools::Join(file.GetSelectedLines()));
 			}
 			return files;
 		}

@@ -71,7 +71,7 @@ namespace FileFilter
 		if (lineNumber <= 0 || lineNumber > static_cast<int>(lines->size()))
 		{
 			if (enableLog_)
-				LOG_DEBUG_STREAM << filePath.wstring() << L" line " << lineNumber << L" does not exist, skipped";
+				LOG_DEBUG("{} line {} does not exist, skipped", filePath.wstring(), lineNumber);
 			return false;
 		}
 

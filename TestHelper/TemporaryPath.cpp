@@ -54,7 +54,7 @@ namespace TestHelper
 		std::error_code error;
 		if (!fs::remove_all(path_, error))
 		{
-			LOG_ERROR_STREAM << error;
+			LOG_ERROR("{}", error.message());
 		}
 	}
 
