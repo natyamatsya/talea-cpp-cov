@@ -54,8 +54,8 @@ namespace
 }
 
 //-----------------------------------------------------------------------------
-int _tmain(int argc, _TCHAR* argv[])
-{	
+int _tmain(int argc, _TCHAR* argv[]) //! tmain-start
+{
 	if (argc < 2)
 		std::wcout << L"Invalid number of argument:  " << argc << std::endl;
 	else
@@ -97,5 +97,5 @@ int _tmain(int argc, _TCHAR* argv[])
 		else
 			std::wcerr << L"Unsupported type:" << type << std::endl;
 	}
-	return 0;	
+	return 0; //! tmain-return
 }

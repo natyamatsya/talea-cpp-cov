@@ -72,13 +72,27 @@ cast; convert at the boundary and keep first-party code fixed-width.
 Anything that is genuinely our own — including every `for` loop counter over
 our own data — is first-party and takes a fixed-width type.
 
-One further practical exemption: the coverage **test fixtures**
-(`TestCoverageConsole`, `TestCoverageSharedLib`, `TestCoverageOptimizedBuild`)
-whose exact source-line layout is asserted by the coverage tests. They cannot
-gain an `#include <cstdint>` (or any line) without shifting the line numbers the
-tests pin, so they keep their original spelling. If they ever need fixed-width
-types, force-include `<cstdint>` on the target (`/FI cstdint`) rather than
-adding a source line.
+The coverage **test fixtures** (`TestCoverageConsole`, `TestCoverageSharedLib`,
+`TestCoverageOptimizedBuild`) are first-party and conform like everything else.
+They once looked exempt because the coverage tests pin exact source lines, so
+adding an `#include <cstdint>` would shift the numbers the tests assert. That
+coupling was the fixtures' problem to fix, not a licence to keep `int`: the
+tests now locate each line of interest by a marker that travels with it — a
+trailing `//! <tag>` comment resolved at runtime by
+`TestCoverageConsole::GetSourceLineWithTag` (see `SourceLineTag.hpp`), or an
+`@DebugInfoExpected` tag scanned by `DebugInformationEnumeratorTest`, or a
+`__LINE__`-relative offset. With the line numbers no longer hardcoded, the
+fixtures take `<cstdint>` and fixed-width types freely.
+
+The one genuine residual is `TestCoverageConsole/TestDiff.cpp`, which is pinned
+by a golden unified-diff (`CppCoverageTest/Data/TestDiff.diff`) that hardcodes
+both the literal source text (`int value2 = 0;`) and the hunk line numbers.
+Changing its integer spelling would require regenerating that golden file; since
+those `int`s are illustrative coverage-subject lines, not a data contract, the
+file is left as-is until the golden diff is regenerated for another reason. The
+`argc` / `argv` pair relayed from `_tmain` into `RunChildProcesses` stays `int`
+/ `_TCHAR*[]` for the same reason it does in `main` — it is the CRT's argument
+contract, exempt at the boundary.
 
 This will break interop where an API expects its own type: passing a
 `std::uint32_t*` to a parameter typed `DWORD*` (`unsigned long*`) does not

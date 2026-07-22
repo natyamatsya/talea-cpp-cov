@@ -16,13 +16,14 @@
 
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 
 namespace TestCoverageSharedLib
 {
 	__declspec(dllexport) std::filesystem::path GetMainCppPath();
 	__declspec(dllexport) std::filesystem::path GetOutputBinaryPath();
-	__declspec(dllexport) bool IsOdd(int n);
+	__declspec(dllexport) bool IsOdd(std::int32_t n);
 
 	__declspec(dllexport) void CallSharedFunctionFromSharedLib();
 
@@ -33,7 +34,7 @@ namespace TestCoverageSharedLib
 	}
 
 	//-------------------------------------------------------------------------
-	inline int GetSharedFunctionLine()
+	inline std::int32_t GetSharedFunctionLine()
 	{
 		return __LINE__ + 4;
 	}

@@ -27,7 +27,7 @@ namespace fs = std::filesystem;
 namespace TestCoverageSharedLib
 {
 	//-------------------------------------------------------------------------
-	bool IsOdd(int n)
+	bool IsOdd(std::int32_t n)
 	{
 		if (n % 2 == 0) 
 			return true;

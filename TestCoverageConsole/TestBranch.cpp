@@ -14,15 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#include <cstdint>
+
 #include "TestBranch.hpp"
 
-// Do not change line numbers: GetTestBranchConditionLine must
-// be the line of the "if" statement below.
+// GetTestBranchConditionLine() locates the "if" below by its //! tag, so this
+// file is free to move; the marker travels with the line.
 namespace TestCoverageConsole
 {
-	int RunTestBranch(bool takeBranch)
+	std::int32_t RunTestBranch(bool takeBranch)
 	{
-		if (takeBranch)
+		if (takeBranch) //! test-branch-condition
 			return 42;
 
 		return 0;

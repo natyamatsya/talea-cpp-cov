@@ -16,8 +16,11 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <filesystem>
+
+#include "SourceLineTag.hpp"
 
 namespace TestCoverageConsole
 {
@@ -45,15 +48,15 @@ namespace TestCoverageConsole
 	}
 
 	//-------------------------------------------------------------------------
-	inline int GetTestCoverageConsoleCppMainStartLine()
+	inline std::int32_t GetTestCoverageConsoleCppMainStartLine()
 	{
-		return 57;
+		return GetSourceLineWithTag(GetMainCppPath(), "//! tmain-start");
 	}
 
 	//-------------------------------------------------------------------------
-	inline int GetTestCoverageConsoleCppMainReturnLine()
+	inline std::int32_t GetTestCoverageConsoleCppMainReturnLine()
 	{
-		return GetTestCoverageConsoleCppMainStartLine() + 43;
+		return GetSourceLineWithTag(GetMainCppPath(), "//! tmain-return");
 	}
 
 	const std::wstring TestBasic = L"TestBasic";

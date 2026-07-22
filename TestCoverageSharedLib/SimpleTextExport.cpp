@@ -60,7 +60,7 @@ class SimpleTextExport : public Plugin::IExportPlugin
 	}
 
 	//-------------------------------------------------------------------------
-	int GetExportPluginVersion() const override
+	std::int32_t GetExportPluginVersion() const override
 	{
 		return Plugin::CurrentExportPluginVersion;
 	}

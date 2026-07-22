@@ -16,16 +16,21 @@
 
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
+
+#include "SourceLineTag.hpp"
 
 namespace TestCoverageConsole
 {
-	int RunTestBranch(bool takeBranch);
+	std::int32_t RunTestBranch(bool takeBranch);
 
 	//-------------------------------------------------------------------------
-	inline int GetTestBranchConditionLine()
+	inline std::int32_t GetTestBranchConditionLine()
 	{
-		return 25;
+		return GetSourceLineWithTag(
+		    std::filesystem::path(__FILE__).replace_extension("cpp"),
+		    "//! test-branch-condition");
 	}
 
 	//-------------------------------------------------------------------------

@@ -16,6 +16,7 @@
 
 #include "TestCoverageOptimizedBuild.hpp"
 
+#include <cstdint>
 #include <memory>
 
 namespace TestCoverageOptimizedBuild
@@ -36,7 +37,7 @@ namespace TestCoverageOptimizedBuild
 	class CrashInOptimizedBuild
 	{
 	public:
-		explicit CrashInOptimizedBuild(int type)
+		explicit CrashInOptimizedBuild(std::int32_t type)
 		{
 			switch (type)
 			{
@@ -48,7 +49,7 @@ namespace TestCoverageOptimizedBuild
 			};
 		}
 
-		int x;
+		std::int32_t x;
 	};
 
 	//-------------------------------------------------------------------------

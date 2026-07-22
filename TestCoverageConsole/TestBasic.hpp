@@ -16,8 +16,11 @@
 
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <tchar.h>
+
+#include "SourceLineTag.hpp"
 
 namespace TestCoverageConsole
 {
@@ -27,9 +30,11 @@ namespace TestCoverageConsole
 	void UnloadReloadDll();
 
 	//-------------------------------------------------------------------------
-	inline int GetTestBasicLine()
+	inline std::int32_t GetTestBasicLine()
 	{
-		return 61;
+		return GetSourceLineWithTag(
+		    std::filesystem::path(__FILE__).replace_extension("cpp"),
+		    "//! run-test-basic");
 	}
 
 	//-------------------------------------------------------------------------

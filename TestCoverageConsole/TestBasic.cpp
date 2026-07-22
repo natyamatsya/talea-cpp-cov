@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "TestBasic.hpp"
+#include <cstdint>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -58,13 +59,13 @@ namespace
 namespace TestCoverageConsole
 {
 	//-------------------------------------------------------------------------
-	void RunTestBasic()
+	void RunTestBasic() //! run-test-basic
 	{
 		if (false)
 		{
-			int answer = 42;
+			std::int32_t answer = 42;
 		}
-		volatile int excludedLine = 42; // For CodeCoverageRunnerTest::ExcludedLine
+		volatile std::int32_t excludedLine = 42; // For CodeCoverageRunnerTest::ExcludedLine
 	}
 
 	//-------------------------------------------------------------------------

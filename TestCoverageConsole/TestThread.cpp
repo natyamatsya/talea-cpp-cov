@@ -18,6 +18,7 @@
 
 #include "TestThread.hpp"
 
+#include <cstdint>
 #include <thread>
 
 namespace TestCoverageConsole
@@ -27,7 +28,7 @@ namespace TestCoverageConsole
 	{
 		std::thread t([]()
 		{
-			int answer = 42;
+			std::int32_t answer = 42;
 		});
 		t.join();
 	}

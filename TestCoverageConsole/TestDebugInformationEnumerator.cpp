@@ -16,6 +16,8 @@
 
 #include "TestDebugInformationEnumerator.hpp"
 
+#include <cstdint>
+
 namespace TestCoverageConsole
 {
 	//-------------------------------------------------------------------------
@@ -25,7 +27,7 @@ namespace TestCoverageConsole
 	{ // @DebugInfoExpected
 		if (NeverTrue()) // @DebugInfoExpected
 		{
-			int answer = 42; // @DebugInfoExpected
+			std::int32_t answer = 42; // @DebugInfoExpected
 		}
 	} // @DebugInfoExpected
 }
