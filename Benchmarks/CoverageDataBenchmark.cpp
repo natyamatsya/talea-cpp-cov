@@ -32,6 +32,8 @@
 #include "Plugin/Exporter/FileCoverage.hpp"
 #include "Plugin/Exporter/LineCoverage.hpp"
 #include "CppCoverage/CoverageDataMerger.hpp"
+#include "CppCoverage/RawPdbReader.hpp"
+#include "CppCoverage/PdbLineTableCache.hpp"
 #include "Exporter/Binary/CoverageDataSerializer.hpp"
 #include "Exporter/Binary/CoverageDataDeserializer.hpp"
 #include "Exporter/Binary/ColumnarCoverage.hpp"
@@ -172,7 +174,11 @@ namespace
 	}
 
 	//---------------------------------------------------------------------
-	void CoberturaLine_Current(benchmark::State& state)
+	// Named "Legacy" because it is the pre-modernization baseline kept for
+	// comparison, NOT what the exporter ships: production formats the hot
+	// integer attributes with fmt::format_to (see CoberturaExporter.cpp),
+	// closer to the *_Fmt numbers below.
+	void CoberturaLine_Legacy(benchmark::State& state)
 	{
 		auto lines = MakeLines();
 		for (auto _ : state)
@@ -229,6 +235,37 @@ namespace
 	}
 
 	//-------------------------------------------------------------------------
+	// Cold PDB line-table parse: the dominant per-module startup cost, and the
+	// raw_pdb reader is the default collection path (--no_raw_pdb falls back to
+	// DIA). Parses CppCoverage.dll's own PDB - a large, representative module -
+	// fresh each iteration. The OS keeps the file warm, so this measures parse
+	// CPU, not disk I/O.
+	void ParsePdbRawPdb(benchmark::State& state)
+	{
+		const auto module = std::filesystem::path{OUT_DIR} / L"CppCoverage.dll";
+		if (!std::filesystem::exists(module))
+		{
+			state.SkipWithError("CppCoverage.dll not found next to the benchmark");
+			return;
+		}
+
+		std::size_t fileCount = 0;
+		for (auto _ : state)
+		{
+			CppCoverage::ModuleLineTable table;
+			if (!CppCoverage::RawPdbReader::TryRead(module, table))
+			{
+				state.SkipWithError("RawPdbReader::TryRead failed");
+				return;
+			}
+			fileCount = table.files_.size();
+			benchmark::DoNotOptimize(table);
+		}
+		state.counters["source_files"] =
+		    benchmark::Counter(static_cast<double>(fileCount));
+	}
+
+	//-------------------------------------------------------------------------
 	void ExportCobertura(benchmark::State& state)
 	{
 		auto coverageData = CreateCoverageData();
@@ -246,6 +283,7 @@ BENCHMARK(MergeCoverageData);
 BENCHMARK(MergeColumnarShards)->Arg(2)->Arg(10)->Arg(30);
 BENCHMARK(SerializeAndDeserializeCoverageData);
 BENCHMARK(ExportCobertura);
-BENCHMARK(CoberturaLine_Current);
+BENCHMARK(CoberturaLine_Legacy);
 BENCHMARK(CoberturaLine_StdFormat);
 BENCHMARK(CoberturaLine_Fmt);
+BENCHMARK(ParsePdbRawPdb);
