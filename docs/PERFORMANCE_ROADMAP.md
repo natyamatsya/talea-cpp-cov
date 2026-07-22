@@ -25,8 +25,9 @@ formats already in place.
 
 Where wall-clock actually goes on a real run: **cold start** is dominated by
 per-module PDB parsing; **steady state** by breakpoint servicing (debug-event
-round trips, already cut by run merging and the VEH engine); **finish** by
-export formatting. The items below target each in turn.
+round trips, already cut by run merging and the now-default in-process VEH
+engine — see the parity section below); **finish** by export formatting. The
+items below target each in turn.
 
 ## Compiler comparison: MSVC (`cl`) vs `clang-cl`
 
@@ -286,22 +287,47 @@ are now mostly closed, so optimization can be gated on an equivalence check:
   fast-mode runtime would be more robust sizing the counter array from the
   sanitizer boundary/init-callback bounds rather than the PE section's
   `VirtualSize`.
-- The **VEH** parity matrix (`VehCoverageEngineTest`) now also covers
-  multi-module and unhandled access violations. Extending it surfaced two real
-  VEH divergences from the debugger, both reproduced with the CLI
-  (`--experimental_veh`) and captured as `DISABLED_` parity tests to enable
+- The **VEH** parity matrix (`VehCoverageEngineTest`) covers the basic, thread,
+  handled/unhandled-exception, branch, DLL, multi-module, child- and
+  nested-child-process paths, and an unloaded-then-reloaded DLL. With that
+  matrix green the in-process VEH engine is now the **default** collection
+  engine: `--no_veh` selects the classic debugger, and the old opt-in
+  `--experimental_veh` is a deprecated no-op.
+
+  Promoting it to the default meant it had to survive scenarios the opt-in flag
+  never exercised — chiefly **unfiltered, multi-module runs** (no `--modules`) —
+  which required hardening it first:
+  - **Self-instrumentation — fixed.** Without a `--modules` filter the engine
+    discovered every module next to the target, including its own injected
+    `VehCoverageHelper.dll`; the helper then planted int3 across its own code
+    (handler included) and self-trapped (deterministic `STATUS_BREAKPOINT` / AV,
+    host timing out "waiting for the helper"). The helper is now excluded from
+    discovery — it is a coverage mechanism, not a target.
+  - **Filter assistant — wired in.** The "No modules / source files were
+    selected" advice was a debugger-engine construct, so under VEH it was
+    silent. The VEH engine now feeds its own `FilterAssistant` every candidate
+    module and source during offline probe discovery and surfaces the advice.
+  - **Unload / reload of a DLL — DONE.** The unload notification retires the
+    module's active range and releases its claim, so a reload re-plants probes
+    into the same cumulative hit array. Parity test enabled.
+  - **Crash UI — suppressed.** A faulting target under VEH has no debugger to
+    consume its second-chance exception, so an intentional crash would pop a WER
+    dialog. The helper now sets `SEM_NOGPFAULTERRORBOX` in the target before its
+    main runs, so it fails silently with the *same* exit code and coverage as
+    the debugger.
+
+  One real divergence remains, captured as a `DISABLED_` parity test to enable
   once fixed:
-  - **Unload / reload of a DLL**: VEH does not re-instrument a module after it
-    is unloaded and loaded again, so the reloaded code reads as uncovered.
   - **Optimized build**: VEH diverges on optimized code where line records
     share addresses (e.g. over-reporting a line that shares an address with an
     executed one).
-  A third difference is benign: after an unhandled C++ exception the debugger
+
+  A further difference is benign: after an unhandled C++ exception the debugger
   reports the exception code as the exit code while VEH reports the CRT abort
   code — coverage matches, only the exit code differs.
 
-Land the parity tests first; then each optimization above can be gated on "still
-matches the debugger, and faster."
+The parity matrix has landed and the engine is the default; each optimization
+above can now be gated on "still matches the debugger, and faster."
 
 ## Known clang-cl limitations (coverage of clang-cl-built targets)
 
