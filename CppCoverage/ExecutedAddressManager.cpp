@@ -21,7 +21,7 @@
 #include <algorithm>
 #include <map>
 
-#include <boost/container/small_vector.hpp>
+#include <gch/small_vector.hpp>
 
 #include "Tools/Log.hpp"
 
@@ -44,7 +44,10 @@ namespace CppCoverage
 		std::uint8_t instructionToRestore_;
 		void* dllBaseOfImage_;
 		// Probe ids reached by this address (indices, stable across growth).
-		boost::container::small_vector<std::uint32_t, 1> probes_;
+		// Inline capacity 1: the common one-probe-per-address case stays inline
+		// and allocates no heap. gch::small_vector (vendored) spills to the heap
+		// for the rarer multi-probe addresses.
+		gch::small_vector<std::uint32_t, 1> probes_;
 	};
 
 	//-------------------------------------------------------------------------

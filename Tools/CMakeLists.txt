@@ -19,7 +19,7 @@ target_compile_definitions(Tools PRIVATE TOOLS_EXPORTS)
 # are linked statically into Tools.dll per the custom vcpkg triplet.
 target_link_libraries(Tools
 	PUBLIC fmt::fmt spdlog::spdlog
-	PRIVATE occ_boost PCRE2::8BIT mio::mio Dbghelp)
+	PRIVATE PCRE2::8BIT mio::mio Dbghelp)
 
 target_precompile_headers(Tools PRIVATE stdafx.h)
 set_source_files_properties(dllmain.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)

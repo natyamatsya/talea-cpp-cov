@@ -13,7 +13,6 @@ add_library(occ::FileFilter ALIAS FileFilter)
 occ_apply_conventions(FileFilter)
 target_compile_definitions(FileFilter PRIVATE FILEFILTER_EXPORTS)
 target_link_libraries(FileFilter
-	PUBLIC occ::Tools
-	PRIVATE occ_boost)
+	PUBLIC occ::Tools)
 
 target_precompile_headers(FileFilter PRIVATE stdafx.h)

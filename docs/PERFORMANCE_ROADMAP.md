@@ -116,20 +116,37 @@ These are measurable end-to-end with `run_engine_benchmark.ps1`.
 
 ## Tier 4 — dependency cleanup
 
-### Drop the boost-container / boost-range dependencies for standard C++
-The `boost-container` and `boost-range` vcpkg packages are used in a handful of
-places; with C++23 (and `std::flat_map` now in the STL) most have standard
-replacements. Audit each use and migrate where a standard facility is
-equivalent:
+### Drop the boost dependency — DONE
+The audit found that boost had already receded to two live uses (everything else
+— `boost::log`, `boost::regex`, `boost::algorithm`, `boost::program_options`,
+`boost::property_tree`, `boost::spirit`, `boost::uuids` — was replaced in
+earlier work and survives only as historical comments). Both are now gone, so
+**the project no longer depends on boost at all**:
+
+- `boost::range` (`boost::count_if` in `CodeCoverageRunnerTest`) → classic
+  `std::count_if(begin, end, pred)`. `boost::count_if` was itself only a
+  `begin/end` wrapper over `std::count_if`, so this is the exact 1:1 replacement;
+  the `std::ranges` overload was deliberately avoided — its iterator wrapping can
+  be slower, markedly so under MSVC's checked iterators in Debug.
 - `boost::container::flat_map` / `flat_set` → `std::flat_map` / `std::flat_set`.
-- `boost::container::small_vector` / `static_vector` → keep (no standard
-  equivalent yet) or a local implementation, if any are used.
-- `boost::range` adaptors / algorithms → `std::ranges` (views, `join`, etc.).
-- `boost::optional` / `boost::variant`, if present → `std::optional` /
-  `std::variant`.
-Removing them trims the vcpkg build (a large chunk of the first-build time) and
-the custom static-linkage triplet handling. Do it behind the test matrix, one
-header at a time, keeping each step green.
+  Done in the line-coverage store (Tier 1, item 1).
+- `boost::container::small_vector<std::uint32_t, 1>` in `ExecutedAddressManager`
+  → **vendored `gch::small_vector`** (Gene Harvey, MIT; a single header under
+  `SmallVector/gch/`). There is no standard small-buffer-with-spill vector —
+  `std::inplace_vector` (C++26) is fixed-capacity and cannot spill to the heap,
+  so it does not cover the multi-probe case — and the inline capacity of 1 saves
+  a heap allocation on the common one-probe-per-address path, of which there can
+  be hundreds of thousands, so a plain `std::vector` would regress the hot path.
+  A header-only vendored library keeps that optimization without any package
+  dependency. There is no vcpkg port for it, so it is vendored like `RawPdb` and
+  `Zydis`.
+
+Net effect: `boost-range` and `boost-container` are both removed from
+`vcpkg.json`; the `occ_boost` CMake interface (which also pulled in `bcrypt`, a
+transitive-only boost dependency) is deleted; `find_package(Boost ...)` is gone.
+The vcpkg build no longer fetches or builds any boost package. Revisit only if a
+standard small-vector with heap spill lands, at which point the vendored header
+can be dropped for the STL type.
 
 ## Prerequisite: verifiable high-performance paths
 

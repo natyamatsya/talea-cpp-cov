@@ -27,4 +27,4 @@ target_compile_options(TestCoverageConsole PRIVATE
 	# re-enabled by /W3's -Wall.)
 	$<$<CXX_COMPILER_ID:Clang>:-Wno-null-dereference;-Wno-pragma-once-outside-header>)
 target_link_libraries(TestCoverageConsole PRIVATE
-	occ_boost occ::TestCoverageOptimizedBuild occ::TestCoverageSharedLib occ::Tools)
+	occ::TestCoverageOptimizedBuild occ::TestCoverageSharedLib occ::Tools)

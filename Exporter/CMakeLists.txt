@@ -22,7 +22,7 @@ target_compile_options(Exporter PRIVATE /wd4251)
 # (ExporterTest instantiates ctemplate symbols directly).
 target_link_libraries(Exporter
 	PUBLIC occ::CppCoverage occ::Plugin occ::Tools ctemplate::ctemplate
-	PRIVATE occ_boost fmt::fmt)
+	PRIVATE fmt::fmt)
 
 target_precompile_headers(Exporter PRIVATE stdafx.h)
 

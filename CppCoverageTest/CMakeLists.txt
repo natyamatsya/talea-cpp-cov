@@ -35,7 +35,7 @@ add_executable(CppCoverageTest
 
 occ_apply_conventions(CppCoverageTest)
 target_link_libraries(CppCoverageTest PRIVATE
-	occ_boost occ_gtest
+	occ_gtest
 	occ::CppCoverage occ::FileFilter occ::Plugin
 	occ::TestCoverageOptimizedBuild occ::TestCoverageSharedLib
 	occ::TestHelper occ::Tools)

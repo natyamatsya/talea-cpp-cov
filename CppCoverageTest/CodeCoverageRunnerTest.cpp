@@ -17,9 +17,9 @@
 #include "stdafx.h"
 #include <cstdint>
 
+#include <algorithm>
 #include <filesystem>
 #include "Tools/StringUtils.hpp"
-#include <boost/range/algorithm/count_if.hpp>
 
 #include <memory>
 
@@ -162,7 +162,8 @@ namespace CppCoverageTest
 		intptr_t CountExecutedLines(const Plugin::FileCoverage& file)
 		{
 			auto lines = file.GetLines();
-			return boost::count_if(lines,
+			return std::count_if(
+				lines.begin(), lines.end(),
 				[](const auto& line) { return line.HasBeenExecuted(); });
 		}
 

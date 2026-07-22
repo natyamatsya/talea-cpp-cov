@@ -83,7 +83,7 @@ namespace CppCoverage
 		};
 
 		// The addresses (per process) that reach a set of probes. Defined in
-		// the .cpp so the boost small_vector stays out of the header.
+		// the .cpp so the vendored small_vector header stays out of this header.
 		struct AddressData;
 
 		std::uint32_t InternFile(const std::wstring& filename);

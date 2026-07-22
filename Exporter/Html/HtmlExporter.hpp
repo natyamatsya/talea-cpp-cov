@@ -35,12 +35,6 @@ namespace CppCoverage
 	class CoverageRateComputer;
 }
 
-namespace boost
-{
-	template <typename T>
-	class optional;
-}
-
 namespace Exporter
 {
 	class HtmlFolderStructure;

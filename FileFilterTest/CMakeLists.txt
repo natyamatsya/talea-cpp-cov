@@ -9,7 +9,7 @@ add_executable(FileFilterTest
 
 occ_apply_conventions(FileFilterTest)
 target_link_libraries(FileFilterTest PRIVATE
-	occ_boost occ_gtest
+	occ_gtest
 	occ::FileFilter occ::TestCoverageOptimizedBuild occ::TestHelper occ::Tools)
 
 target_precompile_headers(FileFilterTest PRIVATE stdafx.h)

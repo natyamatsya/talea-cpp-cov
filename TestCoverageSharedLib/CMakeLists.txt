@@ -11,7 +11,6 @@ target_compile_options(TestCoverageSharedLib PRIVATE
 	$<$<AND:$<CONFIG:Debug>,$<CXX_COMPILER_ID:MSVC>>:/JMC>
 	$<$<CONFIG:Release>:/Od>)
 target_link_libraries(TestCoverageSharedLib
-	PUBLIC occ::Plugin
-	PRIVATE occ_boost)
+	PUBLIC occ::Plugin)
 
 target_precompile_headers(TestCoverageSharedLib PRIVATE stdafx.h)

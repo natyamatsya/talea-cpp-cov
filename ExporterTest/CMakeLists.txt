@@ -15,7 +15,7 @@ occ_apply_conventions(ExporterTest)
 target_compile_definitions(ExporterTest PRIVATE
 	$<$<CONFIG:Debug>:_SCL_SECURE_NO_WARNINGS>)
 target_link_libraries(ExporterTest PRIVATE
-	occ_boost occ_gtest
+	occ_gtest
 	occ::CppCoverage occ::Exporter occ::Plugin occ::TestHelper occ::Tools)
 
 target_precompile_headers(ExporterTest PRIVATE stdafx.h)

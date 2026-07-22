@@ -39,11 +39,6 @@ target_compile_options(occ_opt_default INTERFACE
 target_link_options(occ_opt_default INTERFACE
 	$<$<AND:$<CONFIG:Release>,$<CXX_COMPILER_ID:MSVC>,$<BOOL:${OCC_MSVC_LTO}>>:/LTCG>)
 
-# --- Boost.props -------------------------------------------------------------
-add_library(occ_boost INTERFACE)
-target_link_libraries(occ_boost INTERFACE Boost::boost Boost::container bcrypt)
-target_compile_definitions(occ_boost INTERFACE BOOST_CONFIG_SUPPRESS_OUTDATED_MESSAGE)
-
 # --- GTest.props -------------------------------------------------------------
 add_library(occ_gtest INTERFACE)
 target_link_libraries(occ_gtest INTERFACE GTest::gmock)
