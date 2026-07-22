@@ -13,7 +13,7 @@ formats already in place.
 | `MergeCoverageData` | 3.1 ms | 3 modules x 20 files x 500 lines = 30k lines |
 | `MergeColumnarShards/30` | 15.5 ms | ~0.5 ms per same-build shard |
 | `SerializeAndDeserializeCoverageData` | 3.5 ms | columnar `.cov` round-trip |
-| `ExportCobertura` | 18.4 ms | full document, the fixture dataset |
+| `ExportCobertura` | 9.3 ms | full document, the fixture dataset (was 18.4 ms; see Tier 1 #2) |
 | `CoberturaLine_{Legacy,Fmt}` | 42 / 10 ms | 100k `<line/>` elements, baseline vs fmt |
 | `FindConditionalBranches/100000` | 14.4 ms | ~70 MiB/s Zydis decode |
 
@@ -35,16 +35,15 @@ cache behaviour on large modules.
 - **Effort:** medium (touches the plugin ABI — coordinate with the version bump).
 - **Measure:** `MergeCoverageData`, `ExportCobertura`.
 
-### 2. Format the Cobertura document without `wostringstream`
-The exporter writes structure through a `std::wostringstream` with an imbued
-locale (`CoberturaExporter.cpp:77-78`) and only formats the hot integer
-attributes with `fmt::format_to`. The benchmark shows a full `fmt` line path is
-~4x the legacy stream path; extending that to the whole element (one
-`fmt::format_to` into a reused `std::wstring`, no per-attribute stream
-insertions, no `Escape` allocation for values that can't contain markup) should
-move `ExportCobertura` toward the `CoberturaLine_Fmt` envelope.
-- **Effort:** low–medium.
-- **Measure:** `ExportCobertura`, `CoberturaLine_*`.
+### 2. Format the Cobertura document without `wostringstream` — DONE
+The exporter previously wrote every element through a `std::wostream` via
+`operator<<`, paying the stream's locale/codecvt and stream-buffer dispatch on
+each insertion. `XmlWriter` now builds the whole document in a reused
+`std::wstring` (integers via `fmt::format_to`, escaping appended in place) and
+writes it once. Output is byte-for-byte identical (golden-file test);
+`ExportCobertura` dropped from **18.4 ms to 9.3 ms** (~2x), at the
+`CoberturaLine_Fmt` envelope. The same buffer-then-write approach applies to
+the HTML exporter next.
 
 ### 3. Emit reports as UTF-8 directly
 The Cobertura path round-trips through `Tools::ToUtf8String` /

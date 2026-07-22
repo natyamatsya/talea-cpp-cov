@@ -52,26 +52,6 @@ namespace Exporter
 	namespace
 	{
 		//---------------------------------------------------------------------
-		std::wstring Escape(const std::wstring& value)
-		{
-			std::wstring result;
-			result.reserve(value.size());
-			for (auto c : value)
-			{
-				switch (c)
-				{
-					case L'&': result += L"&amp;"; break;
-					case L'<': result += L"&lt;"; break;
-					case L'>': result += L"&gt;"; break;
-					case L'\'': result += L"&apos;"; break;
-					case L'"': result += L"&quot;"; break;
-					default: result += c; break;
-				}
-			}
-			return result;
-		}
-
-		//---------------------------------------------------------------------
 		std::wstring FormatRate(double value)
 		{
 			std::wostringstream ostr;
@@ -104,29 +84,52 @@ namespace Exporter
 
 		//---------------------------------------------------------------------
 		// Minimal indentation-aware XML writer matching property_tree output.
+		//
+		// The whole document is built in an in-memory std::wstring and written
+		// to the stream once by Flush(). A wostream applies its locale/codecvt
+		// and dispatches through the stream buffer on every insertion, so the
+		// per-element operator<< form used previously spent most of its time in
+		// stream machinery rather than formatting; appending to a reused buffer
+		// and writing it in a single call is several times faster on documents
+		// with many <line/> elements. The produced characters are identical.
 		class XmlWriter
 		{
 		  public:
 			explicit XmlWriter(std::wostream& ostr) : ostr_{ostr}
 			{
-				ostr_ << L"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n";
+				buffer_.reserve(64 * 1024);
+				buffer_ += L"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n";
+			}
+
+			// Write the accumulated document to the stream. Called explicitly
+			// so an I/O error propagates as an exception (not from a dtor).
+			void Flush()
+			{
+				ostr_.write(buffer_.data(),
+				            static_cast<std::streamsize>(buffer_.size()));
+				buffer_.clear();
 			}
 
 			void OpenTag(const std::wstring& name)
 			{
 				Indent();
-				ostr_ << L'<' << name;
+				buffer_ += L'<';
+				buffer_ += name;
 			}
 
 			void Attr(const std::wstring& name, const std::wstring& value)
 			{
-				ostr_ << L' ' << name << L"=\"" << Escape(value) << L"\"";
+				buffer_ += L' ';
+				buffer_ += name;
+				buffer_ += L"=\"";
+				AppendEscaped(value);
+				buffer_ += L'"';
 			}
 
 			// Integer attributes are the hot path (one per source line). Their
 			// decimal text never contains a character that needs escaping, so we
-			// format straight into the stream and skip both the std::to_wstring
-			// and the Escape allocation. fmt is locale-independent, so the output
+			// format straight into the buffer and skip both the std::to_wstring
+			// and the escape scan. fmt is locale-independent, so the output
 			// matches std::to_wstring byte-for-byte. Constrained to integral
 			// types so string-literal values still pick the overload above;
 			// bool is excluded so it can never format as true/false instead
@@ -135,7 +138,7 @@ namespace Exporter
 			    requires(!std::same_as<T, bool>)
 			void Attr(const std::wstring& name, T value)
 			{
-				fmt::format_to(std::ostreambuf_iterator<wchar_t>{ostr_},
+				fmt::format_to(std::back_inserter(buffer_),
 				               L" {}=\"{}\"",
 				               name,
 				               value);
@@ -144,37 +147,59 @@ namespace Exporter
 			// Close the opening tag as a self-closed, empty element.
 			void CloseEmpty()
 			{
-				ostr_ << L"/>\n";
+				buffer_ += L"/>\n";
 			}
 
 			// Close the opening tag; the element has children.
 			void CloseWithChildren()
 			{
-				ostr_ << L">\n";
+				buffer_ += L">\n";
 				++depth_;
 			}
 
 			// Emit text content on the same line and close: <name>text</name>.
 			void CloseWithText(const std::wstring& name, const std::wstring& text)
 			{
-				ostr_ << L'>' << Escape(text) << L"</" << name << L">\n";
+				buffer_ += L'>';
+				AppendEscaped(text);
+				buffer_ += L"</";
+				buffer_ += name;
+				buffer_ += L">\n";
 			}
 
 			void CloseTag(const std::wstring& name)
 			{
 				--depth_;
 				Indent();
-				ostr_ << L"</" << name << L">\n";
+				buffer_ += L"</";
+				buffer_ += name;
+				buffer_ += L">\n";
 			}
 
 		  private:
 			void Indent()
 			{
-				for (int i = 0; i < depth_ * 2; ++i)
-					ostr_ << L' ';
+				buffer_.append(static_cast<std::size_t>(depth_) * 2, L' ');
+			}
+
+			void AppendEscaped(const std::wstring& value)
+			{
+				for (auto c : value)
+				{
+					switch (c)
+					{
+						case L'&': buffer_ += L"&amp;"; break;
+						case L'<': buffer_ += L"&lt;"; break;
+						case L'>': buffer_ += L"&gt;"; break;
+						case L'\'': buffer_ += L"&apos;"; break;
+						case L'"': buffer_ += L"&quot;"; break;
+						default: buffer_ += c; break;
+					}
+				}
 			}
 
 			std::wostream& ostr_;
+			std::wstring buffer_;
 			int depth_ = 0;
 		};
 
@@ -425,5 +450,6 @@ namespace Exporter
 	{
 		XmlWriter writer{ ostream };
 		WriteCoverage(writer, coverageData);
+		writer.Flush();
 	}
 }
