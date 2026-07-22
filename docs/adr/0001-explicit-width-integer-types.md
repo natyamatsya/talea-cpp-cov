@@ -72,6 +72,14 @@ cast; convert at the boundary and keep first-party code fixed-width.
 Anything that is genuinely our own — including every `for` loop counter over
 our own data — is first-party and takes a fixed-width type.
 
+One further practical exemption: the coverage **test fixtures**
+(`TestCoverageConsole`, `TestCoverageSharedLib`, `TestCoverageOptimizedBuild`)
+whose exact source-line layout is asserted by the coverage tests. They cannot
+gain an `#include <cstdint>` (or any line) without shifting the line numbers the
+tests pin, so they keep their original spelling. If they ever need fixed-width
+types, force-include `<cstdint>` on the target (`/FI cstdint`) rather than
+adding a source line.
+
 This will break interop where an API expects its own type: passing a
 `std::uint32_t*` to a parameter typed `DWORD*` (`unsigned long*`) does not
 compile, because the pointee types differ even at the same width. That breakage
