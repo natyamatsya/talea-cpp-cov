@@ -21,7 +21,7 @@ formats already in place.
 | `SerializeAndDeserializeCoverageData` | 2.15 ms | columnar `.cov` round-trip (was 3.5 ms; Tier 1 #1) |
 | `ExportCobertura` | 7.30 ms | full document, the fixture dataset (was 18.4 -> 9.3 ms; Tier 1 #1, #2) |
 | `CoberturaLine_{Legacy,StdFormat,Fmt}` | 39.6 / 9.70 / 9.01 ms | 100k `<line/>` elements: baseline vs `std::format` vs fmt |
-| `FindConditionalBranches/100000` | 14.0 ms | ~75 MiB/s Zydis decode |
+| `FindConditionalBranches/100000` | 11.3 ms | ~93 MiB/s Zydis decode (minimal mode; Tier 2 #4) |
 
 Where wall-clock actually goes on a real run: **cold start** is dominated by
 per-module PDB parsing; **steady state** by breakpoint servicing (debug-event
@@ -36,7 +36,7 @@ differs. Measured on the idle baseline machine (10 repetitions, medians, all CVs
 
 | Benchmark | MSVC | clang-cl | Δ | faster |
 |---|---:|---:|---:|---|
-| `FindConditionalBranches/100000` (Zydis decode) | 13.4 ms | 10.9 ms | −19% | clang-cl |
+| `FindConditionalBranches/100000` (Zydis decode, minimal mode) | 11.3 ms | 10.1 ms | −11% | clang-cl |
 | `ParsePdbRawPdb` | 2.12 ms | 1.94 ms | −8% | clang-cl |
 | `ExportCobertura` | 7.32 ms | 5.44 ms | −26% | clang-cl |
 | `CoberturaLine_Fmt` (fmt) | 9.56 ms | 7.50 ms | −22% | clang-cl |
@@ -49,10 +49,11 @@ differs. Measured on the idle baseline machine (10 repetitions, medians, all CVs
 The split is systematic, not noise:
 
 - **`clang-cl` wins the compute / codegen-bound loops** — Zydis instruction
-  decode (branch disassembly, +19% and consistent across the whole sweep),
-  string/number formatting (Cobertura export +26%, `fmt` line emission +22%),
-  and raw byte parsing (raw_pdb +8%). Tight loops where LLVM's backend and
-  vectorizer produce better code.
+  decode (branch disassembly, ~11% after the minimal-mode change of Tier 2 #4;
+  it was ~19% when both compilers ran the full semantic pass, so MSVC gained
+  more from the switch), string/number formatting (Cobertura export +26%, `fmt`
+  line emission +22%), and raw byte parsing (raw_pdb +8%). Tight loops where
+  LLVM's backend and vectorizer produce better code.
 - **MSVC wins the MSVC-STL-container-heavy work** — `std::flat_map` merge (+13%),
   columnar shard merge (+21%), serialize (+9%). These lean entirely on
   Microsoft's own STL (`std::flat_map`, `std::vector`, hashing); `cl`'s codegen
@@ -109,15 +110,25 @@ Applies to the HTML exporter too.
 
 ## Tier 2 — high impact, higher effort or narrower scope
 
-### 4. Faster branch disassembly
-`--branch_coverage` decodes every covered line with
-`ZydisDecoderDecodeInstruction` at full detail (`BranchDisassembler.cpp:109`).
-Only the mnemonic class (is-this-a-Jcc) and length are needed. Zydis's reduced
-decode / `ZydisDisassemble*` fast paths, or `ZYDIS_DECODER_MODE` minimal
-flags, should raise the ~70 MiB/s throughput materially. Only matters for
-branch coverage on large modules, but it is a self-contained win.
-- **Validate first:** confirm the lighter decode still reports Jcc + length
-  correctly against the existing `FindConditionalBranches` output.
+### 4. Faster branch disassembly — DONE
+`--branch_coverage` decoded every covered line with
+`ZydisDecoderDecodeInstruction` running Zydis's full semantic-analysis pass,
+when only the mnemonic (to classify the Jcc) and the instruction length are
+needed. The decoder now runs in `ZYDIS_DECODER_MODE_MINIMAL` (mnemonic +
+length, no category/flags/operands/ISA metadata), and the branch classifier
+relies on the mnemonic alone: `GetBranchCondition` already returns a value only
+for the conditional-jump mnemonics, so the previous
+`meta.category == ZYDIS_CATEGORY_COND_BR` guard was redundant (and category is
+not decoded in minimal mode). `cmov`/`setcc` and `LOOP*` stay excluded, as
+before. Measured (`FindConditionalBranches/100000`, 10-rep medians, idle):
+- MSVC: 13.4 → **11.3 ms** (~75 → ~93 MiB/s, ~16% faster).
+- clang-cl: 10.9 → **10.1 ms** (~105 MiB/s, ~7% faster — its full decode was
+  already tighter, so it had less semantic overhead to shed).
+
+Correctness is covered by `BranchDisassemblerTest` (short/long Jcc, length,
+32/64-bit modes, and — critically — that `cmove`/`setcc` are *not* reported,
+which validates dropping the category guard) and the end-to-end branch-coverage
+tests, all green across the four-config matrix.
 
 ### 5. Coalesce breakpoint writes
 Run merging already cuts the *number* of breakpoints; installation still writes

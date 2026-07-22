@@ -86,6 +86,18 @@ namespace CppCoverage
 		                           ZYDIS_MACHINE_MODE_LEGACY_32,
 		                           ZYDIS_STACK_WIDTH_32);
 		impl_->valid_ = ZYAN_SUCCESS(status);
+
+		// Minimal decode: we only need the mnemonic (to classify the Jcc) and
+		// the instruction length - not operands, category, CPU flags or ISA
+		// metadata. This skips Zydis's semantic-analysis pass, which is the bulk
+		// of per-instruction decode cost.
+		if (impl_->valid_)
+		{
+			status = ZydisDecoderEnableMode(
+			    &impl_->decoder_, ZYDIS_DECODER_MODE_MINIMAL, ZYAN_TRUE);
+			impl_->valid_ = ZYAN_SUCCESS(status);
+		}
+
 		if (!impl_->valid_)
 			LOG_ERROR("Cannot initialize Zydis decoder.");
 	}
@@ -120,15 +132,14 @@ namespace CppCoverage
 				continue;
 			}
 
-			if (instruction.meta.category == ZYDIS_CATEGORY_COND_BR)
+			// Classify purely by mnemonic: GetBranchCondition returns a value
+			// only for the conditional-jump mnemonics and std::nullopt for
+			// everything else, so no category check is needed (and category is
+			// not decoded in minimal mode anyway). LOOP* are excluded there.
+			if (auto condition = GetBranchCondition(instruction.mnemonic))
 			{
-				auto condition = GetBranchCondition(instruction.mnemonic);
-				if (condition)
-				{
-					branches.emplace_back(startVirtualAddress + offset,
-					                      instruction.length,
-					                      *condition);
-				}
+				branches.emplace_back(
+				    startVirtualAddress + offset, instruction.length, *condition);
 			}
 			offset += instruction.length;
 		}
