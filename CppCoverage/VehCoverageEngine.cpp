@@ -77,13 +77,17 @@ namespace CppCoverage
 		constexpr std::size_t MaxScannedFiles = 50000;
 
 		//---------------------------------------------------------------------
-		// A source line in the module's RVA space.
+		// A source line in the module's RVA space. The file is an index into
+		// the module's interned file table (ModuleProbes::files_): a per-line
+		// path COPY made a statically-linked-heavy test exe cost ~100 bytes
+		// of path per line, and a 50-exe suite ran the host into the tens of
+		// gigabytes.
 		struct SelectedLine
 		{
 			std::uint32_t rva_;
 			std::uint32_t length_;
 			std::uint32_t lineNumber_;
-			std::wstring filePath_;
+			std::uint32_t fileIndex_;
 		};
 
 		// One instrumented module: the probe leader RVAs the helper patches,
@@ -94,7 +98,7 @@ namespace CppCoverage
 			std::uint32_t rva_;
 			std::uint8_t originalByte_;
 			VehCoverage::BranchCondition condition_;
-			std::wstring filePath_;
+			std::uint32_t fileIndex_;
 			std::uint32_t lineNumber_;
 			std::uint32_t branchIndex_;
 		};
@@ -103,8 +107,10 @@ namespace CppCoverage
 		{
 			std::filesystem::path path_;
 			std::wstring baseNameLower_;
+			std::vector<std::wstring> files_; // interned source-file paths
 			std::vector<std::uint32_t> probeRvas_;
-			std::vector<std::vector<std::pair<std::wstring, std::uint32_t>>>
+			// (fileIndex, lineNumber) pairs per probe, indices into files_.
+			std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>>
 			    probeLines_;
 			std::vector<ModuleBranch> branches_; // sorted by rva_, may be empty
 		};
@@ -204,6 +210,12 @@ namespace CppCoverage
 				FileFilter::ModuleInfo moduleInfo{nullptr, modulePath_,
 				                                  nullptr};
 
+				// Intern the file once; every selected line refers to it by
+				// index (see SelectedLine::fileIndex_).
+				auto fileIndex = static_cast<std::uint32_t>(files_.size());
+				files_.push_back(path.wstring());
+				bool fileUsed = false;
+
 				const auto& collection = fileInfo.lineInfoColllection_;
 				for (std::size_t i = 0; i < collection.size(); ++i)
 				{
@@ -212,12 +224,15 @@ namespace CppCoverage
 					        moduleInfo, fileInfo, lineInfo))
 						continue;
 
+					fileUsed = true;
 					selectedLines_.push_back(SelectedLine{
 					    static_cast<std::uint32_t>(lineInfo.virtualAddress_),
 					    lines[i].length_,
 					    static_cast<std::uint32_t>(lineInfo.lineNumber_),
-					    path.wstring()});
+					    fileIndex});
 				}
+				if (!fileUsed)
+					files_.pop_back();
 			}
 
 			const std::vector<FunctionRange>& GetFunctions() const
@@ -228,6 +243,10 @@ namespace CppCoverage
 			{
 				return selectedLines_;
 			}
+			std::vector<std::wstring>& GetFiles()
+			{
+				return files_;
+			}
 
 		  private:
 			ICoverageFilterManager& filterManager_;
@@ -235,6 +254,7 @@ namespace CppCoverage
 			FilterAssistant* filterAssistant_;
 			std::vector<FunctionRange> functions_;
 			std::vector<SelectedLine> selectedLines_;
+			std::vector<std::wstring> files_;
 		};
 
 		//---------------------------------------------------------------------
@@ -355,7 +375,7 @@ namespace CppCoverage
 			{
 				auto& target = out.probeLines_[i];
 				for (auto lineIndex : linesByLeader[leaderOrder[i]])
-					target.emplace_back(lines[lineIndex].filePath_,
+					target.emplace_back(lines[lineIndex].fileIndex_,
 					                    lines[lineIndex].lineNumber_);
 			}
 		}
@@ -436,8 +456,8 @@ namespace CppCoverage
 				return &scanned;
 			};
 
-			std::map<std::pair<std::wstring, std::uint32_t>, std::uint32_t>
-			    branchIndexByLine;
+			std::map<std::pair<std::uint32_t, std::uint32_t>, std::uint32_t>
+			    branchIndexByLine; // keyed by (fileIndex, lineNumber)
 			std::unordered_set<std::uint32_t> seenRvas; // first Jcc wins
 
 			for (const auto& line : selectedLines)
@@ -459,13 +479,13 @@ namespace CppCoverage
 						continue;
 
 					auto key =
-					    std::make_pair(line.filePath_, line.lineNumber_);
+					    std::make_pair(line.fileIndex_, line.lineNumber_);
 					auto branchIndex = branchIndexByLine[key]++;
 					out.branches_.push_back(
 					    ModuleBranch{rva,
 					                 scanned->code_[rva - scanned->startRva_],
 					                 ToVehCondition(branch.condition_),
-					                 line.filePath_,
+					                 line.fileIndex_,
 					                 line.lineNumber_,
 					                 branchIndex});
 				}
@@ -508,6 +528,7 @@ namespace CppCoverage
 			            settings.IsLineMergingEnabled(),
 			            collector,
 			            probes);
+			probes.files_ = std::move(collector.GetFiles());
 			if (probes.probeRvas_.empty())
 				return std::nullopt;
 
@@ -669,6 +690,21 @@ namespace CppCoverage
 			std::lock_guard<std::mutex> lock{cache.mutex_};
 			return cache.scansByRoots_.emplace(std::move(key), std::move(paths))
 			    .first->second;
+		}
+
+		//---------------------------------------------------------------------
+		// A PE executable can never be loaded into another process as a
+		// library, so a foreign .exe's probes in a target's shared section are
+		// pure dead weight - with a test-suite build tree (~50 sibling test
+		// exes, each statically linking the project core), they dwarfed every
+		// section. Keep the target's own exe and every non-exe module.
+		bool CanLoadInto(const std::filesystem::path& modulePath,
+		                 const std::filesystem::path& targetExePath)
+		{
+			if (ToLowerAscii(modulePath.extension().wstring()) != L".exe")
+				return true;
+			return ToLowerAscii(modulePath.wstring()) ==
+			       ToLowerAscii(targetExePath.wstring());
 		}
 
 		//---------------------------------------------------------------------
@@ -972,8 +1008,9 @@ namespace CppCoverage
 				    reinterpret_cast<HANDLE>(addressTag),
 				    reinterpret_cast<void*>(
 				        static_cast<std::uintptr_t>(module.probeRvas_[i]))};
-				for (const auto& [filePath, lineNumber] : module.probeLines_[i])
-					manager.RegisterAddress(address, filePath, lineNumber, 0);
+				for (const auto& [fileIndex, lineNumber] : module.probeLines_[i])
+					manager.RegisterAddress(
+					    address, module.files_[fileIndex], lineNumber, 0);
 				if (hits[i])
 					manager.MarkAddressAsExecuted(address);
 			}
@@ -992,32 +1029,116 @@ namespace CppCoverage
 		};
 
 		//---------------------------------------------------------------------
-		void CollectBranchResults(const ModuleProbes& module,
-		                          const VehCoverage::ModuleDescriptor& descriptor,
-		                          const std::uint8_t* base,
-		                          std::vector<BranchResult>& out)
+		// Merges the process tree's coverage incrementally so a child's shared
+		// section can be released the moment its process exits. Keeping every
+		// child's section mapped until the end - and registering every child's
+		// modules separately - made host memory grow with the child count: a
+		// 1655-test ctest run exhausted system commit, killing the host with
+		// bad_alloc and starving the tests themselves into spurious bad_allocs
+		// and SEGFAULTs. One accumulator per module ORs in each process's hit
+		// and branch-outcome bytes; the merged result is registered exactly
+		// once, in Finalize.
+		class CoverageCollector
 		{
-			if (descriptor.branchCount_ == 0)
-				return;
-			std::wstring modulePath =
-			    (descriptor.loadedPath_[0]) ? descriptor.loadedPath_
-			                                : module.path_.wstring();
-			const auto* branchArray =
-			    reinterpret_cast<const VehCoverage::BranchProbe*>(
-			        base + descriptor.branchOffset_);
-			for (std::size_t b = 0; b < module.branches_.size(); ++b)
+		  public:
+			// Reads one process's section; the caller unmaps it afterwards.
+			// Called from the registration thread (reaped children) and the
+			// main thread (root + stragglers), hence the mutex.
+			void Absorb(const std::vector<SharedModuleProbes>& modules,
+			            void* view)
 			{
-				// Every discovered branch is reported, even one never reached
-				// (outcome 0 => neither direction taken), matching the debugger
-				// engine which lists registered branches regardless of hits.
-				const auto& branch = module.branches_[b];
-				out.push_back(BranchResult{modulePath,
-				                           branch.filePath_,
-				                           branch.lineNumber_,
-				                           branch.branchIndex_,
-				                           branchArray[b].outcome_});
+				auto* header = static_cast<VehCoverage::SharedHeader*>(view);
+				auto* descriptors = VehCoverage::GetModuleDescriptors(header);
+				auto* base = static_cast<std::uint8_t*>(view);
+
+				std::lock_guard<std::mutex> lock{mutex_};
+				for (std::size_t i = 0; i < modules.size(); ++i)
+				{
+					const auto& descriptor = descriptors[i];
+					if (!descriptor.loaded_)
+						continue;
+					auto& accumulator = FindOrCreate(modules[i], descriptor);
+					const auto* hits = base + descriptor.hitOffset_;
+					for (std::size_t p = 0; p < accumulator.hits_.size(); ++p)
+						accumulator.hits_[p] |= hits[p];
+					const auto* branchArray =
+					    reinterpret_cast<const VehCoverage::BranchProbe*>(
+					        base + descriptor.branchOffset_);
+					for (std::size_t b = 0;
+					     b < accumulator.branchOutcomes_.size();
+					     ++b)
+						accumulator.branchOutcomes_[b] |=
+						    branchArray[b].outcome_;
+				}
 			}
-		}
+
+			// Registers the merged coverage. Once, after every section has
+			// been absorbed.
+			void Finalize(ExecutedAddressManager& manager,
+			              std::vector<BranchResult>& branchResults)
+			{
+				std::lock_guard<std::mutex> lock{mutex_};
+				// A distinct address tag per module keeps equal RVAs in
+				// different modules separate keys in the manager.
+				std::uintptr_t addressTag = 1;
+				for (auto& [key, accumulator] : accumulators_)
+				{
+					RegisterLoadedModule(*accumulator.probes_,
+					                     accumulator.loadedPath_.c_str(),
+					                     addressTag++,
+					                     accumulator.hits_.data(),
+					                     manager);
+					std::wstring modulePath =
+					    accumulator.loadedPath_.empty()
+					        ? accumulator.probes_->path_.wstring()
+					        : accumulator.loadedPath_;
+					const auto& branches = accumulator.probes_->branches_;
+					for (std::size_t b = 0; b < branches.size(); ++b)
+					{
+						const auto& branch = branches[b];
+						branchResults.push_back(BranchResult{
+						    modulePath,
+						    accumulator.probes_->files_[branch.fileIndex_],
+						    branch.lineNumber_,
+						    branch.branchIndex_,
+						    accumulator.branchOutcomes_[b]});
+					}
+				}
+			}
+
+		  private:
+			struct Accumulator
+			{
+				SharedModuleProbes probes_;
+				std::wstring loadedPath_; // first helper-reported path wins
+				std::vector<std::uint8_t> hits_;
+				std::vector<std::uint8_t> branchOutcomes_;
+			};
+
+			Accumulator&
+			FindOrCreate(const SharedModuleProbes& probes,
+			             const VehCoverage::ModuleDescriptor& descriptor)
+			{
+				auto key = ToLowerAscii(probes->path_.wstring());
+				auto [found, inserted] =
+				    accumulators_.emplace(std::move(key), Accumulator{});
+				auto& accumulator = found->second;
+				if (inserted)
+				{
+					accumulator.probes_ = probes;
+					accumulator.hits_.resize(probes->probeRvas_.size(), 0);
+					accumulator.branchOutcomes_.resize(
+					    probes->branches_.size(), 0);
+				}
+				if (accumulator.loadedPath_.empty() &&
+				    descriptor.loadedPath_[0])
+					accumulator.loadedPath_ = descriptor.loadedPath_;
+				return accumulator;
+			}
+
+			std::mutex mutex_;
+			std::map<std::wstring, Accumulator> accumulators_;
+		};
 
 		//---------------------------------------------------------------------
 		// Attaches the recorded branch outcomes to the built coverage data,
@@ -1092,6 +1213,33 @@ namespace CppCoverage
 		};
 
 		//---------------------------------------------------------------------
+		// Absorbs and releases every tracked child whose process has exited.
+		// Mapping a section only while its process lives is what keeps host
+		// memory flat across ctest-scale child counts. The caller must have
+		// dropped any RegSlot aliasing the child's handles/view first.
+		void ReapExitedChildren(std::vector<ChildCoverage>& children,
+		                        CoverageCollector& collector)
+		{
+			for (auto& child : children)
+			{
+				if (!child.process)
+					continue; // already reaped
+				if (WaitForSingleObject(child.process.get(), 0) !=
+				    WAIT_OBJECT_0)
+					continue;
+				if (child.view)
+					collector.Absorb(child.modules, child.view.get());
+				child.view.reset();
+				child.mapping.reset();
+				child.pending.reset();
+				child.ready.reset();
+				child.process.reset();
+				child.modules.clear();
+				child.modules.shrink_to_fit();
+			}
+		}
+
+		//---------------------------------------------------------------------
 		HANDLE MakeChildEvent(const wchar_t* prefix, DWORD pid)
 		{
 			auto name = std::format(L"{}{}", prefix, pid);
@@ -1137,6 +1285,8 @@ namespace CppCoverage
 			         nullptr,
 			         settings.GetStartInfo().GetWorkingDirectory()))
 			{
+				if (!CanLoadInto(modulePath, exePath))
+					continue;
 				auto probes = ComputeModuleProbesCached(probeCache,
 				                                        modulePath,
 				                                        filterManager,
@@ -1193,6 +1343,7 @@ namespace CppCoverage
 			VehCoverage::SharedHeader* header;
 			HANDLE pending;
 			HANDLE ready;
+			HANDLE process; // to prune the slot once the process exits
 		};
 
 		//---------------------------------------------------------------------
@@ -1209,10 +1360,28 @@ namespace CppCoverage
 		    std::shared_ptr<PdbLineTableCache> pdbLineTableCache,
 		    const std::filesystem::path& helperDllPath,
 		    ProbeCache& probeCache,
+		    CoverageCollector& collector,
 		    std::vector<ChildCoverage>& children)
 		{
 			std::vector<RegSlot> slots;
 			slots.push_back(root);
+
+			// Exited processes spawn nothing anymore: their slots only waste
+			// wait capacity (the MAXIMUM_WAIT_OBJECTS cap), and their backing
+			// ChildCoverage pins a mapped section. Prune the slots first (they
+			// alias the child's handles/view), then reap the children.
+			auto pruneAndReap = [&] {
+				slots.erase(
+				    std::remove_if(
+				        slots.begin(),
+				        slots.end(),
+				        [](const RegSlot& slot) {
+					        return WaitForSingleObject(slot.process, 0) ==
+					               WAIT_OBJECT_0;
+				        }),
+				    slots.end());
+				ReapExitedChildren(children, collector);
+			};
 
 			bool warnedCap = false;
 			std::vector<HANDLE> waitHandles;
@@ -1227,11 +1396,18 @@ namespace CppCoverage
 					waitHandles.push_back(slot.pending);
 				}
 
+				// A finite wait so exited children are reaped promptly even
+				// when nothing spawns.
 				auto result = WaitForMultipleObjects(
 				    static_cast<DWORD>(waitHandles.size()),
 				    waitHandles.data(),
 				    FALSE,
-				    INFINITE);
+				    5000);
+				if (result == WAIT_TIMEOUT)
+				{
+					pruneAndReap();
+					continue;
+				}
 				if (result < WAIT_OBJECT_0 + 1 ||
 				    result >= WAIT_OBJECT_0 + waitHandles.size())
 					break; // stopEvent (index 0) or a wait failure
@@ -1256,7 +1432,8 @@ namespace CppCoverage
 						    {static_cast<VehCoverage::SharedHeader*>(
 						         child.view.get()),
 						     child.pending.get(),
-						     child.ready.get()});
+						     child.ready.get(),
+						     child.process.get()});
 					else if (!warnedCap)
 					{
 						LOG_WARNING("VEH: watching the maximum number of processes for child spawns; deeper descendants are not instrumented.");
@@ -1265,6 +1442,7 @@ namespace CppCoverage
 				}
 				children.push_back(std::move(child));
 				SetEvent(slot.ready);
+				pruneAndReap();
 			}
 		}
 	}
@@ -1336,6 +1514,8 @@ namespace CppCoverage
 		                               filterAssistant_.get(),
 		                               startInfo.GetWorkingDirectory()))
 		{
+			if (!CanLoadInto(modulePath, exePath))
+				continue;
 			auto probes = ComputeModuleProbesCached(probeCache,
 			                                        modulePath,
 			                                        filterManager,
@@ -1388,6 +1568,7 @@ namespace CppCoverage
 		UniqueHandle stopEvent;
 		std::thread registrationThread;
 		std::vector<ChildCoverage> children;
+		CoverageCollector collector;
 
 		if (!modules.empty())
 		{
@@ -1418,8 +1599,10 @@ namespace CppCoverage
 					    CreateEventW(nullptr, TRUE, FALSE, nullptr));
 					if (rootPending && rootReady && stopEvent)
 					{
-						RegSlot rootSlot{
-						    header, rootPending.get(), rootReady.get()};
+						RegSlot rootSlot{header,
+						                 rootPending.get(),
+						                 rootReady.get(),
+						                 processHandle.get()};
 						auto* stop = stopEvent.get();
 						registrationThread = std::thread([&, rootSlot, stop] {
 							RunRegistrationLoop(stop,
@@ -1429,6 +1612,7 @@ namespace CppCoverage
 							                    pdbLineTableCache,
 							                    helperDllPath,
 							                    probeCache,
+							                    collector,
 							                    children);
 						});
 					}
@@ -1472,46 +1656,35 @@ namespace CppCoverage
 
 		ExecutedAddressManager manager;
 		std::vector<BranchResult> branchResults;
-		// A distinct address tag per (process, module) keeps equal RVAs in
-		// different modules - and the same module in different processes -
-		// separate keys in the manager.
-		std::uintptr_t addressTag = 1;
-		auto readback = [&](const std::vector<SharedModuleProbes>& mods,
-		                    void* v) {
-			auto* header = static_cast<VehCoverage::SharedHeader*>(v);
-			auto* descriptors = VehCoverage::GetModuleDescriptors(header);
-			auto* base = static_cast<std::uint8_t*>(v);
-			for (std::size_t i = 0; i < mods.size(); ++i)
-			{
-				// Only modules the helper actually patched contribute, so a
-				// precomputed module that never loaded is omitted.
-				if (!descriptors[i].loaded_)
-					continue;
-				auto* hits = base + descriptors[i].hitOffset_;
-				RegisterLoadedModule(*mods[i],
-				                     descriptors[i].loadedPath_,
-				                     addressTag++,
-				                     hits,
-				                     manager);
-				CollectBranchResults(
-				    *mods[i], descriptors[i], base, branchResults);
-			}
-		};
 
 		if (view)
-			readback(modules, view.get());
+			collector.Absorb(modules, view.get());
 
-		// Children were force-suspended and injected as they spawned; read
-		// their coverage back once they too have exited. All the child and
-		// root handles/views are released automatically when this scope ends
-		// (ChildCoverage and the UniqueHandle/UniqueView locals are RAII).
+		// Most children were absorbed and released the moment they exited
+		// (see ReapExitedChildren); only stragglers still alive when the loop
+		// stopped remain. Bounded wait: a leaked grandchild must not hang the
+		// host - the section stays readable even while its process lives.
 		for (auto& child : children)
 		{
-			if (child.process)
-				WaitForSingleObject(child.process.get(), INFINITE);
+			if (!child.process)
+				continue; // reaped during the run
+			if (WaitForSingleObject(child.process.get(), 30000) ==
+			    WAIT_TIMEOUT)
+			{
+				LOG_WARNING(
+				    "VEH: a covered process is still running after the "
+				    "target exited; reading its coverage as-is.");
+			}
 			if (child.view)
-				readback(child.modules, child.view.get());
+				collector.Absorb(child.modules, child.view.get());
+			child.view.reset();
+			child.mapping.reset();
+			child.pending.reset();
+			child.ready.reset();
+			child.process.reset();
 		}
+
+		collector.Finalize(manager, branchResults);
 
 		auto coverageData = manager.CreateCoverageData(
 		    coverageName, static_cast<std::int32_t>(exitCode));
