@@ -17,8 +17,10 @@
 #include "stdafx.h"
 
 #include <filesystem>
+#include <utility>
 
 #include "CppCoverage/HandleInformation.hpp"
+#include "CppCoverage/Handle.hpp"
 #include "TestCoverageConsole/TestCoverageConsole.hpp"
 #include "Tools/Tool.hpp"
 
@@ -28,7 +30,19 @@ namespace cov = CppCoverage;
 namespace fs = std::filesystem;
 
 namespace CppCoverageTest
-{	
+{
+	namespace
+	{
+		// A releaser must be a function pointer (Handle::Create tests it with
+		// !releaser), so the release count lives in a file-static.
+		int g_handleReleaseCount = 0;
+		bool CountingReleaser(int*)
+		{
+			++g_handleReleaseCount;
+			return true;
+		}
+	}
+
 	//-------------------------------------------------------------------------
 	TEST(HandleInformationTest, ComputeFilename)
 	{
@@ -43,5 +57,26 @@ namespace CppCoverageTest
 		});
 
 		ASSERT_EQ(outputBinaryPath, path);
+	}
+
+	//-------------------------------------------------------------------------
+	// Regression: CreateHandle now returns the Handle inside a Tools::Expected,
+	// so it is genuinely moved (the by-value factory used to elide the move).
+	// A moved-from Handle must not run its releaser, or the surviving Handle's
+	// resource is released early / twice.
+	TEST(HandleTest, MovedFromHandleReleasesExactlyOnce)
+	{
+		int dummy = 0;
+		g_handleReleaseCount = 0;
+
+		{
+			auto handle = cov::CreateHandle(&dummy, &CountingReleaser);
+			ASSERT_TRUE(handle);
+			// Move out of the Expected and back, as the factory return does.
+			auto moved = std::move(*handle);
+			ASSERT_EQ(&dummy, moved.GetValue());
+		}
+
+		ASSERT_EQ(1, g_handleReleaseCount);
 	}
 }

@@ -43,7 +43,16 @@ namespace CppCoverage
 		}
 
 		//---------------------------------------------------------------------
-		Handle(Handle&& handle) = default;
+		// Moving transfers ownership: the source is emptied so only the
+		// destination releases the handle. A defaulted move would leave the
+		// source's handle_ set and double-release - harmless when CreateHandle
+		// returned a Handle by value (guaranteed elision, never moved), but the
+		// factory now returns it inside a Tools::Expected, which really moves.
+		Handle(Handle&& other) noexcept
+		    : handle_(other.handle_), releaser_(other.releaser_)
+		{
+			other.handle_ = T_Handle{};
+		}
 
 		//---------------------------------------------------------------------
 		~Handle()
