@@ -48,12 +48,25 @@ the real value):
   glaze value→`throw`→catch round-trip at the old `:408` is gone — glaze's
   by-value error becomes `std::unexpected` directly.
 
-Deliberately **not** converted (assessed as low value — `catch→expected` façades
-whose callers only propagate to the top-level handler, so they would relocate
-throws without removing a control-flow-throw or a structured error):
-`UnifiedDiffParser::Parse` and `DebugInformationEnumerator::Enumerate`. They
-remain exception-based; convert them only if a future caller needs to branch on
-their errors.
+The rest of the parse/validation layer has since been converted too:
+
+- **`UnifiedDiffParser::Parse` → `Tools::Expected<std::vector<File>>`**, threaded
+  through every helper (`ExtractTargetFile`, `ExtractHunksDifferences`,
+  `ExtractUpdatedLines`, `FillUpdatedLines`, the git-prefix check); the old
+  `ThrowError` became `MakeError` (same message, by value). The
+  `UnifiedDiffParserException` class is kept only for its message constants.
+- **`DebugInformationEnumerator::Enumerate` → `Tools::Expected<bool>`** via a
+  `catch→expected` boundary over the private `EnumerateOrThrow` (the 12 DIA
+  HRESULT throws stay put — they are deep in COM helpers). The concrete win is at
+  the `std::execution::par` preparse site in `CodeCoverageRunner`: with the parse
+  failure reported by value, its best-effort `catch(...)` is removed, so nothing
+  can escape the parallel lambda (§5 #3). The debug-loop, VEH and fast-cov callers
+  are bridged.
+
+**Still on exceptions by design:** the debug-event loop (`Debugger`), the VEH
+handler path, the category-(c) `THROW_LAST_ERROR` Win32 sites, category-(b)
+invariants, and the top-level `main.cpp`/`OpenCppCoverage.cpp` catches — all as
+§6 recommends.
 
 ## Critical distinction
 
