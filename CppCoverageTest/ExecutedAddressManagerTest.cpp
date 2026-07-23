@@ -18,7 +18,6 @@
 #include <cstdint>
 
 #include "CppCoverage/ExecutedAddressManager.hpp"
-#include "CppCoverage/CppCoverageException.hpp"
 #include "Coverage/CoverageData.hpp"
 #include "Coverage/ModuleCoverage.hpp"
 #include "Coverage/FileCoverage.hpp"

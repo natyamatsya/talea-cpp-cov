@@ -102,10 +102,10 @@ namespace Exporter
 			const fs::path& templatePath,
 			const fs::path& output)
 		{
-			auto content = GenerateTemplate(templateDictionary, templatePath);
-			if (!content)
-				return std::unexpected(content.error());
-			return WriteContentTo(*content, output);
+			return GenerateTemplate(templateDictionary, templatePath)
+			    .and_then([&](const std::string& content) {
+				    return WriteContentTo(content, output);
+			    });
 		}
 	}
 	

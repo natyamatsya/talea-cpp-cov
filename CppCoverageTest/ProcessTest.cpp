@@ -16,8 +16,6 @@
 
 #include "stdafx.h"
 
-#include <string_view>
-
 #include "Tools/Tool.hpp"
 
 #include "CppCoverage/StartInfo.hpp"
