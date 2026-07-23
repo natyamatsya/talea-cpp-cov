@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <map>
+#include <optional>
 #include <cstring>
 #include <fstream>
 
@@ -81,7 +82,10 @@ namespace Exporter
 		};
 
 		//---------------------------------------------------------------------
-		// Bounds-checked little-endian reader over an in-memory buffer.
+		// Bounds-checked little-endian reader over an in-memory buffer. On a
+		// short/corrupt read it records a sticky error (first one wins) and
+		// returns a default value rather than throwing; the parse loops stop on
+		// Failed() and Read() surfaces GetError() as the std::expected error.
 		class Reader
 		{
 		public:
@@ -93,7 +97,10 @@ namespace Exporter
 			std::uint8_t U8()
 			{
 				if (p_ >= end_)
-					THROW(L"Truncated columnar coverage file.");
+				{
+					Fail(L"Truncated columnar coverage file.");
+					return 0;
+				}
 				return *p_++;
 			}
 
@@ -119,15 +126,21 @@ namespace Exporter
 						return v;
 					shift += 7;
 					if (shift >= 64)
-						THROW(L"Malformed varint in columnar coverage file.");
+					{
+						Fail(L"Malformed varint in columnar coverage file.");
+						return v;
+					}
 				}
 			}
 
 			std::string Str()
 			{
 				auto n = U32();
-				if (static_cast<size_t>(end_ - p_) < n)
-					THROW(L"Truncated string in columnar coverage file.");
+				if (Remaining() < n)
+				{
+					Fail(L"Truncated string in columnar coverage file.");
+					return {};
+				}
 				std::string s(reinterpret_cast<const char*>(p_), n);
 				p_ += n;
 				return s;
@@ -144,17 +157,30 @@ namespace Exporter
 			void ReadBitmap(std::vector<std::uint8_t>& executed, size_t lineCount)
 			{
 				size_t byteCount = (lineCount + 7) / 8;
-				if (static_cast<size_t>(end_ - p_) < byteCount)
-					THROW(L"Truncated bitmap in columnar coverage file.");
+				if (Remaining() < byteCount)
+				{
+					Fail(L"Truncated bitmap in columnar coverage file.");
+					return;
+				}
 				executed.resize(lineCount);
 				for (size_t i = 0; i < lineCount; ++i)
 					executed[i] = (p_[i / 8] >> (i % 8)) & 1;
 				p_ += byteCount;
 			}
 
+			void Fail(std::wstring message)
+			{
+				if (!error_)
+					error_ = Tools::Error{std::move(message)};
+			}
+
+			bool Failed() const { return error_.has_value(); }
+			const Tools::Error& GetError() const { return *error_; }
+
 		private:
 			const std::uint8_t* p_;
 			const std::uint8_t* end_;
+			std::optional<Tools::Error> error_;
 		};
 
 		//---------------------------------------------------------------------
@@ -172,18 +198,22 @@ namespace Exporter
 		    const std::vector<std::string>& strings,
 		    FileSink&& sink)
 		{
-			auto lookup = [&strings](std::uint32_t id) -> std::filesystem::path {
+			auto lookup =
+			    [&strings, &reader](std::uint32_t id) -> std::filesystem::path {
 				if (id >= strings.size())
-					THROW(L"Bad string id in columnar coverage file.");
+				{
+					reader.Fail(L"Bad string id in columnar coverage file.");
+					return {};
+				}
 				return Tools::Utf8ToWString(strings[id]);
 			};
 
 			auto moduleCount = reader.U32();
-			for (std::uint32_t m = 0; m < moduleCount; ++m)
+			for (std::uint32_t m = 0; m < moduleCount && !reader.Failed(); ++m)
 			{
 				auto modulePath = lookup(reader.U32());
 				auto fileCount = reader.U32();
-				for (std::uint32_t f = 0; f < fileCount; ++f)
+				for (std::uint32_t f = 0; f < fileCount && !reader.Failed(); ++f)
 				{
 					auto filePath = lookup(reader.U32());
 					auto lineCount = reader.U32();
@@ -194,7 +224,7 @@ namespace Exporter
 					data.lines.reserve(
 					    std::min<size_t>(lineCount, reader.Remaining()));
 					std::uint32_t line = 0;
-					for (std::uint32_t i = 0; i < lineCount; ++i)
+					for (std::uint32_t i = 0; i < lineCount && !reader.Failed(); ++i)
 					{
 						line += static_cast<std::uint32_t>(reader.Varint());
 						data.lines.push_back(line);
@@ -202,17 +232,23 @@ namespace Exporter
 					reader.ReadBitmap(data.executed, lineCount);
 
 					auto branchLineCount = reader.U32();
-					for (std::uint32_t b = 0; b < branchLineCount; ++b)
+					for (std::uint32_t b = 0;
+					     b < branchLineCount && !reader.Failed();
+					     ++b)
 					{
 						auto branchLine = static_cast<std::uint32_t>(reader.Varint());
 						auto branchCount = reader.U32();
 						auto& branchMap = data.branches[branchLine];
-						for (std::uint32_t k = 0; k < branchCount; ++k)
+						for (std::uint32_t k = 0;
+						     k < branchCount && !reader.Failed();
+						     ++k)
 						{
 							auto index = static_cast<std::uint32_t>(reader.Varint());
 							branchMap[index] = reader.U8();
 						}
 					}
+					if (reader.Failed())
+						return;
 					sink(modulePath, filePath, std::move(data));
 				}
 			}
@@ -408,6 +444,8 @@ namespace Exporter
 				    }
 				    EmitFile(currentModule->AddFile(filePath), data);
 			    });
+			if (reader.Failed())
+				return std::unexpected(reader.GetError());
 			return coverageData;
 		}
 
