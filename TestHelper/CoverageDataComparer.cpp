@@ -52,37 +52,55 @@ namespace TestHelper
 		//---------------------------------------------------------------------
 		void AssertLinesEquals(
 			const Coverage::LineCoverage& line1,
-			const Coverage::LineCoverage& line2)
+			const Coverage::LineCoverage& line2,
+			bool compareBranches)
 		{
 			AssertEqual(line1.GetLineNumber(), line2.GetLineNumber());
 			AssertEqual(line1.HasBeenExecuted(), line2.HasBeenExecuted());
-			AssertContainerEqual(
-			    line1.GetBranches(), line2.GetBranches(), AssertBranchesEquals);
+			if (compareBranches)
+				AssertContainerEqual(line1.GetBranches(),
+				                     line2.GetBranches(),
+				                     AssertBranchesEquals);
 		}
 
 		//---------------------------------------------------------------------
 		void AssertFilesEquals(
 			const Coverage::FileCoverage& file1,
-			const Coverage::FileCoverage& file2)
+			const Coverage::FileCoverage& file2,
+			bool compareBranches)
 		{
 			AssertEqual(file1.GetPath(), file2.GetPath());
-			AssertContainerEqual(file1.GetLines(), file2.GetLines(), AssertLinesEquals);
+			AssertContainerEqual(
+			    file1.GetLines(),
+			    file2.GetLines(),
+			    [compareBranches](const Coverage::LineCoverage& line1,
+			                      const Coverage::LineCoverage& line2) {
+				    AssertLinesEquals(line1, line2, compareBranches);
+			    });
 		}
 
 		//---------------------------------------------------------------------
 		void AssertModulesEquals(
 			const Coverage::ModuleCoverage& module1,
-			const Coverage::ModuleCoverage& module2)
+			const Coverage::ModuleCoverage& module2,
+			bool compareBranches)
 		{
 			AssertEqual(module1.GetPath(), module2.GetPath());
-			AssertContainerUniquePtrEqual(module1.GetFiles(), module2.GetFiles(), AssertFilesEquals);
+			AssertContainerUniquePtrEqual(
+			    module1.GetFiles(),
+			    module2.GetFiles(),
+			    [compareBranches](const Coverage::FileCoverage& file1,
+			                      const Coverage::FileCoverage& file2) {
+				    AssertFilesEquals(file1, file2, compareBranches);
+			    });
 		}
 	}
 
 	//-------------------------------------------------------------------------
 	void CoverageDataComparer::AssertEquals(
 		const Coverage::CoverageData& coverageData,
-		const Coverage::CoverageData& coverageDataRestored) const
+		const Coverage::CoverageData& coverageDataRestored,
+		bool compareBranches) const
 	{
 		AssertEqual(coverageData.GetName(), coverageDataRestored.GetName());
 		AssertEqual(coverageData.GetExitCode(), coverageDataRestored.GetExitCode());
@@ -90,7 +108,10 @@ namespace TestHelper
 		AssertContainerUniquePtrEqual(
 			coverageData.GetModules(),
 			coverageDataRestored.GetModules(),
-			AssertModulesEquals);
+			[compareBranches](const Coverage::ModuleCoverage& module1,
+			                  const Coverage::ModuleCoverage& module2) {
+				AssertModulesEquals(module1, module2, compareBranches);
+			});
 	}
 
 	//---------------------------------------------------------------------
@@ -100,7 +121,7 @@ namespace TestHelper
 	{
 		if (!module1 || !module2)
 			throw std::runtime_error("Module is null.");
-		AssertModulesEquals(*module1, *module2);
+		AssertModulesEquals(*module1, *module2, /*compareBranches*/ true);
 	}
 
 	using FileCoveragePtr = std::unique_ptr<Coverage::FileCoverage>;

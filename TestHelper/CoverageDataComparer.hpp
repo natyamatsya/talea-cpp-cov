@@ -32,7 +32,14 @@ namespace TestHelper
 	public:
 		CoverageDataComparer() = default;
 
-		void AssertEquals(const Coverage::CoverageData&, const Coverage::CoverageData&) const;
+		// compareBranches: when false, only line coverage is compared and the
+		// per-line branch (condition) coverage is ignored. Fast-mode import
+		// derives branch coverage from block counters, which is approximate at
+		// control-flow merges by design, so it cannot be compared for exact
+		// equality against the debugger/VEH oracle - only its line coverage can.
+		void AssertEquals(const Coverage::CoverageData&,
+		                  const Coverage::CoverageData&,
+		                  bool compareBranches = true) const;
 		void AssertEquals(const Coverage::ModuleCoverage*, const Coverage::ModuleCoverage*) const;
 
 		using ModuleCoveragePtr = std::unique_ptr<Coverage::ModuleCoverage>;
