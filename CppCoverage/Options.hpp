@@ -58,7 +58,7 @@ namespace CppCoverage
 		void EnablePlugingMode();
 		bool IsPlugingModeEnabled() const;
 
-		void EnableCoverChildrenMode();
+		void DisableCoverChildrenMode();
 		bool IsCoverChildrenModeEnabled() const;
 
         void EnableStopOnAssertMode();

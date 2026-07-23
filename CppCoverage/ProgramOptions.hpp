@@ -41,7 +41,7 @@ namespace CppCoverage
 		static const std::string HelpShortOption;
 		static const std::string ConfigFileOption;
 		static const std::string WorkingDirectoryOption;
-		static const std::string CoverChildrenOption;
+		static const std::string NoCoverChildrenOption;
 		static const std::string NoAggregateByFileOption;
         static const std::string StopOnAssertOption;
         static const std::string ProgramToRunOption;
@@ -57,7 +57,6 @@ namespace CppCoverage
 		static const std::string NoRawPdbOption;
 		static const std::string NoLineMergingOption;
 		static const std::string PreparseImportsOption;
-		static const std::string ExperimentalVehOption;
 		static const std::string NoVehOption;
 		static const std::string InputFastCovValue;
 		static const std::string FastCovTemplateReportValue;

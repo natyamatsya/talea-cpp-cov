@@ -240,9 +240,6 @@ namespace OpenCppCoverage
 				std::optional<Plugin::CoverageData> coverageData;
 				if (options.IsVehModeEnabled())
 				{
-					if (options.IsCoverChildrenModeEnabled())
-						LOG_WARNING("VEH child-process coverage is experimental (in-process CreateProcess hook). Use --no_veh for the classic debugger.");
-
 					cov::VehCoverageEngine vehEngine{warningManager};
 					coverageData.emplace(
 					    vehEngine.RunCoverage(runCoverageSettings));

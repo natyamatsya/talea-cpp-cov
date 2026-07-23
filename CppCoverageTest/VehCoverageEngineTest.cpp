@@ -121,7 +121,7 @@ namespace CppCoverageTest
 	// Child-process coverage (experimental): the helper hooks CreateProcess in
 	// the target, force-suspends each child, and the host injects the helper
 	// into it. The child's coverage (here the TestBasic path, which runs only
-	// in the child) must match the debugger's --cover_children output.
+	// in the child) must match the debugger's child-process coverage.
 	TEST(VehCoverageEngineTest, ChildProcessMatchesDebugger)
 	{
 		auto args = VehArgs(TestCoverageConsole::TestChildProcess);
@@ -139,7 +139,7 @@ namespace CppCoverageTest
 	// Recursive child coverage: the root spawns a child that itself spawns a
 	// grandchild. The helper's CreateProcess hook propagates into each level,
 	// so the grandchild (running TestBasic) is covered too - matching the
-	// debugger's --cover_children across the whole tree.
+	// debugger's child-process coverage across the whole tree.
 	TEST(VehCoverageEngineTest, NestedChildProcessMatchesDebugger)
 	{
 		auto args = VehArgs(TestCoverageConsole::TestNestedChildProcess);

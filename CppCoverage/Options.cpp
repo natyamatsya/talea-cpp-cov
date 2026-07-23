@@ -45,7 +45,7 @@ namespace CppCoverage
 		, sources_{sourcePatterns}		
 		, logLevel_{ LogLevel::Normal }
 		, isPluginModeEnabled_{false}
-		, isCoverChildrenModeEnabled_{false}
+		, isCoverChildrenModeEnabled_{true}
 		, isAggregateByFileModeEnabled_{true}
 		, isContinueAfterCppExceptionModeEnabled_{false}
 		, isStopOnAssertModeEnabled_{false}
@@ -107,9 +107,9 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	void Options::EnableCoverChildrenMode()
+	void Options::DisableCoverChildrenMode()
 	{
-		isCoverChildrenModeEnabled_ = true;
+		isCoverChildrenModeEnabled_ = false;
 	}
 
 	//-------------------------------------------------------------------------

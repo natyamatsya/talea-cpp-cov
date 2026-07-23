@@ -291,8 +291,8 @@ are now mostly closed, so optimization can be gated on an equivalence check:
   handled/unhandled-exception, branch, DLL, multi-module, child- and
   nested-child-process paths, and an unloaded-then-reloaded DLL. With that
   matrix green the in-process VEH engine is now the **default** collection
-  engine: `--no_veh` selects the classic debugger, and the old opt-in
-  `--experimental_veh` is a deprecated no-op.
+  engine: `--no_veh` selects the classic debugger. (The old opt-in
+  `--experimental_veh` flag has been removed.)
 
   Promoting it to the default meant it had to survive scenarios the opt-in flag
   never exercised — chiefly **unfiltered, multi-module runs** (no `--modules`) —

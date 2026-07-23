@@ -44,7 +44,7 @@ namespace CppCoverage
 		bool verbose = false;
 		bool quiet = false;
 		bool plugin = false;
-		bool cover_children = false;
+		bool no_cover_children = false;
 		bool no_aggregate_by_file = false;
 		bool stop_on_assert = false;
 		bool continue_after_cpp_exception = false;
@@ -54,7 +54,6 @@ namespace CppCoverage
 		bool no_raw_pdb = false;
 		bool no_line_merging = false;
 		bool preparse_imports = false;
-		bool experimental_veh = false; // deprecated: VEH is the default engine
 		bool no_veh = false;
 
 		// --- scalar value options ---
@@ -115,9 +114,9 @@ namespace CppCoverage
 		                  "Can have multiple occurrences."}},
 		    std::pair{std::string_view{"working_dir"},
 		              std::string_view{"The program working directory."}},
-		    std::pair{std::string_view{"cover_children"},
+		    std::pair{std::string_view{"no_cover_children"},
 		              std::string_view{
-		                  "Enable code coverage for children processes."}},
+		                  "Do not measure code coverage for children processes."}},
 		    std::pair{std::string_view{"no_aggregate_by_file"},
 		              std::string_view{
 		                  "Do not aggregate coverage for same file path."}},
@@ -153,11 +152,6 @@ namespace CppCoverage
 		              std::string_view{
 		                  "Parse the executable and its imported DLLs' PDBs in "
 		                  "parallel before start. Pure performance."}},
-		    std::pair{std::string_view{"experimental_veh"},
-		              std::string_view{
-		                  "Deprecated: the in-process VEH engine is now the "
-		                  "default; this flag has no effect. Use --no_veh to "
-		                  "disable it."}},
 		    std::pair{std::string_view{"no_veh"},
 		              std::string_view{
 		                  "Disable the in-process VEH engine and use the classic "
@@ -199,8 +193,8 @@ namespace glz
 		                                     &T::quiet,
 		                                     "plugin",
 		                                     &T::plugin,
-		                                     "cover_children",
-		                                     &T::cover_children,
+		                                     "no_cover_children",
+		                                     &T::no_cover_children,
 		                                     "no_aggregate_by_file",
 		                                     &T::no_aggregate_by_file,
 		                                     "stop_on_assert",
@@ -219,8 +213,6 @@ namespace glz
 		                                     &T::no_line_merging,
 		                                     "preparse_imports",
 		                                     &T::preparse_imports,
-		                                     "experimental_veh",
-		                                     &T::experimental_veh,
 		                                     "no_veh",
 		                                     &T::no_veh,
 		                                     "config_file",

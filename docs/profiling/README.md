@@ -38,8 +38,9 @@ docs\profiling\capture-flamegraph.ps1 `
     -Etl occ.etl
 ```
 
-Add `-Veh` to profile the `--experimental_veh` engine. Profile a workload that
-runs for *seconds* — a sub-second run yields too few samples.
+The default engine is the in-process VEH engine; add `-NoVeh` to profile the
+classic debugger instead. Profile a workload that runs for *seconds* — a
+sub-second run yields too few samples.
 
 ## 2 — Fold into a flame graph
 
@@ -56,7 +57,7 @@ xperf -i occ.etl -symbols -a dumper -stacktimeshifting `
 
 This prints the top self-time hotspots, writes `occ.svg` (open in a browser),
 and writes `occ.svg.folded` — the universal folded-stacks format you can drag
-into <https://speedscope.app> or feed to `flamegraph.pl`. Under `--experimental_veh`
+into <https://speedscope.app> or feed to `flamegraph.pl`. Under the VEH engine
 the servicing work moves into the target, so also fold the target process:
 `… | python fold-flamegraph.py CppCoverageTest.exe target.svg`.
 

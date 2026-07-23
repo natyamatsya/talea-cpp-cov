@@ -25,8 +25,8 @@ The optimizations below each attack one or more of these.
 
 | Engine / mode | Flag | Best for | Recompile? |
 |---|---|---|---|
-| Debugger + run merging | *(default)* | general use; child processes, branch coverage | no |
-| In-process VEH | `--experimental_veh` | hit-heavy runs (many distinct executed probes) | no |
+| In-process VEH | *(default)* | general use; hit-heavy runs (many distinct executed probes) | no |
+| Debugger + run merging | `--no_veh` | unloaded-then-reloaded DLLs; 32-bit targets | no |
 | Compiler-instrumentation fast mode | `--input_fastcov` | lowest overhead, CI you own the build of | yes |
 
 All three are byte-for-byte validated against the debugger.
@@ -56,8 +56,8 @@ and this fork's in-process VEH engine. Wall-clock is best-of-5; identical
 | Tool / engine | Wall-clock | vs official |
 |---|--:|--:|
 | Official 0.9.9.0 (debugger) | 4,551 ms | 1.0× |
-| This fork (debugger) | 2,344 ms | **1.9× faster** |
-| This fork (`--experimental_veh`) | 875 ms | **5.2× faster** (2.7× vs the fork's own debugger) |
+| This fork (`--no_veh`, debugger) | 2,344 ms | **1.9× faster** |
+| This fork (default VEH engine) | 875 ms | **5.2× faster** (2.7× vs the fork's own debugger) |
 
 The fork's debugger engine alone is ~2× the official release — run merging, the
 DIA-free raw_pdb parser, the `flat_map` / fmt+`to_chars` export & merge paths,
@@ -129,7 +129,7 @@ method used here.
   is exactly identical to per-line breakpoints. Disabled automatically under
   `--optimized_build`. **Full run 4,990 → 290 ms (1 file, 17×); 5,850 → 880 ms
   (5,000 files, 6.6×).**
-- **In-process VEH servicing** (`--experimental_veh`). Instead of a debugger, the
+- **In-process VEH servicing** (the default engine; `--no_veh` opts out). Instead of a debugger, the
   target is launched suspended, a tiny kernel32-only helper DLL is injected, and
   a Vectored Exception Handler services each breakpoint *inside* the process — a
   usermode exception dispatch (~µs) instead of the cross-process debug-event
@@ -249,8 +249,9 @@ Two harnesses live under `Benchmarks/`:
   the ~4× `std::format` win in the exporter's hot inner loop), and the branch
   disassembler. Run e.g. `Benchmarks.exe --benchmark_filter=Merge`.
 - **`run_engine_benchmark.ps1`** — the whole-run numbers google-benchmark can't
-  represent (spawning a real target, parsing real PDBs): debugger vs.
-  `--experimental_veh`, and cold-cache startup with/without `--preparse_imports`.
+  represent (spawning a real target, parsing real PDBs): the default VEH engine
+  vs. `--no_veh` (debugger), and cold-cache startup with/without
+  `--preparse_imports`.
   Point it at a representative target (hit-heavy, many/large import DLLs) —
   a trivial program shows every engine within noise.
 

@@ -145,17 +145,20 @@ jump tables fall back to per-line breakpoints), so coverage results are
 identical to the unmerged mode. Use `--no_line_merging` to opt out; it is
 disabled automatically with `--optimized_build`.
 
-### In-process breakpoint servicing (experimental)
+### In-process breakpoint servicing (default engine)
 
-`--experimental_veh` runs the target without a debugger: it is launched
+The default engine runs the target without a debugger: it is launched
 suspended, a small helper DLL is injected, and a Vectored Exception Handler
 services each breakpoint inside the process. This replaces the cross-process
 debug-event round trip (~50 µs per first hit) with an in-process exception
 dispatch, so hit-heavy runs speed up several-fold (measured ~5× on a
 fully-executed 100k-line program) while producing exactly the same coverage as
 the debugger. It covers the main executable, filter-matching DLLs, branch
-coverage (`--branch_coverage`), and child processes (`--cover_children`,
-recursive across the whole process tree). It is 64-bit only.
+coverage (`--branch_coverage`), and child processes (covered by default,
+recursive across the whole process tree; opt out with `--no_cover_children`).
+It is 64-bit only. Pass `--no_veh` to fall back to the classic debugger engine,
+which is slower but additionally re-instruments a DLL that is unloaded and then
+loaded again.
 
 ### Compiler-instrumentation fast mode (experimental)
 

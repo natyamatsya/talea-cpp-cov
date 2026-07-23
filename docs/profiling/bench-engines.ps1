@@ -4,9 +4,9 @@
 
 .DESCRIPTION
     Times three configurations on identical inputs: an optional baseline
-    OpenCppCoverage (e.g. the official release), this fork's debugger engine, and
-    this fork's --experimental_veh engine. Reports the best of N runs and the
-    speedups. No elevation required.
+    OpenCppCoverage (e.g. the official release), this fork's classic debugger
+    engine (--no_veh), and this fork's default in-process VEH engine. Reports
+    the best of N runs and the speedups. No elevation required.
 
 .EXAMPLE
     .\bench-engines.ps1 -ForkExe out\clang-cl-release\bin\OpenCppCoverage.exe `
@@ -42,8 +42,8 @@ function Best([string]$occ, [string[]]$extra) {
 
 $results = [ordered]@{}
 if ($BaselineExe) { $results["baseline (debugger)"] = Best $BaselineExe @() }
-$results["fork (debugger)"] = Best $ForkExe @()
-$results["fork (veh)"]      = Best $ForkExe @('--experimental_veh')
+$results["fork (debugger)"] = Best $ForkExe @('--no_veh')
+$results["fork (veh)"]      = Best $ForkExe @()
 
 "" ; "Best of $N runs (ms):"
 $results.GetEnumerator() | ForEach-Object { "  {0,-22} {1,6}" -f $_.Key, $_.Value }

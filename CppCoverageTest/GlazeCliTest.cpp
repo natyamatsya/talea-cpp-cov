@@ -177,9 +177,9 @@ namespace CppCoverage
 		auto k = glzcli::parse(
 		    kebab,
 		    std::span<const std::string>{std::vector<std::string>{
-		        "--cover-children", "--no-pdb-cache", "--working-dir", "d"}});
+		        "--no-cover-children", "--no-pdb-cache", "--working-dir", "d"}});
 		ASSERT_FALSE(k.error.has_value());
-		EXPECT_TRUE(kebab.cover_children);
+		EXPECT_TRUE(kebab.no_cover_children);
 		EXPECT_TRUE(kebab.no_pdb_cache);
 		ASSERT_TRUE(kebab.working_dir.has_value());
 		EXPECT_EQ("d", *kebab.working_dir);
@@ -188,9 +188,9 @@ namespace CppCoverage
 		auto s = glzcli::parse(
 		    snake,
 		    std::span<const std::string>{std::vector<std::string>{
-		        "--cover_children", "--no_pdb_cache"}});
+		        "--no_cover_children", "--no_pdb_cache"}});
 		ASSERT_FALSE(s.error.has_value());
-		EXPECT_TRUE(snake.cover_children);
+		EXPECT_TRUE(snake.no_cover_children);
 		EXPECT_TRUE(snake.no_pdb_cache);
 	}
 
@@ -198,7 +198,7 @@ namespace CppCoverage
 	{
 		OptionsSpec written;
 		written.branch_coverage = true;
-		written.experimental_veh = true;
+		written.no_veh = true;
 		written.sources = {"src"};
 		written.export_type = {"html:report"};
 		written.working_dir = "C:\\w";
@@ -209,7 +209,7 @@ namespace CppCoverage
 		OptionsSpec read;
 		ASSERT_FALSE(glz::read_json(read, json));
 		EXPECT_TRUE(read.branch_coverage);
-		EXPECT_TRUE(read.experimental_veh);
+		EXPECT_TRUE(read.no_veh);
 		ASSERT_EQ(1u, read.sources.size());
 		EXPECT_EQ("src", read.sources[0]);
 		ASSERT_EQ(1u, read.export_type.size());

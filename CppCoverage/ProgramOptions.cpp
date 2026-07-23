@@ -38,7 +38,7 @@ namespace CppCoverage
 	const std::string ProgramOptions::HelpShortOption = "h";
 	const std::string ProgramOptions::ConfigFileOption = "config_file";
 	const std::string ProgramOptions::WorkingDirectoryOption = "working_dir";
-	const std::string ProgramOptions::CoverChildrenOption = "cover_children";
+	const std::string ProgramOptions::NoCoverChildrenOption = "no_cover_children";
 	const std::string ProgramOptions::NoAggregateByFileOption =
 	    "no_aggregate_by_file";
 	const std::string ProgramOptions::ProgramToRunOption = "program_to_run";
@@ -58,7 +58,6 @@ namespace CppCoverage
 	const std::string ProgramOptions::NoRawPdbOption = "no_raw_pdb";
 	const std::string ProgramOptions::NoLineMergingOption = "no_line_merging";
 	const std::string ProgramOptions::PreparseImportsOption = "preparse_imports";
-	const std::string ProgramOptions::ExperimentalVehOption = "experimental_veh";
 	const std::string ProgramOptions::NoVehOption = "no_veh";
 	const std::string ProgramOptions::InputFastCovValue = "input_fastcov";
 	const std::string ProgramOptions::FastCovTemplateReportValue =

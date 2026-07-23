@@ -441,8 +441,8 @@ namespace CppCoverage
 		if (spec.quiet)
 			options.SetLogLevel(LogLevel::Quiet);
 
-		if (spec.cover_children)
-			options.EnableCoverChildrenMode();
+		if (spec.no_cover_children)
+			options.DisableCoverChildrenMode();
 		if (spec.plugin)
 			options.EnablePlugingMode();
 		if (spec.no_aggregate_by_file)
@@ -463,8 +463,7 @@ namespace CppCoverage
 			options.EnableNoLineMergingMode();
 		if (spec.preparse_imports)
 			options.EnablePreparseImportsMode();
-		// VEH is the default engine; --experimental_veh is a deprecated no-op
-		// kept for backward compatibility. --no_veh falls back to the debugger.
+		// VEH is the default engine; --no_veh falls back to the debugger.
 		if (spec.no_veh)
 			options.DisableVehMode();
 

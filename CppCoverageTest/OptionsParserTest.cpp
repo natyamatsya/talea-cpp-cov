@@ -44,7 +44,7 @@ namespace CppCoverageTest
 		ASSERT_TRUE(static_cast<bool>(options));
 		ASSERT_EQ(cov::LogLevel::Normal, options->GetLogLevel());
 		ASSERT_FALSE(options->IsPlugingModeEnabled());
-		ASSERT_FALSE(options->IsCoverChildrenModeEnabled());
+		ASSERT_TRUE(options->IsCoverChildrenModeEnabled());
 		ASSERT_TRUE(options->IsAggregateByFileModeEnabled());
 		ASSERT_FALSE(options->IsContinueAfterCppExceptionModeEnabled());
 		ASSERT_FALSE(options->IsOptimizedBuildSupportEnabled());
@@ -102,8 +102,10 @@ namespace CppCoverageTest
 	{
 		cov::OptionsParser parser;
 
-		ASSERT_TRUE(TestTools::Parse(parser,
-		{ TestTools::GetOptionPrefix() + cov::ProgramOptions::CoverChildrenOption })->IsCoverChildrenModeEnabled());
+		// Children are covered by default; --no_cover_children opts out.
+		ASSERT_TRUE(TestTools::Parse(parser, {})->IsCoverChildrenModeEnabled());
+		ASSERT_FALSE(TestTools::Parse(parser,
+		{ TestTools::GetOptionPrefix() + cov::ProgramOptions::NoCoverChildrenOption })->IsCoverChildrenModeEnabled());
 	}
 
 	//-------------------------------------------------------------------------
@@ -200,10 +202,6 @@ namespace CppCoverageTest
 		// --no_veh falls back to the classic debugger.
 		ASSERT_FALSE(TestTools::Parse(parser,
 		{ TestTools::GetOptionPrefix() + cov::ProgramOptions::NoVehOption })
-			->IsVehModeEnabled());
-		// --experimental_veh is a deprecated no-op: VEH stays enabled.
-		ASSERT_TRUE(TestTools::Parse(parser,
-		{ TestTools::GetOptionPrefix() + cov::ProgramOptions::ExperimentalVehOption })
 			->IsVehModeEnabled());
 	}
     
