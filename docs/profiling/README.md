@@ -38,8 +38,8 @@ docs\profiling\capture-flamegraph.ps1 `
     -Etl occ.etl
 ```
 
-The default engine is the in-process VEH engine; add `-NoVeh` to profile the
-classic debugger instead. Profile a workload that runs for *seconds* — a
+The default engine is the in-process breakpoint (VEH) engine; add `-Debugger` to
+profile the classic debugger instead. Profile a workload that runs for *seconds* — a
 sub-second run yields too few samples.
 
 ## 2 — Fold into a flame graph

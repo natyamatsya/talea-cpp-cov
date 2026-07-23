@@ -290,9 +290,10 @@ are now mostly closed, so optimization can be gated on an equivalence check:
 - The **VEH** parity matrix (`VehCoverageEngineTest`) covers the basic, thread,
   handled/unhandled-exception, branch, DLL, multi-module, child- and
   nested-child-process paths, and an unloaded-then-reloaded DLL. With that
-  matrix green the in-process VEH engine is now the **default** collection
-  engine: `--no_veh` selects the classic debugger. (The old opt-in
-  `--experimental_veh` flag has been removed.)
+  matrix green the in-process VEH engine is now the **default** run engine
+  (`--engine breakpoint`): `--engine debugger` selects the classic debugger.
+  (The old opt-in `--experimental_veh` and `--no_veh` flags have been removed
+  in favour of the unified `--engine` selector.)
 
   Promoting it to the default meant it had to survive scenarios the opt-in flag
   never exercised — chiefly **unfiltered, multi-module runs** (no `--modules`) —

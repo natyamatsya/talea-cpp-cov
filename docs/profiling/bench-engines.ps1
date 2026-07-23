@@ -5,7 +5,7 @@
 .DESCRIPTION
     Times three configurations on identical inputs: an optional baseline
     OpenCppCoverage (e.g. the official release), this fork's classic debugger
-    engine (--no_veh), and this fork's default in-process VEH engine. Reports
+    engine (--engine debugger), and this fork's default in-process VEH engine. Reports
     the best of N runs and the speedups. No elevation required.
 
 .EXAMPLE
@@ -42,7 +42,7 @@ function Best([string]$occ, [string[]]$extra) {
 
 $results = [ordered]@{}
 if ($BaselineExe) { $results["baseline (debugger)"] = Best $BaselineExe @() }
-$results["fork (debugger)"] = Best $ForkExe @('--no_veh')
+$results["fork (debugger)"] = Best $ForkExe @('--engine', 'debugger')
 $results["fork (veh)"]      = Best $ForkExe @()
 
 "" ; "Best of $N runs (ms):"

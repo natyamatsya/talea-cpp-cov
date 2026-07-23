@@ -1,15 +1,19 @@
-# OpenCppCoverage fast-mode runtime
+# OpenCppCoverage instrumentation runtime
 
-This is the compiler-instrumentation ("fast mode") collection path. Instead of
+This is the compiler-instrumentation collection path (`--engine
+instrumentation`), the standard path for whole test suites and CI. Instead of
 trapping on breakpoints, the target is compiled so that each basic block
 increments an inline counter — no debugger, no per-hit kernel round trip — and
 a small runtime writes the counters out at exit. OpenCppCoverage then maps them
-back to source lines (and template instantiations) through the PDB.
+back to source lines (and template instantiations) through the PDB. Collection
+runs at native speed, independent of execution count, which is what makes it
+the scalable choice for large suites.
 
-It is a **mode, not the default**: it needs the target recompiled with
-SanitizerCoverage. Use it where you own the build (typically CI) and want the
-lowest possible overhead. It is architecture-agnostic — the same flags target
-x64 and ARM64.
+Its one requirement is that you **own the build**: the target must be recompiled
+with SanitizerCoverage. Where you cannot recompile — an arbitrary binary, or an
+exact branch audit of a scoped target — use the breakpoint or debugger engine
+instead (`--engine breakpoint` / `--engine debugger`). The instrumentation
+engine is architecture-agnostic — the same flags target x64 and ARM64.
 
 **Two toolchains are supported**, each with its own runtime source file:
 `OpenCppCoverageFastCov.cpp` for clang-cl and `OpenCppCoverageFastCovMsvc.cpp`
@@ -128,7 +132,7 @@ same native speed as line coverage.
 
 **What "approximate" means.** The derivation is *exact* when a branch's successor
 block is reached **only** by that edge — the common case: the body of an `if`, the
-exit of a `do/while`. It can diverge from the exact debugger/VEH engines at a
+exit of a `do/while`. It can diverge from the exact breakpoint/debugger engines at a
 control-flow **merge**, where a block is reached by several edges:
 
 - **over-report** — a direction is marked covered because its successor block ran,
@@ -143,13 +147,14 @@ Neither affects **line** coverage, which stays block-accurate. Only the
 taken/not-taken *direction* attribution is affected, and only at merges.
 
 **Exact branch coverage** requires observing each conditional jump's real outcome —
-which is what the debugger (`--no_veh`) and the default VEH engines do, at the cost
-of a trap per branch execution. There is no way to recover it exactly from block
-counters alone (that would need edge-level instrumentation, which MSVC's
-SanitizerCoverage does not emit). So treat fast-mode branch coverage as a **fast
-indicator** — excellent for tracking the trend and finding never-exercised
-branches across a large suite — and use the debugger/VEH engine when you need an
-*exact* branch audit of a scoped target.
+which is what the breakpoint (`--engine breakpoint`) and debugger (`--engine
+debugger`) engines do, at the cost of a trap per branch execution. There is no way
+to recover it exactly from block counters alone (that would need edge-level
+instrumentation, which MSVC's SanitizerCoverage does not emit). So treat the
+instrumentation engine's branch coverage as a **fast indicator** — excellent for
+tracking the trend and finding never-exercised branches across a large suite — and
+use a breakpoint/debugger run when you need an *exact* branch audit of a scoped
+target.
 
 ## Notes and limits
 

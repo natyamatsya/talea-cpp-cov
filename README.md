@@ -145,9 +145,28 @@ jump tables fall back to per-line breakpoints), so coverage results are
 identical to the unmerged mode. Use `--no_line_merging` to opt out; it is
 disabled automatically with `--optimized_build`.
 
-### In-process breakpoint servicing (default engine)
+### Choosing an engine (`--engine`)
 
-The default engine runs the target without a debugger: it is launched
+`--engine` selects how coverage is collected. All three produce identical line
+coverage; they differ in speed and in how branches are reported:
+
+| `--engine` | Mechanism | Speed | Branches | Recompile? |
+|---|---|---|---|---|
+| `instrumentation` | Compiler counters, imported from `--input_fastcov` | Native, execution-count independent | Derived (approximate at merges) | Yes |
+| `breakpoint` *(default when running)* | In-process VEH breakpoints | Per-hit, x64 only | Exact (observed) | No |
+| `debugger` | Classic cross-process debugger | Slower; x64 + x86 | Exact (observed) | No |
+
+The **instrumentation** engine is the standard path for whole suites and CI (its
+build and run steps are in
+[Instrumentation engine: the standard path](#instrumentation-engine-the-standard-path)
+below). The **breakpoint** and **debugger** engines are the exact reference —
+reach for them to run an uninstrumented binary or to cross-check the
+instrumentation engine's branch coverage on a scoped target. `--engine` defaults
+to `instrumentation` when `--input_fastcov` is given, otherwise `breakpoint`.
+
+### Breakpoint and debugger engines (the exact reference)
+
+The **breakpoint** engine runs the target without a debugger: it is launched
 suspended, a small helper DLL is injected, and a Vectored Exception Handler
 services each breakpoint inside the process. This replaces the cross-process
 debug-event round trip (~50 µs per first hit) with an in-process exception
@@ -156,18 +175,18 @@ fully-executed 100k-line program) while producing exactly the same coverage as
 the debugger. It covers the main executable, filter-matching DLLs, branch
 coverage (`--branch_coverage`), and child processes (covered by default,
 recursive across the whole process tree; opt out with `--no_cover_children`).
-It is 64-bit only. Pass `--no_veh` to fall back to the classic debugger engine,
-which is slower but additionally re-instruments a DLL that is unloaded and then
-loaded again.
+It is 64-bit only. Pass `--engine debugger` to use the classic cross-process
+debugger, which is slower but works on x86 and additionally re-instruments a
+DLL that is unloaded and then loaded again.
 
 ### Crashing targets and the Windows Error Reporting dialog
 
-When a covered process crashes, the two engines differ in what the OS does:
+When a covered process crashes, the run-based engines differ in what the OS does:
 
-- Under the **debugger engine** (`--no_veh`), a debugger is attached, so the
-  target's unhandled exceptions are delivered to the tool and Windows Error
+- Under the **debugger engine** (`--engine debugger`), a debugger is attached, so
+  the target's unhandled exceptions are delivered to the tool and Windows Error
   Reporting (WER) never engages.
-- Under the **default VEH engine**, the target runs natively. So that a
+- Under the **default breakpoint engine**, the target runs natively. So that a
   crashing process cannot pop the "*… has stopped working*" dialog — which
   would block an unattended run and hide the failure — the tool places the
   whole target process tree in a [job object](https://learn.microsoft.com/windows/win32/procthread/job-objects)
@@ -192,28 +211,43 @@ When a covered process crashes, the two engines differ in what the OS does:
     full dump) to capture crash dumps to a folder for post-mortem instead of
     losing them.
 
-### Compiler-instrumentation fast mode (experimental)
+### Instrumentation engine: the standard path
 
-For the lowest possible overhead, build the target with SanitizerCoverage so
-each basic block increments an inline counter — no debugger, no per-hit kernel
-round trip — and import the resulting dump with `--input_fastcov`. Coverage is
-byte-identical to the debugger. Both **clang-cl** and **MSVC (`cl.exe`)** are
-supported, and the runtime covers the executable and its instrumented DLLs, not
-just the main module. Because the compiler emits a distinct function per template
-instantiation, `--fastcov_template_report` additionally writes a per-template
-report showing, for every instantiation, which lines it covered — and the lines
-covered in some but not all instantiations (a line exercised for `foo<int>` but
-never for `foo<double>`), which plain line coverage hides. It is a *mode*, not
-the default (it needs the recompile), and is architecture-agnostic (x64 and
-ARM64). See [CoverageRuntime/README.md](CoverageRuntime/README.md) for the build
-and run steps.
+For anything larger than a scoped run — a whole test suite, a CI lane — the
+instrumentation engine (`--engine instrumentation`) is the path to reach for.
+Build the target with
+SanitizerCoverage so each basic block increments an inline counter — no
+debugger, no per-hit kernel round trip — run it, and import the resulting dump
+with `--input_fastcov` (which selects this engine). Collection happens at
+**native speed**, independent of how many times a line runs, so it stays fast
+where the breakpoint engines pay per hit.
+
+Line coverage is **byte-identical to the breakpoint/debugger engines**. Branch
+coverage is *derived* from the block counters rather than observed per jump, so
+it is exact at sole-predecessor successors and approximate at control-flow
+merges — see [Branch coverage](#branch-coverage-experimental) and
+[CoverageRuntime/README.md](CoverageRuntime/README.md). Use a breakpoint/debugger
+run when you need an exact branch audit of a scoped target.
+
+Both **clang-cl** and **MSVC (`cl.exe`)** are supported, and the runtime covers
+the executable and its instrumented DLLs, not just the main module. Because the
+compiler emits a distinct function per template instantiation,
+`--fastcov_template_report` additionally writes a per-template report showing,
+for every instantiation, which lines it covered — and the lines covered in some
+but not all instantiations (a line exercised for `foo<int>` but never for
+`foo<double>`), which plain line coverage hides. It is architecture-agnostic
+(x64 and ARM64); its one cost is the recompile with instrumentation. See
+[CoverageRuntime/README.md](CoverageRuntime/README.md) for the build and run
+steps.
 
 ### Performance and benchmarks
 
-The collection engines above (debugger + run merging, in-process VEH, and the
-compiler-instrumentation fast mode) all produce identical coverage; which one is
-fastest depends on your workload. For how they work, when to use each, the
-measured benchmarks, and the columnar `.cov` aggregation format, see
+All three engines produce identical **line** coverage; they differ in speed and
+in how they report branches. The instrumentation engine is execution-count
+independent (the standard path for large suites); the breakpoint and debugger
+engines observe every branch outcome directly (the exact comparison, at a trap
+per branch execution). For how they work, when to use each, the measured
+benchmarks, and the columnar `.cov` aggregation format, see
 [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
 
 ## Branch coverage (experimental)

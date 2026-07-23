@@ -17,7 +17,7 @@
     The deltas depend entirely on the target, so point it at something
     representative:
       * hit-heavy (many distinct executed lines) to show the default VEH engine
-        against the classic debugger (--no_veh);
+        against the classic debugger (--engine debugger);
       * many / large import DLLs to show --preparse_imports;
       * a large PDB to show the cold parse.
     A trivial program will show all engines within noise of each other.
@@ -72,10 +72,10 @@ Clear-PdbCache
 Invoke-Run @()
 
 $results = @(
-    Measure-Scenario "debugger"                @("--no_veh")           $false
+    Measure-Scenario "debugger"                @("--engine", "debugger")           $false
     Measure-Scenario "veh"                     @()                     $false
-    Measure-Scenario "debugger"                @("--no_veh")           $true
-    Measure-Scenario "debugger + preparse"     @("--no_veh", "--preparse_imports") $true
+    Measure-Scenario "debugger"                @("--engine", "debugger")           $true
+    Measure-Scenario "debugger + preparse"     @("--engine", "debugger", "--preparse_imports") $true
 )
 
 Write-Host ""

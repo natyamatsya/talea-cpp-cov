@@ -25,7 +25,7 @@ param(
     [string]$Sources = "*",
     [string]$Modules = "*",
     [string]$TargetArgs = "",          # space-separated args after `--`
-    [switch]$NoVeh,                     # add --no_veh (VEH is the default engine)
+    [switch]$Debugger,                  # --engine debugger (breakpoint is the default)
     [string]$Etl = "occ.etl",
     [int]$ProfIntervalUnits = 1221      # ~8 kHz (0.1 us units)
 )
@@ -38,7 +38,7 @@ if (-not $isAdmin) {
            '-OccExe',"`"$OccExe`"", '-Target',"`"$Target`"", '-Sources',"`"$Sources`"",
            '-Modules',"`"$Modules`"", '-TargetArgs',"`"$TargetArgs`"", '-Etl',"`"$Etl`"",
            '-ProfIntervalUnits',$ProfIntervalUnits)
-    if ($NoVeh) { $a += '-NoVeh' }
+    if ($Debugger) { $a += '-Debugger' }
     Write-Host "Not elevated - relaunching with admin rights (approve the UAC prompt)..."
     Start-Process powershell -Verb RunAs -Wait -ArgumentList $a
     return
@@ -54,11 +54,11 @@ function Find-Xperf {
 $xperf = Find-Xperf
 $cov = [System.IO.Path]::ChangeExtension($Etl, ".cov")
 $occArgs = @('--quiet')
-if ($NoVeh) { $occArgs += '--no_veh' }
+if ($Debugger) { $occArgs += @('--engine', 'debugger') }
 $occArgs += @('--sources', $Sources, '--modules', $Modules, '--export_type', "binary:$cov", '--', $Target)
 if ($TargetArgs) { $occArgs += ($TargetArgs -split ' ') }
 
-Write-Host "Capturing to $Etl (engine: $(if($NoVeh){'debugger'}else{'VEH'}))..."
+Write-Host "Capturing to $Etl (engine: $(if($Debugger){'debugger'}else{'breakpoint'}))..."
 & $xperf -setprofint $ProfIntervalUnits | Out-Null
 & $xperf -on PROC_THREAD+LOADER+PROFILE -stackwalk Profile | Out-Null
 try {
