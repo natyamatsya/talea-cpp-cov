@@ -253,327 +253,412 @@ namespace CppCoverage
 		// increments found while disassembling (region non-null). Functions
 		// with an indirect branch (unknown targets) skip propagation and keep
 		// only the directly instrumented blocks plus the sound entry cover.
-		std::vector<BasicBlock> ReconstructCoverage(
+		// Counter-INDEPENDENT control flow of one function: block leaders, the
+		// successor/predecessor graph, the conditional-branch structure and the
+		// MSVC counter sites (rva + offset into the .sancov region). Reusable
+		// across every dump of the module - only the counter VALUES change.
+		struct FunctionCfg
+		{
+			std::uint32_t functionRva_ = 0;
+			std::uint32_t functionEnd_ = 0;
+			std::vector<std::uint32_t> leaders_;
+			std::vector<std::vector<std::int32_t>> successors_;
+			std::vector<std::vector<std::int32_t>> predecessors_;
+			std::vector<std::uint32_t> condBrJcc_;
+			std::vector<std::int32_t> condBrTaken_;
+			std::vector<std::int32_t> condBrFall_;
+			bool indirect_ = false;
+			std::vector<std::pair<std::uint32_t, std::uint32_t>>
+			    rawCounterSites_;
+		};
+
+		//---------------------------------------------------------------------
+		// Everything reconstructed once per module and reused for every dump.
+		struct ModuleReconstruction
+		{
+			std::vector<LineRecord> lineRecords_;
+			std::vector<IDebugInformationHandler::FunctionRange> functions_;
+			std::vector<FunctionCfg> functionCfgs_;
+		};
+
+		//---------------------------------------------------------------------
+		// Disassemble one function into its counter-independent CFG. `region`,
+		// when present (MSVC raw dumps), is used only for its bounds; the counter
+		// VALUES are read per dump in ApplyFunctionCoverage, so the recorded
+		// sites (instruction rva, region offset) are valid across every dump.
+		FunctionCfg BuildFunctionCfg(
+		    ZydisDecoder& decoder,
+		    PeImageFileReader& reader,
+		    const IDebugInformationHandler::FunctionRange& function,
+		    std::uint32_t regionRva,
+		    std::uint64_t regionEnd,
+		    bool hasRegion)
+		{
+			FunctionCfg cfg;
+			auto functionRva =
+			    static_cast<std::uint32_t>(function.virtualAddress_);
+			auto functionEnd = functionRva + function.length_;
+			cfg.functionRva_ = functionRva;
+			cfg.functionEnd_ = functionEnd;
+			auto buffer = reader.ReadCode(functionRva, function.length_);
+			if (buffer.empty())
+				return cfg;
+
+			// One decode pass: instruction terminators (for the CFG), block
+			// leaders, and MSVC counter sites.
+			struct Terminator
+			{
+				std::uint32_t rva_;
+				ZydisInstructionCategory category_;
+				bool hasTarget_;
+				std::uint32_t target_;
+			};
+			std::vector<Terminator> terminators;
+			std::vector<std::uint32_t> leaders;
+			leaders.push_back(functionRva);
+			bool indirect = false;
+
+			std::size_t offset = 0;
+			while (offset < buffer.size())
+			{
+				ZydisDecodedInstruction instruction;
+				ZydisDecodedOperand operands[ZYDIS_MAX_OPERAND_COUNT];
+				if (!ZYAN_SUCCESS(ZydisDecoderDecodeFull(
+				        &decoder,
+				        buffer.data() + offset,
+				        buffer.size() - offset,
+				        &instruction,
+				        operands)))
+				{
+					++offset;
+					continue;
+				}
+
+				auto instructionRva =
+				    functionRva + static_cast<std::uint32_t>(offset);
+				auto nextRva = instructionRva + instruction.length;
+				auto category = instruction.meta.category;
+
+				if (category == ZYDIS_CATEGORY_COND_BR ||
+				    category == ZYDIS_CATEGORY_UNCOND_BR ||
+				    category == ZYDIS_CATEGORY_RET ||
+				    category == ZYDIS_CATEGORY_INTERRUPT)
+				{
+					// The fall-through after a terminator is a leader only
+					// while it is still inside this function; a terminator at
+					// the very end (e.g. a trailing ret) would otherwise plant
+					// a phantom zero-count block at functionEnd that collides
+					// with the next abutting function's first block.
+					if (nextRva < functionEnd)
+						leaders.push_back(nextRva);
+					Terminator terminator{instructionRva, category, false, 0};
+					if (category == ZYDIS_CATEGORY_COND_BR ||
+					    category == ZYDIS_CATEGORY_UNCOND_BR)
+					{
+						ZyanU64 target = 0;
+						if (operands[0].type ==
+						        ZYDIS_OPERAND_TYPE_IMMEDIATE &&
+						    ZYAN_SUCCESS(ZydisCalcAbsoluteAddress(
+						        &instruction, &operands[0], instructionRva,
+						        &target)))
+						{
+							if (target >= functionRva && target < functionEnd)
+							{
+								terminator.hasTarget_ = true;
+								terminator.target_ =
+								    static_cast<std::uint32_t>(target);
+								leaders.push_back(terminator.target_);
+							}
+							// A direct target outside the function is a tail
+							// call: no in-function successor.
+						}
+						else
+						{
+							// jmp reg / jmp [mem]: unknown targets.
+							indirect = true;
+						}
+					}
+					terminators.push_back(terminator);
+				}
+
+				// A per-block counter is any instruction that WRITES the .sancov
+				// region: `inc byte [rip+disp]`, `add byte [rip+disp], 1`, and -
+				// when /O2 hoists a loop's counter into a register and stores it
+				// back after the loop - `mov byte [rip+disp], reg`. Gating on a
+				// written memory operand (not the mnemonic) catches all three
+				// while excluding a read (`movzx reg, byte [rip+disp]`) or an
+				// `lea`. Record the site (rva + region offset); the value is read
+				// per dump.
+				if (hasRegion)
+				{
+					for (std::int32_t i = 0; i < instruction.operand_count; ++i)
+					{
+						const auto& operand = operands[i];
+						if (operand.type != ZYDIS_OPERAND_TYPE_MEMORY ||
+						    operand.mem.base != ZYDIS_REGISTER_RIP)
+							continue;
+						if (!(operand.actions &
+						      (ZYDIS_OPERAND_ACTION_WRITE |
+						       ZYDIS_OPERAND_ACTION_CONDWRITE)))
+							continue; // a read/lea into the section, not a counter
+						ZyanU64 target = 0;
+						if (!ZYAN_SUCCESS(ZydisCalcAbsoluteAddress(
+						        &instruction, &operand, instructionRva,
+						        &target)))
+							continue;
+						if (target < regionRva || target >= regionEnd)
+							continue;
+						cfg.rawCounterSites_.emplace_back(
+						    instructionRva,
+						    static_cast<std::uint32_t>(target - regionRva));
+					}
+				}
+
+				offset += instruction.length;
+			}
+
+			std::sort(leaders.begin(), leaders.end());
+			leaders.erase(std::unique(leaders.begin(), leaders.end()),
+			              leaders.end());
+			auto blockCount = leaders.size();
+
+			auto leaderIndex = [&](std::uint32_t rva) -> std::int32_t {
+				auto it =
+				    std::upper_bound(leaders.begin(), leaders.end(), rva);
+				if (it == leaders.begin())
+					return -1;
+				return static_cast<std::int32_t>((it - 1) - leaders.begin());
+			};
+
+			// Successors of each block, from its terminating instruction.
+			std::vector<std::vector<std::int32_t>> successors(blockCount);
+			std::vector<std::vector<std::int32_t>> predecessors(blockCount);
+			std::vector<std::uint32_t> condBrJcc(blockCount, 0);
+			std::vector<std::int32_t> condBrTaken(blockCount, -1);
+			std::vector<std::int32_t> condBrFall(blockCount, -1);
+			std::size_t nextTerminator = 0;
+			for (std::size_t b = 0; b < blockCount; ++b)
+			{
+				auto blockEnd =
+				    (b + 1 < blockCount) ? leaders[b + 1] : functionEnd;
+				const Terminator* terminator = nullptr;
+				while (nextTerminator < terminators.size() &&
+				       terminators[nextTerminator].rva_ < blockEnd)
+					terminator = &terminators[nextTerminator++];
+
+				if (!terminator)
+				{
+					if (b + 1 < blockCount)
+						successors[b].push_back(
+						    static_cast<std::int32_t>(b + 1));
+					continue;
+				}
+				switch (terminator->category_)
+				{
+					case ZYDIS_CATEGORY_RET:
+					case ZYDIS_CATEGORY_INTERRUPT:
+						break; // exit
+					case ZYDIS_CATEGORY_UNCOND_BR:
+						if (terminator->hasTarget_)
+						{
+							auto t = leaderIndex(terminator->target_);
+							if (t >= 0)
+								successors[b].push_back(t);
+						}
+						break;
+					case ZYDIS_CATEGORY_COND_BR:
+					{
+						std::int32_t takenBlock = -1;
+						if (terminator->hasTarget_)
+						{
+							takenBlock = leaderIndex(terminator->target_);
+							if (takenBlock >= 0)
+								successors[b].push_back(takenBlock);
+						}
+						std::int32_t fallBlock =
+						    (b + 1 < blockCount)
+						        ? static_cast<std::int32_t>(b + 1)
+						        : -1;
+						if (fallBlock >= 0)
+							successors[b].push_back(fallBlock);
+						if (takenBlock >= 0 && fallBlock >= 0)
+						{
+							condBrJcc[b] = terminator->rva_;
+							condBrTaken[b] = takenBlock;
+							condBrFall[b] = fallBlock;
+						}
+						break;
+					}
+					default:
+						if (b + 1 < blockCount)
+							successors[b].push_back(
+							    static_cast<std::int32_t>(b + 1));
+						break;
+				}
+			}
+			for (std::size_t b = 0; b < blockCount; ++b)
+				for (auto s : successors[b])
+					predecessors[s].push_back(static_cast<std::int32_t>(b));
+
+			cfg.leaders_ = std::move(leaders);
+			cfg.successors_ = std::move(successors);
+			cfg.predecessors_ = std::move(predecessors);
+			cfg.condBrJcc_ = std::move(condBrJcc);
+			cfg.condBrTaken_ = std::move(condBrTaken);
+			cfg.condBrFall_ = std::move(condBrFall);
+			cfg.indirect_ = indirect;
+			return cfg;
+		}
+
+		//---------------------------------------------------------------------
+		// Apply one dump's counters to a cached function CFG, appending its
+		// basic blocks (and, when requested, branch edges). This is the only
+		// per-dump work; the disassembly above is done once per module.
+		void ApplyFunctionCoverage(
+		    const FunctionCfg& cfg,
+		    const std::map<std::uint32_t, std::uint32_t>* clangCounts,
+		    const std::vector<std::uint8_t>* region,
+		    std::vector<BasicBlock>& blocks,
+		    std::vector<BranchEdge>* branchEdges)
+		{
+			auto blockCount = cfg.leaders_.size();
+			if (blockCount == 0)
+				return;
+
+			auto leaderIndex = [&](std::uint32_t rva) -> std::int32_t {
+				auto it = std::upper_bound(
+				    cfg.leaders_.begin(), cfg.leaders_.end(), rva);
+				if (it == cfg.leaders_.begin())
+					return -1;
+				return static_cast<std::int32_t>(
+				    (it - 1) - cfg.leaders_.begin());
+			};
+
+			// Known counts per block (-1 = not instrumented).
+			std::vector<std::int32_t> count(blockCount, -1);
+			auto setCount = [&](std::uint32_t rva, std::uint32_t value) {
+				auto index = leaderIndex(rva);
+				if (index < 0)
+					return;
+				count[index] = std::max<std::int32_t>(
+				    count[index], static_cast<std::int32_t>(value));
+			};
+			if (region)
+			{
+				for (const auto& [incRva, regionOffset] : cfg.rawCounterSites_)
+					if (regionOffset < region->size())
+						setCount(incRva, (*region)[regionOffset]);
+			}
+			if (clangCounts)
+			{
+				for (auto it = clangCounts->lower_bound(cfg.functionRva_);
+				     it != clangCounts->end() && it->first < cfg.functionEnd_;
+				     ++it)
+					setCount(it->first, it->second);
+			}
+
+			std::vector<char> covered(blockCount, 0);
+			bool anyCovered = false;
+			for (std::size_t b = 0; b < blockCount; ++b)
+				if (count[b] > 0)
+				{
+					covered[b] = 1;
+					anyCovered = true;
+				}
+
+			if (anyCovered)
+				covered[0] = 1; // the entry dominates every block
+
+			if (!cfg.indirect_)
+			{
+				bool changed = true;
+				while (changed)
+				{
+					changed = false;
+					for (std::size_t b = 0; b < blockCount; ++b)
+					{
+						if (covered[b] && cfg.successors_[b].size() == 1 &&
+						    !covered[cfg.successors_[b][0]])
+						{
+							covered[cfg.successors_[b][0]] = 1;
+							changed = true;
+						}
+						if (covered[b] && cfg.predecessors_[b].size() == 1 &&
+						    !covered[cfg.predecessors_[b][0]])
+						{
+							covered[cfg.predecessors_[b][0]] = 1;
+							changed = true;
+						}
+					}
+				}
+			}
+
+			// Branch-edge coverage: each conditional block's two edges are
+			// covered iff their successor blocks ran (see BranchEdge).
+			if (branchEdges)
+			{
+				for (std::size_t b = 0; b < blockCount; ++b)
+				{
+					if (cfg.condBrJcc_[b] == 0)
+						continue;
+					branchEdges->push_back(BranchEdge{
+					    cfg.condBrJcc_[b],
+					    covered[cfg.condBrTaken_[b]] != 0,
+					    covered[cfg.condBrFall_[b]] != 0});
+				}
+			}
+
+			for (std::size_t b = 0; b < blockCount; ++b)
+			{
+				std::uint32_t value =
+				    count[b] > 0 ? static_cast<std::uint32_t>(count[b])
+				                 : (covered[b] ? 1u : 0u);
+				blocks.push_back(BasicBlock{cfg.leaders_[b], value});
+			}
+		}
+
+		//---------------------------------------------------------------------
+		// Reconstruct one module's per-function CFGs once (the disassembly is
+		// counter-independent, so the caller caches the result per module).
+		std::vector<FunctionCfg> BuildFunctionCfgs(
 		    PeImageFileReader& reader,
 		    const std::vector<IDebugInformationHandler::FunctionRange>&
 		        functions,
-		    const std::map<std::uint32_t, std::uint32_t>* clangCounts,
 		    std::uint32_t regionRva,
-		    const std::vector<std::uint8_t>* region,
-		    std::vector<BranchEdge>* branchEdges = nullptr)
+		    const std::vector<std::uint8_t>* region)
 		{
-			std::vector<BasicBlock> blocks;
-
+			std::vector<FunctionCfg> cfgs;
 			ZydisDecoder decoder;
 			if (!ZYAN_SUCCESS(ZydisDecoderInit(&decoder,
 			                                   ZYDIS_MACHINE_MODE_LONG_64,
 			                                   ZYDIS_STACK_WIDTH_64)))
-				return blocks;
-
+				return cfgs;
 			std::uint64_t regionEnd =
 			    region ? std::uint64_t{regionRva} + region->size() : 0;
-
+			cfgs.reserve(functions.size());
 			for (const auto& function : functions)
-			{
-				auto functionRva =
-				    static_cast<std::uint32_t>(function.virtualAddress_);
-				auto functionEnd = functionRva + function.length_;
-				auto buffer = reader.ReadCode(functionRva, function.length_);
-				if (buffer.empty())
-					continue;
+				cfgs.push_back(BuildFunctionCfg(decoder,
+				                                reader,
+				                                function,
+				                                regionRva,
+				                                regionEnd,
+				                                region != nullptr));
+			return cfgs;
+		}
 
-				// One decode pass: instruction terminators (for the CFG),
-				// block leaders, and MSVC counter increments.
-				struct Terminator
-				{
-					std::uint32_t rva_;
-					ZydisInstructionCategory category_;
-					bool hasTarget_;
-					std::uint32_t target_;
-				};
-				std::vector<Terminator> terminators;
-				std::vector<std::uint32_t> leaders;
-				leaders.push_back(functionRva);
-				std::vector<std::pair<std::uint32_t, std::uint32_t>>
-				    increments;
-				bool indirect = false;
-
-				std::size_t offset = 0;
-				while (offset < buffer.size())
-				{
-					ZydisDecodedInstruction instruction;
-					ZydisDecodedOperand operands[ZYDIS_MAX_OPERAND_COUNT];
-					if (!ZYAN_SUCCESS(ZydisDecoderDecodeFull(
-					        &decoder,
-					        buffer.data() + offset,
-					        buffer.size() - offset,
-					        &instruction,
-					        operands)))
-					{
-						++offset;
-						continue;
-					}
-
-					auto instructionRva = functionRva +
-					                      static_cast<std::uint32_t>(offset);
-					auto nextRva = instructionRva + instruction.length;
-					auto category = instruction.meta.category;
-
-					if (category == ZYDIS_CATEGORY_COND_BR ||
-					    category == ZYDIS_CATEGORY_UNCOND_BR ||
-					    category == ZYDIS_CATEGORY_RET ||
-					    category == ZYDIS_CATEGORY_INTERRUPT)
-					{
-						// The fall-through after a terminator is a leader only
-						// while it is still inside this function; a terminator at
-						// the very end (e.g. a trailing ret) would otherwise plant
-						// a phantom zero-count block at functionEnd that collides
-						// with the next abutting function's first block.
-						if (nextRva < functionEnd)
-							leaders.push_back(nextRva);
-						Terminator terminator{instructionRva, category, false,
-						                      0};
-						if (category == ZYDIS_CATEGORY_COND_BR ||
-						    category == ZYDIS_CATEGORY_UNCOND_BR)
-						{
-							ZyanU64 target = 0;
-							if (operands[0].type ==
-							        ZYDIS_OPERAND_TYPE_IMMEDIATE &&
-							    ZYAN_SUCCESS(ZydisCalcAbsoluteAddress(
-							        &instruction, &operands[0],
-							        instructionRva, &target)))
-							{
-								if (target >= functionRva &&
-								    target < functionEnd)
-								{
-									terminator.hasTarget_ = true;
-									terminator.target_ =
-									    static_cast<std::uint32_t>(target);
-									leaders.push_back(terminator.target_);
-								}
-								// A direct target outside the function is a
-								// tail call: no in-function successor.
-							}
-							else
-							{
-								// jmp reg / jmp [mem]: unknown targets.
-								indirect = true;
-							}
-						}
-						terminators.push_back(terminator);
-					}
-
-					// A per-block counter is any instruction that WRITES the
-					// .sancov region: `inc byte [rip+disp]`, `add byte
-					// [rip+disp], 1`, and - when /O2 hoists a loop's counter
-					// into a register and stores it back after the loop - `mov
-					// byte [rip+disp], reg`. Gating on a written memory operand
-					// (not the mnemonic) catches all three while still excluding
-					// a read (`movzx reg, byte [rip+disp]`) or an `lea`, which
-					// would otherwise be mistaken for a counter.
-					if (region)
-					{
-						for (std::int32_t i = 0; i < instruction.operand_count; ++i)
-						{
-							const auto& operand = operands[i];
-							if (operand.type != ZYDIS_OPERAND_TYPE_MEMORY ||
-							    operand.mem.base != ZYDIS_REGISTER_RIP)
-								continue;
-							if (!(operand.actions &
-							      (ZYDIS_OPERAND_ACTION_WRITE |
-							       ZYDIS_OPERAND_ACTION_CONDWRITE)))
-								continue; // a read/lea into the section, not a counter
-							ZyanU64 target = 0;
-							if (!ZYAN_SUCCESS(ZydisCalcAbsoluteAddress(
-							        &instruction, &operand, instructionRva,
-							        &target)))
-								continue;
-							if (target < regionRva || target >= regionEnd)
-								continue;
-							increments.emplace_back(
-							    instructionRva,
-							    (*region)[static_cast<std::size_t>(
-							        target - regionRva)]);
-						}
-					}
-
-					offset += instruction.length;
-				}
-
-				std::sort(leaders.begin(), leaders.end());
-				leaders.erase(std::unique(leaders.begin(), leaders.end()),
-				              leaders.end());
-				auto blockCount = leaders.size();
-
-				auto leaderIndex = [&](std::uint32_t rva) -> std::int32_t {
-					auto it = std::upper_bound(
-					    leaders.begin(), leaders.end(), rva);
-					if (it == leaders.begin())
-						return -1;
-					return static_cast<std::int32_t>((it - 1) - leaders.begin());
-				};
-
-				// Successors of each block, from its terminating instruction.
-				std::vector<std::vector<std::int32_t>> successors(blockCount);
-				std::vector<std::vector<std::int32_t>> predecessors(blockCount);
-				// Per block ending in a conditional branch (with both an
-				// in-function taken target and a fall-through): the Jcc rva and
-				// its taken / fall-through successor block indices, for
-				// branch-edge coverage. jcc==0 means the block is not such.
-				std::vector<std::uint32_t> condBrJcc(blockCount, 0);
-				std::vector<std::int32_t> condBrTaken(blockCount, -1);
-				std::vector<std::int32_t> condBrFall(blockCount, -1);
-				std::size_t nextTerminator = 0;
-				for (std::size_t b = 0; b < blockCount; ++b)
-				{
-					auto blockEnd = (b + 1 < blockCount) ? leaders[b + 1]
-					                                     : functionEnd;
-					// The terminator of block b is the last control-transfer
-					// instruction inside it, if any.
-					const Terminator* terminator = nullptr;
-					while (nextTerminator < terminators.size() &&
-					       terminators[nextTerminator].rva_ < blockEnd)
-						terminator = &terminators[nextTerminator++];
-
-					if (!terminator)
-					{
-						// Falls straight into the next block.
-						if (b + 1 < blockCount)
-							successors[b].push_back(
-							    static_cast<std::int32_t>(b + 1));
-						continue;
-					}
-					switch (terminator->category_)
-					{
-						case ZYDIS_CATEGORY_RET:
-						case ZYDIS_CATEGORY_INTERRUPT:
-							break; // exit
-						case ZYDIS_CATEGORY_UNCOND_BR:
-							if (terminator->hasTarget_)
-							{
-								auto t = leaderIndex(terminator->target_);
-								if (t >= 0)
-									successors[b].push_back(t);
-							}
-							break;
-						case ZYDIS_CATEGORY_COND_BR:
-						{
-							std::int32_t takenBlock = -1;
-							if (terminator->hasTarget_)
-							{
-								takenBlock = leaderIndex(terminator->target_);
-								if (takenBlock >= 0)
-									successors[b].push_back(takenBlock);
-							}
-							std::int32_t fallBlock =
-							    (b + 1 < blockCount)
-							        ? static_cast<std::int32_t>(b + 1)
-							        : -1;
-							if (fallBlock >= 0)
-								successors[b].push_back(fallBlock);
-							if (branchEdges && takenBlock >= 0 &&
-							    fallBlock >= 0)
-							{
-								condBrJcc[b] = terminator->rva_;
-								condBrTaken[b] = takenBlock;
-								condBrFall[b] = fallBlock;
-							}
-							break;
-						}
-						default:
-							if (b + 1 < blockCount)
-								successors[b].push_back(
-								    static_cast<std::int32_t>(b + 1));
-							break;
-					}
-				}
-				for (std::size_t b = 0; b < blockCount; ++b)
-					for (auto s : successors[b])
-						predecessors[s].push_back(static_cast<std::int32_t>(b));
-
-				// Known counts per block (-1 = not instrumented).
-				std::vector<std::int32_t> count(blockCount, -1);
-				auto setCount = [&](std::uint32_t rva, std::uint32_t value) {
-					auto index = leaderIndex(rva);
-					if (index < 0)
-						return;
-					count[index] = std::max<std::int32_t>(
-					    count[index], static_cast<std::int32_t>(value));
-				};
-				for (const auto& [incRva, value] : increments)
-					setCount(incRva, value);
-				if (clangCounts)
-				{
-					for (auto it = clangCounts->lower_bound(functionRva);
-					     it != clangCounts->end() &&
-					     it->first < functionEnd;
-					     ++it)
-						setCount(it->first, it->second);
-				}
-
-				std::vector<char> covered(blockCount, 0);
-				bool anyCovered = false;
-				for (std::size_t b = 0; b < blockCount; ++b)
-				{
-					if (count[b] > 0)
-					{
-						covered[b] = 1;
-						anyCovered = true;
-					}
-				}
-
-				if (anyCovered)
-					covered[0] = 1; // the entry dominates every block
-
-				if (!indirect)
-				{
-					bool changed = true;
-					while (changed)
-					{
-						changed = false;
-						for (std::size_t b = 0; b < blockCount; ++b)
-						{
-							if (covered[b] && successors[b].size() == 1 &&
-							    !covered[successors[b][0]])
-							{
-								covered[successors[b][0]] = 1;
-								changed = true;
-							}
-							if (covered[b] &&
-							    predecessors[b].size() == 1 &&
-							    !covered[predecessors[b][0]])
-							{
-								covered[predecessors[b][0]] = 1;
-								changed = true;
-							}
-						}
-					}
-				}
-
-				// Branch-edge coverage: each conditional block's two edges are
-				// covered iff their successor blocks ran (see BranchEdge).
-				if (branchEdges)
-				{
-					for (std::size_t b = 0; b < blockCount; ++b)
-					{
-						if (condBrJcc[b] == 0)
-							continue;
-						branchEdges->push_back(BranchEdge{
-						    condBrJcc[b],
-						    covered[condBrTaken[b]] != 0,
-						    covered[condBrFall[b]] != 0});
-					}
-				}
-
-				for (std::size_t b = 0; b < blockCount; ++b)
-				{
-					std::uint32_t value =
-					    count[b] > 0 ? static_cast<std::uint32_t>(count[b])
-					                 : (covered[b] ? 1u : 0u);
-					blocks.push_back(BasicBlock{leaders[b], value});
-				}
-			}
-
+		//---------------------------------------------------------------------
+		// Apply one dump's counters across all of a module's cached function
+		// CFGs. Blocks are returned unsorted; the caller sorts by rva.
+		std::vector<BasicBlock> ApplyModuleCoverage(
+		    const std::vector<FunctionCfg>& cfgs,
+		    const std::map<std::uint32_t, std::uint32_t>* clangCounts,
+		    const std::vector<std::uint8_t>* region,
+		    std::vector<BranchEdge>* branchEdges)
+		{
+			std::vector<BasicBlock> blocks;
+			for (const auto& cfg : cfgs)
+				ApplyFunctionCoverage(
+				    cfg, clangCounts, region, blocks, branchEdges);
 			return blocks;
 		}
 
@@ -686,6 +771,13 @@ namespace CppCoverage
 		}
 	}
 
+	// Memoized per-module reconstruction, keyed by module path, reused across
+	// every Import() call on this importer.
+	struct FastCoverageImporter::ModuleCache
+	{
+		std::unordered_map<std::wstring, ModuleReconstruction> map_;
+	};
+
 	//-------------------------------------------------------------------------
 	FastCoverageImporter::FastCoverageImporter(
 	    const CoverageFilterSettings& coverageFilterSettings,
@@ -695,9 +787,13 @@ namespace CppCoverage
 	    : coverageFilterSettings_{coverageFilterSettings},
 	      unifiedDiffSettings_{unifiedDiffSettings},
 	      excludedLineRegexes_{excludedLineRegexes},
-	      substitutePdbSourcePaths_{substitutePdbSourcePaths}
+	      substitutePdbSourcePaths_{substitutePdbSourcePaths},
+	      moduleCache_{std::make_unique<ModuleCache>()}
 	{
 	}
+
+	//-------------------------------------------------------------------------
+	FastCoverageImporter::~FastCoverageImporter() = default;
 
 	//-------------------------------------------------------------------------
 	Tools::Expected<FastCoverageImporter::Result>
@@ -762,33 +858,47 @@ namespace CppCoverage
 			    if (!filterManager.IsModuleSelected(modulePath.wstring()))
 				    return;
 
-			    // A fresh enumeration (no cache) so function names resolve.
-			    DebugInformationEnumerator enumerator{
-			        substitutePdbSourcePaths_,
-			        /*needSymbolIndex*/ false,
-			        /*lineTableCache*/ nullptr,
-			        /*needFunctionNames*/ true};
-			    ModuleCollector collector{filterManager, modulePath};
-			    if (!Tools::ValueOrThrow(
-			            enumerator.Enumerate(modulePath, collector)))
+			    // Reconstruct the module (PDB records + per-function CFG) once
+			    // and memoize it: a suite's many dumps of the same module each
+			    // cost only a counter-apply, not a re-parse and re-disassemble.
+			    auto cacheIt = moduleCache_->map_.find(modulePath.wstring());
+			    if (cacheIt == moduleCache_->map_.end())
 			    {
-				    LOG_WARNING("Fast coverage: no debug information for {}", modulePath.wstring());
-				    return;
-			    }
+				    // A fresh enumeration (no cache) so function names resolve.
+				    DebugInformationEnumerator enumerator{
+				        substitutePdbSourcePaths_,
+				        /*needSymbolIndex*/ false,
+				        /*lineTableCache*/ nullptr,
+				        /*needFunctionNames*/ true};
+				    ModuleCollector collector{filterManager, modulePath};
+				    if (!Tools::ValueOrThrow(
+				            enumerator.Enumerate(modulePath, collector)))
+				    {
+					    LOG_WARNING("Fast coverage: no debug information for {}", modulePath.wstring());
+					    return;
+				    }
 
-			    auto reader = PeImageFileReader::TryCreate(modulePath);
-			    if (!reader)
-			    {
-				    LOG_WARNING("Fast coverage: cannot read module {}", modulePath.wstring());
-				    return;
+				    auto reader = PeImageFileReader::TryCreate(modulePath);
+				    if (!reader)
+				    {
+					    LOG_WARNING("Fast coverage: cannot read module {}", modulePath.wstring());
+					    return;
+				    }
+				    ModuleReconstruction recon;
+				    recon.lineRecords_ = std::move(collector.GetLineRecords());
+				    recon.functions_ = std::move(collector.GetFunctions());
+				    recon.functionCfgs_ = BuildFunctionCfgs(
+				        *reader, recon.functions_, regionRva, rawRegion);
+				    cacheIt = moduleCache_->map_
+				                  .emplace(modulePath.wstring(),
+				                           std::move(recon))
+				                  .first;
 			    }
+			    const ModuleReconstruction& recon = cacheIt->second;
+
 			    std::vector<BranchEdge> branchEdges;
-			    auto blocks = ReconstructCoverage(*reader,
-			                                      collector.GetFunctions(),
-			                                      clangCounts,
-			                                      regionRva,
-			                                      rawRegion,
-			                                      &branchEdges);
+			    auto blocks = ApplyModuleCoverage(
+			        recon.functionCfgs_, clangCounts, rawRegion, &branchEdges);
 			    if (blocks.empty())
 				    return;
 			    std::sort(blocks.begin(),
@@ -803,7 +913,7 @@ namespace CppCoverage
 			    auto moduleTag = reinterpret_cast<HANDLE>(nextTag++);
 			    manager.AddModule(modulePath.wstring(), nullptr);
 
-			    for (const auto& record : collector.GetLineRecords())
+			    for (const auto& record : recon.lineRecords_)
 			    {
 				    auto count = CountAt(blocks, record.rva_);
 
@@ -822,7 +932,7 @@ namespace CppCoverage
 
 				    // Attribute the line to its instantiation.
 				    const auto* functionName = FunctionNameAt(
-				        collector.GetFunctions(), record.rva_);
+				        recon.functions_, record.rva_);
 				    if (functionName && !functionName->empty())
 				    {
 					    auto stem = TemplateStem(*functionName);
@@ -847,14 +957,14 @@ namespace CppCoverage
 			    // mis-charged to the nearest preceding selected line.
 			    if (!branchEdges.empty())
 			    {
-				    auto sortedRecords = collector.GetLineRecords();
+				    auto sortedRecords = recon.lineRecords_;
 				    std::sort(sortedRecords.begin(),
 				              sortedRecords.end(),
 				              [](const LineRecord& lhs, const LineRecord& rhs) {
 					              return lhs.rva_ < rhs.rva_;
 				              });
 
-				    auto functions = collector.GetFunctions();
+				    auto functions = recon.functions_;
 				    std::sort(functions.begin(),
 				              functions.end(),
 				              [](const auto& lhs, const auto& rhs) {

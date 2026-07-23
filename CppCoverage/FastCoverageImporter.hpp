@@ -16,6 +16,7 @@
 
 #pragma once
 #include <cstdint>
+#include <memory>
 
 #include <filesystem>
 #include <string>
@@ -79,6 +80,7 @@ namespace CppCoverage
 		    const std::vector<UnifiedDiffSettings>&,
 		    const std::vector<std::wstring>& excludedLineRegexes,
 		    const std::vector<SubstitutePdbSourcePath>&);
+		~FastCoverageImporter();
 
 		[[nodiscard]] Tools::Expected<Result> Import(const std::filesystem::path& dumpPath);
 
@@ -98,5 +100,11 @@ namespace CppCoverage
 		const std::vector<UnifiedDiffSettings>& unifiedDiffSettings_;
 		const std::vector<std::wstring>& excludedLineRegexes_;
 		const std::vector<SubstitutePdbSourcePath>& substitutePdbSourcePaths_;
+
+		// Counter-independent per-module reconstruction (PDB records + CFG),
+		// memoized across Import() calls so a suite's many dumps of the same
+		// modules each cost only a counter-apply, not a re-parse + re-disassemble.
+		struct ModuleCache;
+		std::unique_ptr<ModuleCache> moduleCache_;
 	};
 }
