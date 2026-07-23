@@ -26,10 +26,10 @@
 
 namespace Tools
 {
-	// The uniform error type carried by std::expected across the migration
-	// (docs/EXPECTED_MIGRATION.md). Carries the file:line-prefixed message that
-	// ExceptionBase used to hold. (A structured Win32 code can be added here once
-	// a THROW_LAST_ERROR site is migrated; none is yet, so it would be dead.)
+	// The uniform error type carried by std::expected in place of a thrown
+	// exception. Carries the file:line-prefixed message that ExceptionBase used
+	// to hold. (A structured Win32 code can be added here once a THROW_LAST_ERROR
+	// site is migrated; none is yet, so it would be dead.)
 	struct Error
 	{
 		std::wstring message;
