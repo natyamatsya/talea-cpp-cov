@@ -98,6 +98,63 @@ namespace
 		if (length == 0 || length >= FastCov::MaxModulePathChars)
 			return;
 
+		// If the output path names a directory (or ends with a separator), write
+		// a per-process file inside it, "<exe-stem>_<pid>.fastcov". A parallel
+		// ctest -jN suite then produces one dump per test process instead of
+		// every process clobbering a single shared file. A plain file path is
+		// used verbatim (so an exact target - e.g. the importer round-trip test
+		// - keeps its behavior).
+		{
+			auto attrs = GetFileAttributesW(path);
+			bool isDir =
+			    (length > 0 &&
+			     (path[length - 1] == L'\\' || path[length - 1] == L'/')) ||
+			    (attrs != INVALID_FILE_ATTRIBUTES &&
+			     (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0);
+			if (isDir)
+			{
+				wchar_t exePath[FastCov::MaxModulePathChars];
+				auto exeLen = GetModuleFileNameW(
+				    nullptr, exePath, FastCov::MaxModulePathChars);
+				std::uint32_t stemStart = 0;
+				std::uint32_t stemEnd = exeLen;
+				for (std::uint32_t i = 0; i < exeLen; ++i)
+					if (exePath[i] == L'\\' || exePath[i] == L'/')
+						stemStart = i + 1;
+				for (std::uint32_t i = exeLen; i > stemStart; --i)
+					if (exePath[i - 1] == L'.')
+					{
+						stemEnd = i - 1;
+						break;
+					}
+
+				std::uint32_t p = length;
+				auto put = [&](wchar_t c) {
+					if (p + 1 < FastCov::MaxModulePathChars)
+						path[p++] = c;
+				};
+				if (path[length - 1] != L'\\' && path[length - 1] != L'/')
+					put(L'\\');
+				for (std::uint32_t i = stemStart; i < stemEnd; ++i)
+					put(exePath[i]);
+				put(L'_');
+				wchar_t pid[16];
+				std::uint32_t pidLen = 0;
+				auto id = GetCurrentProcessId();
+				do
+				{
+					pid[pidLen++] = static_cast<wchar_t>(L'0' + (id % 10));
+					id /= 10;
+				} while (id != 0 && pidLen < 16);
+				while (pidLen != 0)
+					put(pid[--pidLen]);
+				const wchar_t ext[] = L".fastcov";
+				for (std::uint32_t i = 0; ext[i] != L'\0'; ++i)
+					put(ext[i]);
+				path[p] = L'\0';
+			}
+		}
+
 		// Every loaded module with a .sancov section is instrumented: the main
 		// executable and any instrumented DLL. System and uninstrumented
 		// modules have no such section and are skipped.
