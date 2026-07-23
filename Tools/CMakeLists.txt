@@ -1,4 +1,5 @@
 add_library(Tools STATIC
+	Error.cpp
 	ExceptionBase.cpp
 	Log.cpp
 	MappedFile.cpp
