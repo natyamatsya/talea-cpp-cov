@@ -88,8 +88,8 @@ namespace CppCoverageTest
 		for (auto index : randomIndexes)
 			addresses.push_back(ToDWORD64(&values[index]));
 
-		auto oldInstructionCollection = breakPoint.SetBreakPoints(
-		    GetCurrentProcess(), std::move(addresses));
+		auto oldInstructionCollection = Tools::ValueOrThrow(
+		    breakPoint.SetBreakPoints(GetCurrentProcess(), std::move(addresses)));
 		auto oldInstructionsMap =
 		    BuildOldInstructionsMap(oldInstructionCollection, addresses);
 
@@ -114,8 +114,8 @@ namespace CppCoverageTest
 		CppCoverage::BreakPoint breakPoint;
 		std::uint8_t value = 42;
 
-		auto oldInstructionCollection =
-		    breakPoint.SetBreakPoints(GetCurrentProcess(), {ToDWORD64(&value)});
+		auto oldInstructionCollection = Tools::ValueOrThrow(
+		    breakPoint.SetBreakPoints(GetCurrentProcess(), {ToDWORD64(&value)}));
 
 		ASSERT_EQ(1, oldInstructionCollection.size());
 		ASSERT_EQ(BreakPoint::breakPointInstruction, value);

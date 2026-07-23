@@ -178,8 +178,12 @@ namespace CppCoverage
 		if (state.outcome_->taken_ && state.outcome_->fallThrough_)
 			state.armed_ = false;
 
-		breakPoint.RemoveBreakPoint(address, state.originalInstruction_);
-		breakPoint.AdjustIpAndSetTrapFlag(hThread);
+		if (auto result =
+		        breakPoint.RemoveBreakPoint(address, state.originalInstruction_);
+		    !result)
+			return std::unexpected(result.error());
+		if (auto result = breakPoint.AdjustIpAndSetTrapFlag(hThread); !result)
+			return std::unexpected(result.error());
 
 		auto threadId = GetThreadId(hThread);
 		pendingReArms_[threadId] = std::make_pair(
@@ -203,7 +207,7 @@ namespace CppCoverage
 
 		auto itBranch = branches_.find(address);
 		if (itBranch != branches_.end() && itBranch->second.armed_)
-			breakPoint.SetBreakPoint(address);
+			Tools::ThrowOnError(breakPoint.SetBreakPoint(address));
 
 		return true;
 	}

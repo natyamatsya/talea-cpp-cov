@@ -19,6 +19,7 @@
 
 #include <Windows.h>
 #include "CppCoverageExport.hpp"
+#include "Tools/Error.hpp"
 
 namespace CppCoverage
 {
@@ -31,20 +32,22 @@ namespace CppCoverage
 
 		static const std::uint8_t breakPointInstruction;
 
-		void RemoveBreakPoint(const Address&,
-		                      std::uint8_t oldInstruction) const;
+		[[nodiscard]] Tools::Expected<void>
+		RemoveBreakPoint(const Address&, std::uint8_t oldInstruction) const;
 
 		using InstructionCollection =
 		    std::vector<std::pair<std::uint8_t, DWORD64>>;
 
-		InstructionCollection
+		[[nodiscard]] Tools::Expected<InstructionCollection>
 		SetBreakPoints(HANDLE hProcess, std::vector<DWORD64>&& addresses) const;
 
-		void SetBreakPoint(const Address&) const;
+		[[nodiscard]] Tools::Expected<void> SetBreakPoint(const Address&) const;
 
-		void AdjustIpAfterBreakPointRemoval(HANDLE hThread) const;
+		[[nodiscard]] Tools::Expected<void>
+		AdjustIpAfterBreakPointRemoval(HANDLE hThread) const;
 
-		void AdjustIpAndSetTrapFlag(HANDLE hThread) const;
+		[[nodiscard]] Tools::Expected<void>
+		AdjustIpAndSetTrapFlag(HANDLE hThread) const;
 
 	  private:
 		BreakPoint(const BreakPoint&) = delete;
@@ -53,6 +56,7 @@ namespace CppCoverage
 		// Rewinds the thread's instruction pointer by one byte (past the int3),
 		// optionally arming the trap flag to single-step the restored
 		// instruction. Only the control registers are touched.
-		void RewindInstructionPointer(HANDLE hThread, bool setTrapFlag) const;
+		[[nodiscard]] Tools::Expected<void>
+		RewindInstructionPointer(HANDLE hThread, bool setTrapFlag) const;
 	};
 }

@@ -282,8 +282,8 @@ namespace CppCoverage
 	    std::vector<DWORD64>&& addressCollection,
 	    const LineNumberByAddress& lineNumberByAddress)
 	{
-		auto oldInstructions =
-		    breakPoint_->SetBreakPoints(hProcess, std::move(addressCollection));
+		auto oldInstructions = Tools::ValueOrThrow(
+		    breakPoint_->SetBreakPoints(hProcess, std::move(addressCollection)));
 		for (const auto& value : oldInstructions)
 		{
 			auto oldInstruction = value.first;
@@ -308,7 +308,8 @@ namespace CppCoverage
 					            lineNumber,
 					            registeredInstruction)))
 					{
-						breakPoint_->RemoveBreakPoint(address, oldInstruction);
+						Tools::ThrowOnError(breakPoint_->RemoveBreakPoint(
+						    address, oldInstruction));
 					}
 				}
 			}
@@ -373,7 +374,7 @@ namespace CppCoverage
 					    selectedLine.lineNumber_,
 					    branch.condition_,
 					    *lineInstruction));
-					breakPoint_->SetBreakPoint(address);
+					Tools::ThrowOnError(breakPoint_->SetBreakPoint(address));
 				}
 				else if (branchByAddress
 				             .emplace(branch.virtualAddress_,
@@ -387,8 +388,8 @@ namespace CppCoverage
 			}
 		}
 
-		auto oldInstructions =
-		    breakPoint_->SetBreakPoints(hProcess, std::move(addresses));
+		auto oldInstructions = Tools::ValueOrThrow(
+		    breakPoint_->SetBreakPoints(hProcess, std::move(addresses)));
 		for (const auto& value : oldInstructions)
 		{
 			auto oldInstruction = value.first;
@@ -604,8 +605,8 @@ namespace CppCoverage
 		for (; lineCursor < pendingLines_.size(); ++lineCursor)
 			addProbe(pendingLines_[lineCursor].address_, lineCursor);
 
-		auto oldInstructions =
-		    breakPoint_->SetBreakPoints(hProcess, std::move(addresses));
+		auto oldInstructions = Tools::ValueOrThrow(
+		    breakPoint_->SetBreakPoints(hProcess, std::move(addresses)));
 		for (const auto& [oldInstruction, addressValue] : oldInstructions)
 		{
 			auto it = linesByLeader.find(addressValue);
@@ -636,7 +637,8 @@ namespace CppCoverage
 				}
 			}
 			if (!keepBreakpoint)
-				breakPoint_->RemoveBreakPoint(address, oldInstruction);
+				Tools::ThrowOnError(
+				    breakPoint_->RemoveBreakPoint(address, oldInstruction));
 		}
 
 		pendingLines_.clear();

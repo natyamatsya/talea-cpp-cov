@@ -18,7 +18,7 @@
 #include <cstdint>
 #include "BreakPoint.hpp"
 
-#include "CppCoverageException.hpp"
+#include "CppCoverageException.hpp" // CppCoverage::GetErrorMessage
 #include "Address.hpp"
 
 #include "Tools/Log.hpp"
@@ -30,37 +30,39 @@ namespace CppCoverage
 	using AddressesIt = Addresses::const_iterator;
 
 	//-------------------------------------------------------------------------
-	void SetBreakPointsRange(HANDLE hProcess,
-	                         AddressesIt begin,
-	                         AddressesIt end,
-	                         BreakPoint::InstructionCollection& oldInstructions)
+	Tools::Expected<void>
+	SetBreakPointsRange(HANDLE hProcess,
+	                    AddressesIt begin,
+	                    AddressesIt end,
+	                    BreakPoint::InstructionCollection& oldInstructions)
 	{
 		if (begin == end)
-			return;
+			return {};
 
 		auto firstValue = *begin;
 		auto memorySpaceSize =
 		    *(end - 1) - firstValue + sizeof(BreakPoint::breakPointInstruction);
 		auto firstAddress = reinterpret_cast<void*>(firstValue);
-		auto buffer = Tools::ValueOrThrow(
-		    Tools::ReadProcessMemory(
-		        hProcess, firstAddress, static_cast<size_t>(memorySpaceSize)));
+		auto buffer = Tools::ReadProcessMemory(
+		    hProcess, firstAddress, static_cast<size_t>(memorySpaceSize));
+		if (!buffer)
+			return std::unexpected(buffer.error());
 
 		for (auto it = begin; it < end; ++it)
 		{
 			auto index = static_cast<size_t>(*it - firstValue);
-			auto oldInstruction = buffer[index];
-			buffer[index] = BreakPoint::breakPointInstruction;
+			auto oldInstruction = (*buffer)[index];
+			(*buffer)[index] = BreakPoint::breakPointInstruction;
 			oldInstructions.emplace_back(oldInstruction, *it);
 		}
-		Tools::ThrowOnError(Tools::WriteProcessMemory(
-		    hProcess, firstAddress, &buffer[0], buffer.size()));
+		return Tools::WriteProcessMemory(
+		    hProcess, firstAddress, &(*buffer)[0], buffer->size());
 	}
 
 	const std::uint8_t BreakPoint::breakPointInstruction = 0xCC;
 
 	//-------------------------------------------------------------------------
-	BreakPoint::InstructionCollection
+	Tools::Expected<BreakPoint::InstructionCollection>
 	BreakPoint::SetBreakPoints(HANDLE hProcess, Addresses&& addresses) const
 	{
 		InstructionCollection oldInstructions;
@@ -72,48 +74,54 @@ namespace CppCoverage
 		{
 			if (*it - *beginRange > 4096)
 			{
-				SetBreakPointsRange(hProcess, beginRange, it, oldInstructions);
+				if (auto result = SetBreakPointsRange(
+				        hProcess, beginRange, it, oldInstructions);
+				    !result)
+					return std::unexpected(result.error());
 				beginRange = it;
 			}
 		}
-		SetBreakPointsRange(
-		    hProcess, beginRange, addresses.end(), oldInstructions);
+		if (auto result = SetBreakPointsRange(
+		        hProcess, beginRange, addresses.end(), oldInstructions);
+		    !result)
+			return std::unexpected(result.error());
 
 		return oldInstructions;
 	}
 
 	//-------------------------------------------------------------------------
-	void BreakPoint::RemoveBreakPoint(const Address& address,
-	                                  std::uint8_t oldInstruction) const
+	Tools::Expected<void>
+	BreakPoint::RemoveBreakPoint(const Address& address,
+	                             std::uint8_t oldInstruction) const
 	{
-		Tools::ThrowOnError(
-		    Tools::WriteProcessMemory(address.GetProcessHandle(),
-		                              address.GetValue(),
-		                              &oldInstruction,
-		                              sizeof(oldInstruction)));
+		return Tools::WriteProcessMemory(address.GetProcessHandle(),
+		                                 address.GetValue(),
+		                                 &oldInstruction,
+		                                 sizeof(oldInstruction));
 	}
 
 	//-------------------------------------------------------------------------
-	void BreakPoint::SetBreakPoint(const Address& address) const
+	Tools::Expected<void> BreakPoint::SetBreakPoint(const Address& address) const
 	{
 		auto instruction = breakPointInstruction;
-		Tools::ThrowOnError(
-		    Tools::WriteProcessMemory(address.GetProcessHandle(),
-		                              address.GetValue(),
-		                              &instruction,
-		                              sizeof(instruction)));
+		return Tools::WriteProcessMemory(address.GetProcessHandle(),
+		                                 address.GetValue(),
+		                                 &instruction,
+		                                 sizeof(instruction));
 	}
 
 	//-------------------------------------------------------------------------
-	void BreakPoint::RewindInstructionPointer(HANDLE hThread,
-	                                          bool setTrapFlag) const
+	Tools::Expected<void>
+	BreakPoint::RewindInstructionPointer(HANDLE hThread, bool setTrapFlag) const
 	{
 		CONTEXT lcContext;
 		// Only the control registers (instruction pointer, flags) are read
 		// and written here, so avoid the cost of a full CONTEXT_ALL fetch.
 		lcContext.ContextFlags = CONTEXT_CONTROL;
 		if (!GetThreadContext(hThread, &lcContext))
-			THROW_LAST_ERROR("Error in GetThreadContext", GetLastError());
+			return std::unexpected(MAKE_ERROR(
+			    L"Error in GetThreadContext"
+			    << CppCoverage::GetErrorMessage(GetLastError())));
 
 		--lcContext.Rip; // Move back one byte, over the int3.
 		if (setTrapFlag)
@@ -125,18 +133,23 @@ namespace CppCoverage
 		}
 
 		if (!SetThreadContext(hThread, &lcContext))
-			THROW_LAST_ERROR("Error in SetThreadContext", GetLastError());
+			return std::unexpected(MAKE_ERROR(
+			    L"Error in SetThreadContext"
+			    << CppCoverage::GetErrorMessage(GetLastError())));
+		return {};
 	}
 
 	//-------------------------------------------------------------------------
-	void BreakPoint::AdjustIpAfterBreakPointRemoval(HANDLE hThread) const
+	Tools::Expected<void>
+	BreakPoint::AdjustIpAfterBreakPointRemoval(HANDLE hThread) const
 	{
-		RewindInstructionPointer(hThread, /*setTrapFlag*/ false);
+		return RewindInstructionPointer(hThread, /*setTrapFlag*/ false);
 	}
 
 	//-------------------------------------------------------------------------
-	void BreakPoint::AdjustIpAndSetTrapFlag(HANDLE hThread) const
+	Tools::Expected<void>
+	BreakPoint::AdjustIpAndSetTrapFlag(HANDLE hThread) const
 	{
-		RewindInstructionPointer(hThread, /*setTrapFlag*/ true);
+		return RewindInstructionPointer(hThread, /*setTrapFlag*/ true);
 	}
 }

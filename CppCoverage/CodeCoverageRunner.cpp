@@ -330,8 +330,10 @@ namespace CppCoverage
 
 		if (oldInstruction)
 		{
-			breakpoint_->RemoveBreakPoint(address, *oldInstruction);
-			breakpoint_->AdjustIpAfterBreakPointRemoval(hThread);
+			Tools::ThrowOnError(
+			    breakpoint_->RemoveBreakPoint(address, *oldInstruction));
+			Tools::ThrowOnError(
+			    breakpoint_->AdjustIpAfterBreakPointRemoval(hThread));
 			return true;
 		}
 
