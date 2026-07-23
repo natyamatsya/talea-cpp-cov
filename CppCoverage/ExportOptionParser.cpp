@@ -95,8 +95,8 @@ namespace CppCoverage
 	}
 
 	//----------------------------------------------------------------------------
-	void ExportOptionParser::ParseOption(const OptionsSpec& spec,
-	                                     Options& options)
+	Tools::Expected<void> ExportOptionParser::ParseOption(const OptionsSpec& spec,
+	                                                      Options& options)
 	{
 		// --export_type defaults to html when none is given.
 		std::vector<std::string> exportTypeStrCollection = spec.export_type;
@@ -113,10 +113,10 @@ namespace CppCoverage
 			if (optionExport)
 				options.AddExport(std::move(*optionExport));
 			else
-				throw Plugin::OptionsParserException(
-				    Tools::ToLocalString(exportData.exportType) +
-				    " is not a valid export type.");
+				return std::unexpected(Tools::Error{
+				    exportData.exportType + L" is not a valid export type."});
 		}
+		return {};
 	}
 
 	//----------------------------------------------------------------------------

@@ -17,6 +17,7 @@
 #pragma once
 
 #include "CppCoverageExport.hpp"
+#include "Tools/Error.hpp"
 
 namespace CppCoverage
 {
@@ -31,6 +32,7 @@ namespace CppCoverage
 	  public:
 		virtual ~IOptionParser() = default;
 
-		virtual void ParseOption(const OptionsSpec&, Options&) = 0;
+		virtual Tools::Expected<void> ParseOption(const OptionsSpec&,
+		                                          Options&) = 0;
 	};
 }

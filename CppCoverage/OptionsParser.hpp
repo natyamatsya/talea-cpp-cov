@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "CppCoverageExport.hpp"
+#include "Tools/Error.hpp"
 
 namespace Tools
 {
@@ -57,7 +58,7 @@ namespace CppCoverage
 		OptionsParser(OptionsParser&&) = delete;
 		OptionsParser& operator=(OptionsParser&&) = delete;
 
-		std::optional<Options> Parse(int argc, const char** argv) const;
+		Tools::Expected<std::optional<Options>> Parse(int argc, const char** argv) const;
 		void ShowExplanation(std::wostream* emptyOptionsExplanation, const char* message) const;
 
 		std::shared_ptr<Tools::WarningManager> optionalWarningManager_;

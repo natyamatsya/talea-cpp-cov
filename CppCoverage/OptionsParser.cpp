@@ -48,17 +48,26 @@ namespace CppCoverage
 	namespace
 	{
 		//---------------------------------------------------------------------
-		void CheckPattern(const std::string& name, const std::string& value)
+		// Wraps a user-facing option message (no file:line prefix, unlike
+		// MAKE_ERROR) as the Tools::Error carried by the parser's std::expected.
+		Tools::Error OptionError(const std::string& message)
+		{
+			return Tools::Error{Tools::LocalToWString(message)};
+		}
+
+		//---------------------------------------------------------------------
+		Tools::Expected<void> CheckPattern(const std::string& name,
+		                                   const std::string& value)
 		{
 			auto notWindowsPathSeparator = '/';
 
 			if (value.find(notWindowsPathSeparator) != std::string::npos)
 			{
-				throw Plugin::OptionsParserException(
+				return std::unexpected(OptionError(
 				    "Error: Invalid value \""
 				    "--" +
 				    name + ' ' + value + "\". " +
-				    "Please use Windows path separator '\\'.");
+				    "Please use Windows path separator '\\'."));
 			}
 
 			// Do not iterate over path: path{"Folder\\"}.filename() == '.'
@@ -71,22 +80,24 @@ namespace CppCoverage
 			{
 				if (part == "." || part == "..")
 				{
-					throw Plugin::OptionsParserException(
+					return std::unexpected(OptionError(
 					    "Error: \""
 					    "--" +
 					    name + ' ' + value +
 					    "\": Cannot contain \".\" (current folder) or \"..\" "
-					    "(parent folder).");
+					    "(parent folder)."));
 				}
 			}
+			return {};
 		}
 
 		//---------------------------------------------------------------------
 		// The selected patterns default to "*" when none is given.
-		cov::Patterns GetPatterns(const std::string& selectedName,
-		                          std::vector<std::string> selected,
-		                          const std::string& excludedName,
-		                          const std::vector<std::string>& excluded)
+		Tools::Expected<cov::Patterns>
+		GetPatterns(const std::string& selectedName,
+		            std::vector<std::string> selected,
+		            const std::string& excludedName,
+		            const std::vector<std::string>& excluded)
 		{
 			cov::Patterns patterns{false};
 
@@ -95,12 +106,14 @@ namespace CppCoverage
 
 			for (const auto& pattern : selected)
 			{
-				CheckPattern(selectedName, pattern);
+				if (auto checked = CheckPattern(selectedName, pattern); !checked)
+					return std::unexpected(std::move(checked.error()));
 				patterns.AddSelectedPatterns(Tools::LocalToWString(pattern));
 			}
 			for (const auto& pattern : excluded)
 			{
-				CheckPattern(excludedName, pattern);
+				if (auto checked = CheckPattern(excludedName, pattern); !checked)
+					return std::unexpected(std::move(checked.error()));
 				patterns.AddExcludedPatterns(Tools::LocalToWString(pattern));
 			}
 			return patterns;
@@ -123,30 +136,33 @@ namespace CppCoverage
 		}
 
 		//---------------------------------------------------------------------
-		void AddInputCoverages(const OptionsSpec& spec, Options& options)
+		Tools::Expected<void> AddInputCoverages(const OptionsSpec& spec,
+		                                        Options& options)
 		{
 			for (const auto& path : spec.input_coverage)
 			{
 				if (!Tools::FileExists(path))
 				{
-					throw Plugin::OptionsParserException(
+					return std::unexpected(OptionError(
 					    "Argument of " + ProgramOptions::InputCoverageValue +
-					    " <" + path + "> does not exist.");
+					    " <" + path + "> does not exist."));
 				}
 				options.AddInputCoveragePath(path);
 			}
+			return {};
 		}
 
 		//---------------------------------------------------------------------
-		void AddInputFastCov(const OptionsSpec& spec, Options& options)
+		Tools::Expected<void> AddInputFastCov(const OptionsSpec& spec,
+		                                      Options& options)
 		{
 			for (const auto& path : spec.input_fastcov)
 			{
 				if (!Tools::FileExists(path))
 				{
-					throw Plugin::OptionsParserException(
+					return std::unexpected(OptionError(
 					    "Argument of " + ProgramOptions::InputFastCovValue +
-					    " <" + path + "> does not exist.");
+					    " <" + path + "> does not exist."));
 				}
 				options.AddInputFastCovPath(path);
 			}
@@ -154,6 +170,7 @@ namespace CppCoverage
 			if (spec.fastcov_template_report)
 				options.SetFastCovTemplateReportPath(
 				    *spec.fastcov_template_report);
+			return {};
 		}
 
 		//----------------------------------------------------------------------------
@@ -169,7 +186,8 @@ namespace CppCoverage
 		}
 
 		//----------------------------------------------------------------------------
-		void AddUnifiedDiff(const OptionsSpec& spec, Options& options)
+		Tools::Expected<void> AddUnifiedDiff(const OptionsSpec& spec,
+		                                     Options& options)
 		{
 			for (const auto& unifiedDiff : spec.unified_diff)
 			{
@@ -181,20 +199,21 @@ namespace CppCoverage
 
 				if (!fs::is_regular_file(unifiedDiffPath))
 				{
-					throw Plugin::OptionsParserException(
+					return std::unexpected(OptionError(
 					    "Unified diff path " + unifiedDiffPath.string() +
-					    " does not exist.");
+					    " does not exist."));
 				}
 				if (rootDiffFolder && !is_directory(*rootDiffFolder))
 				{
-					throw Plugin::OptionsParserException(
+					return std::unexpected(OptionError(
 					    "Unified diff root folder " + rootDiffFolder->string() +
-					    " does not exist.");
+					    " does not exist."));
 				}
 
 				options.AddUnifiedDiffSettings(
 				    UnifiedDiffSettings{unifiedDiffPath, rootDiffFolder});
 			}
+			return {};
 		}
 
 		//----------------------------------------------------------------------------
@@ -206,7 +225,7 @@ namespace CppCoverage
 		}
 
 		//---------------------------------------------------------------------
-		SubstitutePdbSourcePath
+		Tools::Expected<SubstitutePdbSourcePath>
 		CreateSubstitutePdbSourcePath(const std::string& paths)
 		{
 			auto pos = paths.find(OptionsParser::PathSeparator);
@@ -215,38 +234,43 @@ namespace CppCoverage
 			                   ". ";
 			if (pos == std::string::npos)
 			{
-				throw Plugin::OptionsParserException(error + "Cannot find " +
-				                                     OptionsParser::PathSeparator +
-				                                     '.');
+				return std::unexpected(OptionError(error + "Cannot find " +
+				                                   OptionsParser::PathSeparator +
+				                                   '.'));
 			}
 
 			auto pdbPath = paths.substr(0, pos);
 			if (pdbPath.find('/') != std::string::npos)
 			{
-				throw Plugin::OptionsParserException(
+				return std::unexpected(OptionError(
 				    error + "Path \"" + pdbPath +
 				    "\" contains '/' which is not the Windows "
 				    "path separator. "
-				    "Please use '\\' instead.");
+				    "Please use '\\' instead."));
 			}
 			auto localPath = paths.substr(pos + 1);
 			if (!Tools::FileExists(localPath))
 			{
-				throw Plugin::OptionsParserException(error + "Path \"" +
-				                                     localPath +
-				                                     "\" does not exist.");
+				return std::unexpected(OptionError(error + "Path \"" +
+				                                   localPath +
+				                                   "\" does not exist."));
 			}
 
 			return SubstitutePdbSourcePath{pdbPath, localPath};
 		}
 
 		//---------------------------------------------------------------------
-		void AddSubstitutePdbSourcePaths(const OptionsSpec& spec,
-		                                 Options& options)
+		Tools::Expected<void> AddSubstitutePdbSourcePaths(const OptionsSpec& spec,
+		                                                  Options& options)
 		{
 			for (const auto& paths : spec.substitute_pdb_source_path)
-				options.AddSubstitutePdbSourcePath(
-				    CreateSubstitutePdbSourcePath(paths));
+			{
+				auto substitute = CreateSubstitutePdbSourcePath(paths);
+				if (!substitute)
+					return std::unexpected(std::move(substitute.error()));
+				options.AddSubstitutePdbSourcePath(std::move(*substitute));
+			}
+			return {};
 		}
 
 		//---------------------------------------------------------------------------
@@ -276,20 +300,22 @@ namespace CppCoverage
 		//---------------------------------------------------------------------
 		// Reads a JSON config file into spec (the base; the command line is
 		// applied on top afterwards).
-		void ReadConfigFile(OptionsSpec& spec, const std::string& path)
+		Tools::Expected<void> ReadConfigFile(OptionsSpec& spec,
+		                                     const std::string& path)
 		{
 			std::ifstream ifs{path, std::ios::binary};
 			if (!ifs)
-				throw Plugin::OptionsParserException(
-				    "Cannot open config file: " + path);
+				return std::unexpected(
+				    OptionError("Cannot open config file: " + path));
 
 			std::string content{std::istreambuf_iterator<char>{ifs},
 			                    std::istreambuf_iterator<char>{}};
 			auto error = glz::read_json(spec, content);
 			if (error)
-				throw Plugin::OptionsParserException(
+				return std::unexpected(OptionError(
 				    "Cannot parse JSON config file " + path + ": " +
-				    glz::format_error(error, content));
+				    glz::format_error(error, content)));
+			return {};
 		}
 
 		//---------------------------------------------------------------------
@@ -351,22 +377,20 @@ namespace CppCoverage
 	                     const char** argv,
 	                     std::wostream* emptyOptionsExplanation) const
 	{
-		try
+		auto result = Parse(argc, argv);
+		if (!result)
 		{
-			auto options = Parse(argc, argv);
-
-			if (!options && emptyOptionsExplanation)
-				*emptyOptionsExplanation
-				    << Tools::LocalToWString(ProgramOptions::GetHelpMessage());
-
-			return options;
-		}
-		catch (const Plugin::OptionsParserException& e)
-		{
-			ShowExplanation(emptyOptionsExplanation, e.what());
+			ShowExplanation(emptyOptionsExplanation,
+			                Tools::ToLocalString(result.error().message).c_str());
+			return std::nullopt;
 		}
 
-		return std::nullopt;
+		auto& options = *result;
+		if (!options && emptyOptionsExplanation)
+			*emptyOptionsExplanation
+			    << Tools::LocalToWString(ProgramOptions::GetHelpMessage());
+
+		return std::move(options);
 	}
 
 	//-------------------------------------------------------------------------
@@ -383,8 +407,8 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	std::optional<Options> OptionsParser::Parse(int argc,
-	                                            const char** argv) const
+	Tools::Expected<std::optional<Options>>
+	OptionsParser::Parse(int argc, const char** argv) const
 	{
 		if (optionalWarningManager_)
 			CheckArgumentsSize(argc, argv, *optionalWarningManager_);
@@ -399,13 +423,17 @@ namespace CppCoverage
 
 		OptionsSpec spec;
 		if (probe.config_file)
-			ReadConfigFile(spec, *probe.config_file);
+		{
+			if (auto configRead = ReadConfigFile(spec, *probe.config_file);
+			    !configRead)
+				return std::unexpected(std::move(configRead.error()));
+		}
 
 		auto result = glzcli::parse(spec, optionTokens);
 		if (result.help)
-			return std::nullopt;
+			return std::optional<Options>{std::nullopt};
 		if (result.error)
-			throw Plugin::OptionsParserException(*result.error);
+			return std::unexpected(OptionError(*result.error));
 
 		// A "--" separator puts the program and its arguments after it,
 		// verbatim; otherwise they were captured as positionals.
@@ -420,21 +448,25 @@ namespace CppCoverage
 		                                  spec.modules,
 		                                  ProgramOptions::ExcludedModulesOption,
 		                                  spec.excluded_modules);
+		if (!modulePatterns)
+			return std::unexpected(std::move(modulePatterns.error()));
 		auto sourcePatterns = GetPatterns(ProgramOptions::SelectedSourcesOption,
 		                                  spec.sources,
 		                                  ProgramOptions::ExcludedSourcesOption,
 		                                  spec.excluded_sources);
+		if (!sourcePatterns)
+			return std::unexpected(std::move(sourcePatterns.error()));
 
 		auto optionalStartInfo = GetStartInfo(spec);
-		Options options{modulePatterns,
-		                sourcePatterns,
+		Options options{*modulePatterns,
+		                *sourcePatterns,
 		                optionalStartInfo ? &*optionalStartInfo : nullptr};
 
 		if (spec.verbose && spec.quiet)
-			throw Plugin::OptionsParserException(
+			return std::unexpected(OptionError(
 			    "--" + ProgramOptions::VerboseOption + " and --" +
 			    ProgramOptions::QuietOption +
-			    " cannot be used at the same time.");
+			    " cannot be used at the same time."));
 
 		if (spec.verbose)
 			options.SetLogLevel(LogLevel::Verbose);
@@ -467,22 +499,29 @@ namespace CppCoverage
 		if (spec.no_veh)
 			options.DisableVehMode();
 
-		AddInputCoverages(spec, options);
-		AddInputFastCov(spec, options);
-		AddUnifiedDiff(spec, options);
+		if (auto added = AddInputCoverages(spec, options); !added)
+			return std::unexpected(std::move(added.error()));
+		if (auto added = AddInputFastCov(spec, options); !added)
+			return std::unexpected(std::move(added.error()));
+		if (auto added = AddUnifiedDiff(spec, options); !added)
+			return std::unexpected(std::move(added.error()));
 		AddExcludedLineRegexes(spec, options);
-		AddSubstitutePdbSourcePaths(spec, options);
+		if (auto added = AddSubstitutePdbSourcePaths(spec, options); !added)
+			return std::unexpected(std::move(added.error()));
 
 		if (!options.GetStartInfo() && options.GetInputCoveragePaths().empty() &&
 		    options.GetInputFastCovPaths().empty())
-			throw Plugin::OptionsParserException(
+			return std::unexpected(OptionError(
 			    "You must specify a program to execute or use --" +
 			    ProgramOptions::InputCoverageValue + " or --" +
-			    ProgramOptions::InputFastCovValue);
+			    ProgramOptions::InputFastCovValue));
 
 		for (const auto& optionParser : optionParsers_)
-			optionParser->ParseOption(spec, options);
-		return options;
+		{
+			if (auto parsed = optionParser->ParseOption(spec, options); !parsed)
+				return std::unexpected(std::move(parsed.error()));
+		}
+		return std::optional<Options>{std::move(options)};
 	}
 
 	//-------------------------------------------------------------------------

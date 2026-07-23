@@ -40,7 +40,7 @@ namespace CppCoverage
 		ExportOptionParser(const ExportOptionParser&) = delete;
 		ExportOptionParser& operator=(const ExportOptionParser&) = delete;
 
-		void ParseOption(const OptionsSpec&, Options&) override;
+		Tools::Expected<void> ParseOption(const OptionsSpec&, Options&) override;
 
 	  private:
 		std::wstring GetExportTypeText() const;
