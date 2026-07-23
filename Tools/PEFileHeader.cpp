@@ -20,7 +20,6 @@
 #include <format>
 
 #include "ProcessMemory.hpp"
-#include "ToolsException.hpp"
 
 namespace Tools
 {

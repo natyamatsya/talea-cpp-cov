@@ -17,7 +17,6 @@
 #include "stdafx.h"
 #include <cstdint>
 #include "ProcessMemory.hpp"
-#include "ToolsException.hpp"
 #include "Log.hpp"
 
 namespace Tools
@@ -57,7 +56,7 @@ namespace Tools
 				LOG_ERROR("Cannot read memory");
 			}
 			if (bytesRead == 0)
-				return std::unexpected(MAKE_ERROR("Cannot ready process memory"));
+				return std::unexpected(MAKE_ERROR("Cannot read process memory"));
 
 			totalBytesRead += bytesRead;
 		}

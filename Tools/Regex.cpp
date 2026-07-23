@@ -21,7 +21,6 @@
 #include <utility>
 
 #include "Tools/Tool.hpp"
-#include "ToolsException.hpp"
 
 // PCRE2 is linked statically (see custom-triplets/x64-windows.cmake), so the
 // header must not decorate its API with __declspec(dllimport).

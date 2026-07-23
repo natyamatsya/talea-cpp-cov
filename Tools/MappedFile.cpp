@@ -17,7 +17,6 @@
 #include "stdafx.h"
 #include "MappedFile.hpp"
 
-#include "ToolsException.hpp"
 #include "Tools/Tool.hpp"
 
 #include <system_error>

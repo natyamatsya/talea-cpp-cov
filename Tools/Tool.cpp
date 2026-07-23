@@ -21,9 +21,9 @@
 #include <optional>
 #include <filesystem>
 #include <system_error>
+#include <stdexcept>
 
 #include "Log.hpp"
-#include "ToolsException.hpp"
 
 namespace fs = std::filesystem;
 

@@ -38,7 +38,6 @@
 #include "Tools/WarningManager.hpp"
 #include "Tools/Log.hpp"
 #include "IOptionParser.hpp"
-#include "Plugin/OptionsParserException.hpp"
 
 namespace cov = CppCoverage;
 namespace fs = std::filesystem;

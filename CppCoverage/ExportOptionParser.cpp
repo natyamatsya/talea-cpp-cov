@@ -18,7 +18,6 @@
 #include "ExportOptionParser.hpp"
 #include "OptionsSpec.hpp"
 #include "Options.hpp"
-#include "Plugin/OptionsParserException.hpp"
 #include "Tools/Tool.hpp"
 
 namespace CppCoverage

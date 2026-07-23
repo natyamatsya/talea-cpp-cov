@@ -26,7 +26,6 @@
 
 #include "File.hpp"
 #include "UnifiedDiffParserException.hpp"
-#include "FileFilterException.hpp"
 #include "Tools/Log.hpp"
 
 namespace FileFilter
