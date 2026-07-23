@@ -266,13 +266,21 @@ namespace CppCoverage
 	DebugInformationEnumerator::Enumerate(const std::filesystem::path& path,
 	                                      IDebugInformationHandler& handler)
 	{
+		// Catch everything (not just std::exception): CodeCoverageRunner runs
+		// Enumerate under std::execution::par and relies on it never throwing, so
+		// a non-std exception escaping here would call std::terminate.
 		try
 		{
 			return EnumerateOrThrow(path, handler);
 		}
 		catch (const std::exception& e)
 		{
-			return std::unexpected(Tools::Error{Tools::LocalToWString(e.what())});
+			return std::unexpected(Tools::ErrorFromException(e));
+		}
+		catch (...)
+		{
+			return std::unexpected(Tools::Error{
+			    L"Unknown error reading debug information for " + path.wstring()});
 		}
 	}
 

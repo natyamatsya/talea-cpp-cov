@@ -706,8 +706,7 @@ namespace CppCoverage
 		}
 		catch (const std::exception& e)
 		{
-			return std::unexpected(
-			    Tools::Error{Tools::LocalToWString(e.what())});
+			return std::unexpected(Tools::ErrorFromException(e));
 		}
 	}
 

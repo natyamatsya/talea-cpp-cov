@@ -18,6 +18,7 @@
 #include "Error.hpp"
 
 #include "ToolsException.hpp"
+#include "Tool.hpp"
 
 namespace Tools
 {
@@ -25,5 +26,11 @@ namespace Tools
 	void ThrowError(const Error& error)
 	{
 		throw ToolsException(error.message);
+	}
+
+	//-------------------------------------------------------------------------
+	Error ErrorFromException(const std::exception& e)
+	{
+		return Error{Tools::LocalToWString(e.what())};
 	}
 }

@@ -17,7 +17,6 @@
 #pragma once
 
 #include <expected>
-#include <optional>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -28,12 +27,12 @@
 namespace Tools
 {
 	// The uniform error type carried by std::expected across the migration
-	// (docs/EXPECTED_MIGRATION.md). Preserves what ExceptionBase carried: the
-	// file:line-prefixed message and, for Win32 failures, the GetLastError code.
+	// (docs/EXPECTED_MIGRATION.md). Carries the file:line-prefixed message that
+	// ExceptionBase used to hold. (A structured Win32 code can be added here once
+	// a THROW_LAST_ERROR site is migrated; none is yet, so it would be dead.)
 	struct Error
 	{
 		std::wstring message;
-		std::optional<int> win32Code;
 	};
 
 	template <typename T>
@@ -45,6 +44,11 @@ namespace Tools
 	// the same file:line prefix the old THROW used, the thrown exception is
 	// byte-for-byte what the caller saw before.
 	[[noreturn]] TOOLS_DLL void ThrowError(const Error& error);
+
+	// Builds an Error from a caught exception's message. The catch->expected
+	// bridge for entry points whose internals still throw (their catch clause
+	// hands the exception here).
+	[[nodiscard]] TOOLS_DLL Error ErrorFromException(const std::exception& e);
 
 	// expected -> throw bridge for callers not yet migrated: unwrap the value or
 	// rethrow the error as the Tools::ToolsException the leaf used to throw.

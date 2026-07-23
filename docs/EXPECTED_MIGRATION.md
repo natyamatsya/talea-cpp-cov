@@ -8,8 +8,10 @@ relative to the repo root.
 ## Implementation status
 
 **Phase 1 landed** (`Tools/Error.hpp`, `Tools/Error.cpp`). The shared error type
-is `Tools::Error { std::wstring message; std::optional<int> win32Code; }` with
-`Tools::Expected<T> = std::expected<T, Error>`. A `MAKE_ERROR(msg)` macro builds
+is `Tools::Error { std::wstring message; }` with
+`Tools::Expected<T> = std::expected<T, Error>`. (A structured Win32 code was part
+of the original design but dropped as dead until a `THROW_LAST_ERROR` site is
+migrated — none is.) A `MAKE_ERROR(msg)` macro builds
 the `file:line message` string exactly as `THROW_BASE` did, so a bridged
 exception reads byte-for-byte like the old thrown one. The `expected→throw`
 bridge is `Tools::ValueOrThrow(...)` / `Tools::ThrowOnError(...)`, which rethrow
