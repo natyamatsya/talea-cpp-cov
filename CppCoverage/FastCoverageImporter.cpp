@@ -44,6 +44,11 @@
 #include "FileFilter/FileInfo.hpp"
 #include "FileFilter/LineInfo.hpp"
 
+#include "Plugin/Exporter/CoverageData.hpp"
+#include "Plugin/Exporter/ModuleCoverage.hpp"
+#include "Plugin/Exporter/FileCoverage.hpp"
+#include "Plugin/Exporter/BranchCoverage.hpp"
+
 #include "CoverageRuntime/FastCovFormat.hpp"
 
 namespace CppCoverage
@@ -55,6 +60,35 @@ namespace CppCoverage
 		{
 			std::uint32_t rva_;
 			std::uint32_t count_;
+		};
+
+		//---------------------------------------------------------------------
+		// One conditional branch's edge coverage, derived from block coverage:
+		// a direction is "covered" when its successor block ran. This is exact
+		// when each successor is reached only via this edge (the common case);
+		// at a control-flow merge - a successor reached from several edges - it
+		// can over-report, the price of deriving branch coverage from block
+		// counters rather than observing each Jcc (as the debugger/VEH engine
+		// does). Fast-mode branch coverage trades that edge-case exactness for
+		// running at native speed.
+		struct BranchEdge
+		{
+			std::uint32_t jccRva_;
+			bool taken_;
+			bool fallThrough_;
+		};
+
+		//---------------------------------------------------------------------
+		// A branch's edge coverage placed at its source (module, file, line)
+		// with a per-line index, ready to decorate the CoverageData.
+		struct BranchResult
+		{
+			std::wstring modulePath_;
+			std::wstring filePath_;
+			std::uint32_t lineNumber_;
+			std::uint32_t branchIndex_;
+			bool taken_;
+			bool fallThrough_;
 		};
 
 		//---------------------------------------------------------------------
@@ -225,7 +259,8 @@ namespace CppCoverage
 		        functions,
 		    const std::map<std::uint32_t, std::uint32_t>* clangCounts,
 		    std::uint32_t regionRva,
-		    const std::vector<std::uint8_t>* region)
+		    const std::vector<std::uint8_t>* region,
+		    std::vector<BranchEdge>* branchEdges = nullptr)
 		{
 			std::vector<BasicBlock> blocks;
 
@@ -328,14 +363,15 @@ namespace CppCoverage
 						terminators.push_back(terminator);
 					}
 
-					// MSVC's per-block counters are `inc byte [rip+disp]` (some
-					// builds `add byte [rip+disp], 1`). Only those instructions
-					// write the .sancov region, so gate on the mnemonic: a stray
-					// lea/read into the section would otherwise be mistaken for a
-					// counter.
-					if (region &&
-					    (instruction.mnemonic == ZYDIS_MNEMONIC_INC ||
-					     instruction.mnemonic == ZYDIS_MNEMONIC_ADD))
+					// A per-block counter is any instruction that WRITES the
+					// .sancov region: `inc byte [rip+disp]`, `add byte
+					// [rip+disp], 1`, and - when /O2 hoists a loop's counter
+					// into a register and stores it back after the loop - `mov
+					// byte [rip+disp], reg`. Gating on a written memory operand
+					// (not the mnemonic) catches all three while still excluding
+					// a read (`movzx reg, byte [rip+disp]`) or an `lea`, which
+					// would otherwise be mistaken for a counter.
+					if (region)
 					{
 						for (std::int32_t i = 0; i < instruction.operand_count; ++i)
 						{
@@ -343,6 +379,10 @@ namespace CppCoverage
 							if (operand.type != ZYDIS_OPERAND_TYPE_MEMORY ||
 							    operand.mem.base != ZYDIS_REGISTER_RIP)
 								continue;
+							if (!(operand.actions &
+							      (ZYDIS_OPERAND_ACTION_WRITE |
+							       ZYDIS_OPERAND_ACTION_CONDWRITE)))
+								continue; // a read/lea into the section, not a counter
 							ZyanU64 target = 0;
 							if (!ZYAN_SUCCESS(ZydisCalcAbsoluteAddress(
 							        &instruction, &operand, instructionRva,
@@ -376,6 +416,13 @@ namespace CppCoverage
 				// Successors of each block, from its terminating instruction.
 				std::vector<std::vector<std::int32_t>> successors(blockCount);
 				std::vector<std::vector<std::int32_t>> predecessors(blockCount);
+				// Per block ending in a conditional branch (with both an
+				// in-function taken target and a fall-through): the Jcc rva and
+				// its taken / fall-through successor block indices, for
+				// branch-edge coverage. jcc==0 means the block is not such.
+				std::vector<std::uint32_t> condBrJcc(blockCount, 0);
+				std::vector<std::int32_t> condBrTaken(blockCount, -1);
+				std::vector<std::int32_t> condBrFall(blockCount, -1);
 				std::size_t nextTerminator = 0;
 				for (std::size_t b = 0; b < blockCount; ++b)
 				{
@@ -410,16 +457,29 @@ namespace CppCoverage
 							}
 							break;
 						case ZYDIS_CATEGORY_COND_BR:
+						{
+							std::int32_t takenBlock = -1;
 							if (terminator->hasTarget_)
 							{
-								auto t = leaderIndex(terminator->target_);
-								if (t >= 0)
-									successors[b].push_back(t);
+								takenBlock = leaderIndex(terminator->target_);
+								if (takenBlock >= 0)
+									successors[b].push_back(takenBlock);
 							}
-							if (b + 1 < blockCount)
-								successors[b].push_back(
-								    static_cast<std::int32_t>(b + 1));
+							std::int32_t fallBlock =
+							    (b + 1 < blockCount)
+							        ? static_cast<std::int32_t>(b + 1)
+							        : -1;
+							if (fallBlock >= 0)
+								successors[b].push_back(fallBlock);
+							if (branchEdges && takenBlock >= 0 &&
+							    fallBlock >= 0)
+							{
+								condBrJcc[b] = terminator->rva_;
+								condBrTaken[b] = takenBlock;
+								condBrFall[b] = fallBlock;
+							}
 							break;
+						}
 						default:
 							if (b + 1 < blockCount)
 								successors[b].push_back(
@@ -487,6 +547,21 @@ namespace CppCoverage
 								changed = true;
 							}
 						}
+					}
+				}
+
+				// Branch-edge coverage: each conditional block's two edges are
+				// covered iff their successor blocks ran (see BranchEdge).
+				if (branchEdges)
+				{
+					for (std::size_t b = 0; b < blockCount; ++b)
+					{
+						if (condBrJcc[b] == 0)
+							continue;
+						branchEdges->push_back(BranchEdge{
+						    condBrJcc[b],
+						    covered[condBrTaken[b]] != 0,
+						    covered[condBrFall[b]] != 0});
 					}
 				}
 
@@ -664,6 +739,10 @@ namespace CppCoverage
 		                            std::map<std::uint32_t, std::uint32_t>>>>
 		    templates;
 
+		// Branch-edge coverage placed at source, collected across modules and
+		// attached to the CoverageData after it is built.
+		std::vector<BranchResult> branchResults;
+
 		// Maps one module's coverage to line and instantiation coverage. The
 		// instrumented block counts come from the clang PC table (clangCounts)
 		// or, for MSVC, from the .sancov region (rawRegion); either way the
@@ -695,11 +774,13 @@ namespace CppCoverage
 				    LOG_WARNING("Fast coverage: cannot read module {}", modulePath.wstring());
 				    return;
 			    }
+			    std::vector<BranchEdge> branchEdges;
 			    auto blocks = ReconstructCoverage(*reader,
 			                                      collector.GetFunctions(),
 			                                      clangCounts,
 			                                      regionRva,
-			                                      rawRegion);
+			                                      rawRegion,
+			                                      &branchEdges);
 			    if (blocks.empty())
 				    return;
 			    std::sort(blocks.begin(),
@@ -744,6 +825,87 @@ namespace CppCoverage
 					    }
 				    }
 			    }
+
+			    // Place each conditional branch at its source line - the line
+			    // record with the greatest rva <= the Jcc's - and give it a
+			    // per-(file,line) index, matching how the debugger/VEH engine
+			    // numbers the branches of a line. A Jcc is only attributed when
+			    // that line record lies in the SAME function: otherwise a Jcc
+			    // in an unselected function (CRT, the coverage runtime) would be
+			    // mis-charged to the nearest preceding selected line.
+			    if (!branchEdges.empty())
+			    {
+				    auto sortedRecords = collector.GetLineRecords();
+				    std::sort(sortedRecords.begin(),
+				              sortedRecords.end(),
+				              [](const LineRecord& lhs, const LineRecord& rhs) {
+					              return lhs.rva_ < rhs.rva_;
+				              });
+
+				    auto functions = collector.GetFunctions();
+				    std::sort(functions.begin(),
+				              functions.end(),
+				              [](const auto& lhs, const auto& rhs) {
+					              return lhs.virtualAddress_ <
+					                     rhs.virtualAddress_;
+				              });
+				    auto enclosingFunctionStart =
+				        [&](std::uint32_t rva) -> std::int64_t {
+					    auto it = std::upper_bound(
+					        functions.begin(),
+					        functions.end(),
+					        rva,
+					        [](std::uint32_t value, const auto& function) {
+						        return static_cast<std::int64_t>(value) <
+						               function.virtualAddress_;
+					        });
+					    if (it == functions.begin())
+						    return -1;
+					    const auto& function = *std::prev(it);
+					    if (static_cast<std::int64_t>(rva) >=
+					        function.virtualAddress_ +
+					            static_cast<std::int64_t>(function.length_))
+						    return -1; // between functions
+					    return function.virtualAddress_;
+				    };
+
+				    std::map<std::pair<std::wstring, std::uint32_t>,
+				             std::uint32_t>
+				        branchIndexByLine;
+				    for (const auto& edge : branchEdges)
+				    {
+					    auto functionStart =
+					        enclosingFunctionStart(edge.jccRva_);
+					    if (functionStart < 0)
+						    continue;
+
+					    auto it = std::upper_bound(
+					        sortedRecords.begin(),
+					        sortedRecords.end(),
+					        edge.jccRva_,
+					        [](std::uint32_t value, const LineRecord& record) {
+						        return value < record.rva_;
+					        });
+					    if (it == sortedRecords.begin())
+						    continue; // Jcc before the first selected line
+					    const auto& record = *std::prev(it);
+					    // The line must belong to the Jcc's own function.
+					    if (static_cast<std::int64_t>(record.rva_) <
+					        functionStart)
+						    continue;
+
+					    auto key = std::make_pair(record.filePath_,
+					                              record.lineNumber_);
+					    auto branchIndex = branchIndexByLine[key]++;
+					    branchResults.push_back(
+					        BranchResult{modulePath.wstring(),
+					                     record.filePath_,
+					                     record.lineNumber_,
+					                     branchIndex,
+					                     edge.taken_,
+					                     edge.fallThrough_});
+				    }
+			    }
 		    };
 
 		if (magic == FastCov::DumpMagic)
@@ -752,6 +914,39 @@ namespace CppCoverage
 			ImportRawDump(bytes, dumpPath, processModule);
 
 		Result result{manager.CreateCoverageData(coverageName, 0), {}};
+
+		// Attach the branch-edge coverage to the built CoverageData: locate
+		// each result's file and add the branch to its line (only when the
+		// line survived filtering), mirroring the debugger/VEH decoration.
+		if (!branchResults.empty())
+		{
+			std::unordered_map<
+			    std::wstring,
+			    std::unordered_map<std::wstring, Plugin::FileCoverage*>>
+			    filesByModule;
+			for (const auto& module : result.coverageData_.GetModules())
+			{
+				auto& files = filesByModule[module->GetPath().wstring()];
+				for (const auto& file : module->GetFiles())
+					files[file->GetPath().wstring()] = file.get();
+			}
+			for (const auto& branch : branchResults)
+			{
+				auto moduleIt = filesByModule.find(branch.modulePath_);
+				if (moduleIt == filesByModule.end())
+					continue;
+				auto fileIt = moduleIt->second.find(branch.filePath_);
+				if (fileIt == moduleIt->second.end())
+					continue;
+				auto* file = fileIt->second;
+				if (!(*file)[branch.lineNumber_])
+					continue; // the line was filtered out; skip its branch
+				file->AddBranch(branch.lineNumber_,
+				                Plugin::BranchCoverage{branch.branchIndex_,
+				                                       branch.taken_,
+				                                       branch.fallThrough_});
+			}
+		}
 
 		for (const auto& [stem, instantiations] : templates)
 		{

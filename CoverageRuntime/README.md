@@ -55,8 +55,13 @@ link /DEBUG your_code.obj OpenCppCoverageFastCovMsvc.obj /OUT:your_app.exe
 ```
 
 Because MSVC omits the PC table, the importer recovers each counter's block
-address by disassembling the module (`inc byte [rip+disp]` into `.sancov`) and
-reconstructing basic-block leaders from the PDB function ranges.
+address by disassembling the module — any instruction that *writes* the
+`.sancov` region is a counter: `inc byte [rip+disp]`, `add byte [rip+disp], 1`,
+and, when `/O2` hoists a loop's counter into a register, the `mov byte
+[rip+disp], reg` that stores it back after the loop — and reconstructing
+basic-block leaders from the PDB function ranges. (Gating on a *written* memory
+operand rather than a fixed mnemonic is what catches the hoisted-counter form; a
+read or `lea` into the section is not a counter.)
 
 Keep the `/DEBUG` on the link (the examples above do). The 8-bit counters live
 in a zero-initialized `.sancov` section (`SizeOfRawData` is 0), and a Release
@@ -108,6 +113,43 @@ OpenCppCoverage --sources MySource* --input_fastcov coverage.fastcov ^
 template, each instantiation's line coverage, and the lines covered in some but
 not all instantiations — the gaps a single boolean per line hides (e.g. a line
 exercised for `foo<int>` but never for `foo<double>`).
+
+## Branch coverage (approximate)
+
+The fast import also fills in **branch coverage** (the Cobertura `condition-coverage`
+attributes and `<conditions>` elements): for every conditional jump the report
+says whether each direction — taken and fall-through — was exercised.
+
+It is **derived from block coverage**, not observed directly. The importer already
+rebuilds each function's control-flow graph; a branch direction is reported
+*covered* when the block that direction leads to was itself covered. This is what
+makes it free: no extra instrumentation, no per-branch trapping, so it runs at the
+same native speed as line coverage.
+
+**What "approximate" means.** The derivation is *exact* when a branch's successor
+block is reached **only** by that edge — the common case: the body of an `if`, the
+exit of a `do/while`. It can diverge from the exact debugger/VEH engines at a
+control-flow **merge**, where a block is reached by several edges:
+
+- **over-report** — a direction is marked covered because its successor block ran,
+  even though that block was actually reached by a *different* edge (e.g. the join
+  after an `if/else`, or a loop-exit block shared with the zero-trip guard MSVC
+  emits for every `for`/`while`);
+- **under-report** — the conservative block propagation (which only flows coverage
+  across *single*-successor / *single*-predecessor edges) can leave a merge block
+  unmarked even though it ran, so a direction into it reads uncovered.
+
+Neither affects **line** coverage, which stays block-accurate. Only the
+taken/not-taken *direction* attribution is affected, and only at merges.
+
+**Exact branch coverage** requires observing each conditional jump's real outcome —
+which is what the debugger (`--no_veh`) and the default VEH engines do, at the cost
+of a trap per branch execution. There is no way to recover it exactly from block
+counters alone (that would need edge-level instrumentation, which MSVC's
+SanitizerCoverage does not emit). So treat fast-mode branch coverage as a **fast
+indicator** — excellent for tracking the trend and finding never-exercised
+branches across a large suite — and use the debugger/VEH engine when you need an
+*exact* branch audit of a scoped target.
 
 ## Notes and limits
 
