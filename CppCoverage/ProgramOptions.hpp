@@ -57,7 +57,10 @@ namespace CppCoverage
 		static const std::string NoRawPdbOption;
 		static const std::string NoLineMergingOption;
 		static const std::string PreparseImportsOption;
-		static const std::string NoVehOption;
+		static const std::string EngineOption;
+		static const std::string EngineInstrumentationValue;
+		static const std::string EngineBreakpointValue;
+		static const std::string EngineDebuggerValue;
 		static const std::string InputFastCovValue;
 		static const std::string FastCovTemplateReportValue;
 

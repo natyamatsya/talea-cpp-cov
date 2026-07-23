@@ -34,6 +34,17 @@ namespace CppCoverage
 			}
 			std::unreachable();
 		}
+
+		std::wstring GetEngineStr(CoverageEngine engine)
+		{
+			switch (engine)
+			{
+			case CoverageEngine::Instrumentation: return L"Instrumentation";
+			case CoverageEngine::Breakpoint: return L"Breakpoint";
+			case CoverageEngine::Debugger: return L"Debugger";
+			}
+			std::unreachable();
+		}
 	}
 
 	//-------------------------------------------------------------------------
@@ -55,7 +66,7 @@ namespace CppCoverage
 		, isNoRawPdbModeEnabled_{false}
 		, isNoLineMergingModeEnabled_{false}
 		, isPreparseImportsModeEnabled_{false}
-		, isVehModeEnabled_{true}
+		, engine_{CoverageEngine::Breakpoint}
 	{
 		if (startInfo)
 			optionalStartInfo_ = *startInfo;
@@ -288,15 +299,15 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	void Options::DisableVehMode()
+	void Options::SetEngine(CoverageEngine engine)
 	{
-		isVehModeEnabled_ = false;
+		engine_ = engine;
 	}
 
 	//-------------------------------------------------------------------------
-	bool Options::IsVehModeEnabled() const
+	CoverageEngine Options::GetEngine() const
 	{
-		return isVehModeEnabled_;
+		return engine_;
 	}
 
 	//-------------------------------------------------------------------------
@@ -340,7 +351,7 @@ namespace CppCoverage
 		ostr << L"No raw PDB: " << options.isNoRawPdbModeEnabled_ << std::endl;
 		ostr << L"No line merging: " << options.isNoLineMergingModeEnabled_ << std::endl;
 		ostr << L"Preparse imports: " << options.isPreparseImportsModeEnabled_ << std::endl;
-		ostr << L"VEH engine: " << options.isVehModeEnabled_ << std::endl;
+		ostr << L"Engine: " << GetEngineStr(options.engine_) << std::endl;
 
 		ostr << L"Export: ";
 		for (const auto& optionExport : options.exports_)

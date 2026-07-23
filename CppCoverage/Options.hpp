@@ -37,6 +37,23 @@ namespace CppCoverage
 		Verbose
 	};
 
+	// The coverage collection engine (the --engine option). Selects how
+	// coverage is gathered; see the CLI help and README for the trade-offs.
+	enum class CoverageEngine
+	{
+		// Compiler-instrumentation ("fast-cov"): inline counters written at
+		// native speed, imported from a dump. The standard path. Exact line
+		// coverage; branch coverage derived from block counters (approximate
+		// at control-flow merges).
+		Instrumentation,
+		// In-process breakpoint interception via a Vectored Exception Handler.
+		// Exact, x64-only. The default when a program is run.
+		Breakpoint,
+		// Classic cross-process debugger. Exact, x64 and x86; slower, but the
+		// only engine that re-instruments a DLL unloaded and then reloaded.
+		Debugger
+	};
+
 	class CPPCOVERAGE_DLL Options
 	{
 	public:
@@ -103,8 +120,8 @@ namespace CppCoverage
 		void EnablePreparseImportsMode();
 		bool IsPreparseImportsModeEnabled() const;
 
-		void DisableVehMode();
-		bool IsVehModeEnabled() const;
+		void SetEngine(CoverageEngine);
+		CoverageEngine GetEngine() const;
 
 		void AddExcludedLineRegex(const std::wstring&);
 		const std::vector<std::wstring>& GetExcludedLineRegexes() const;
@@ -135,7 +152,7 @@ namespace CppCoverage
         bool isNoRawPdbModeEnabled_;
         bool isNoLineMergingModeEnabled_;
         bool isPreparseImportsModeEnabled_;
-        bool isVehModeEnabled_;
+        CoverageEngine engine_;
         std::vector<OptionsExport> exports_;
 		std::vector<std::filesystem::path> inputCoveragePaths_;
 		std::vector<std::filesystem::path> inputFastCovPaths_;

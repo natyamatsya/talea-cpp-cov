@@ -193,16 +193,30 @@ namespace CppCoverageTest
 	}
 
 	//-------------------------------------------------------------------------
-	TEST(OptionsParserTest, VehEngine)
+	TEST(OptionsParserTest, Engine)
 	{
 		cov::OptionsParser parser;
+		const auto engineOption =
+		    TestTools::GetOptionPrefix() + cov::ProgramOptions::EngineOption;
 
-		// VEH is the default engine.
-		ASSERT_TRUE(TestTools::Parse(parser, {})->IsVehModeEnabled());
-		// --no_veh falls back to the classic debugger.
+		// The in-process breakpoint engine is the default when running a program.
+		ASSERT_EQ(cov::CoverageEngine::Breakpoint,
+		          TestTools::Parse(parser, {})->GetEngine());
+		// --engine breakpoint is the explicit form of the default.
+		ASSERT_EQ(cov::CoverageEngine::Breakpoint,
+		          TestTools::Parse(parser,
+		              {engineOption, cov::ProgramOptions::EngineBreakpointValue})
+		              ->GetEngine());
+		// --engine debugger selects the classic cross-process debugger.
+		ASSERT_EQ(cov::CoverageEngine::Debugger,
+		          TestTools::Parse(parser,
+		              {engineOption, cov::ProgramOptions::EngineDebuggerValue})
+		              ->GetEngine());
+		// An unknown engine value is rejected.
+		ASSERT_FALSE(TestTools::Parse(parser, {engineOption, "nonsense"}));
+		// The instrumentation engine cannot run a program.
 		ASSERT_FALSE(TestTools::Parse(parser,
-		{ TestTools::GetOptionPrefix() + cov::ProgramOptions::NoVehOption })
-			->IsVehModeEnabled());
+		    {engineOption, cov::ProgramOptions::EngineInstrumentationValue}));
 	}
     
     //-------------------------------------------------------------------------

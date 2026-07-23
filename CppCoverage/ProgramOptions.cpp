@@ -58,7 +58,10 @@ namespace CppCoverage
 	const std::string ProgramOptions::NoRawPdbOption = "no_raw_pdb";
 	const std::string ProgramOptions::NoLineMergingOption = "no_line_merging";
 	const std::string ProgramOptions::PreparseImportsOption = "preparse_imports";
-	const std::string ProgramOptions::NoVehOption = "no_veh";
+	const std::string ProgramOptions::EngineOption = "engine";
+	const std::string ProgramOptions::EngineInstrumentationValue = "instrumentation";
+	const std::string ProgramOptions::EngineBreakpointValue = "breakpoint";
+	const std::string ProgramOptions::EngineDebuggerValue = "debugger";
 	const std::string ProgramOptions::InputFastCovValue = "input_fastcov";
 	const std::string ProgramOptions::FastCovTemplateReportValue =
 	    "fastcov_template_report";

@@ -260,7 +260,7 @@ namespace OpenCppCoverage
 				runCoverageSettings.SetPreparseImports(options.IsPreparseImportsModeEnabled());
 
 				std::optional<Coverage::CoverageData> coverageData;
-				if (options.IsVehModeEnabled())
+				if (options.GetEngine() == cov::CoverageEngine::Breakpoint)
 				{
 					cov::VehCoverageEngine vehEngine{warningManager};
 					coverageData.emplace(Tools::ValueOrThrow(

@@ -54,12 +54,12 @@ namespace CppCoverage
 		bool no_raw_pdb = false;
 		bool no_line_merging = false;
 		bool preparse_imports = false;
-		bool no_veh = false;
 
 		// --- scalar value options ---
 		std::optional<std::string> config_file;
 		std::optional<std::string> working_dir;
 		std::optional<std::string> fastcov_template_report;
+		std::optional<std::string> engine;
 
 		// --- repeatable value options ---
 		std::vector<std::string> modules;
@@ -155,15 +155,21 @@ namespace CppCoverage
 		              std::string_view{
 		                  "Parse the executable and its imported DLLs' PDBs in "
 		                  "parallel before start. Pure performance."}},
-		    std::pair{std::string_view{"no_veh"},
+		    std::pair{std::string_view{"engine"},
 		              std::string_view{
-		                  "Disable the in-process VEH engine and use the classic "
-		                  "debugger. Slower, but re-instruments unloaded-then-"
-		                  "reloaded DLLs, which VEH does not."}},
+		                  "Coverage engine: 'instrumentation' (the standard "
+		                  "path: compiler counters imported from --input_fastcov, "
+		                  "native speed), 'breakpoint' (in-process VEH; exact; "
+		                  "x64; the default when a program is run) or 'debugger' "
+		                  "(classic cross-process debugger; exact; x64+x86; the "
+		                  "only engine that re-instruments unloaded-then-reloaded "
+		                  "DLLs). Defaults to instrumentation when --input_fastcov "
+		                  "is given, otherwise breakpoint."}},
 		    std::pair{std::string_view{"input_fastcov"},
 		              std::string_view{
-		                  "(Experimental) Import a compiler-instrumentation "
-		                  "(SanitizerCoverage) dump. Multiple occurrences."}},
+		                  "Import a compiler-instrumentation (SanitizerCoverage) "
+		                  "dump; selects the instrumentation engine. Multiple "
+		                  "occurrences."}},
 		    std::pair{std::string_view{"fastcov_template_report"},
 		              std::string_view{
 		                  "Write the per-template instantiation coverage report "
@@ -216,14 +222,14 @@ namespace glz
 		                                     &T::no_line_merging,
 		                                     "preparse_imports",
 		                                     &T::preparse_imports,
-		                                     "no_veh",
-		                                     &T::no_veh,
 		                                     "config_file",
 		                                     &T::config_file,
 		                                     "working_dir",
 		                                     &T::working_dir,
 		                                     "fastcov_template_report",
 		                                     &T::fastcov_template_report,
+		                                     "engine",
+		                                     &T::engine,
 		                                     "modules",
 		                                     &T::modules,
 		                                     "excluded_modules",

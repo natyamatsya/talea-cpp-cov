@@ -198,7 +198,7 @@ namespace CppCoverage
 	{
 		OptionsSpec written;
 		written.branch_coverage = true;
-		written.no_veh = true;
+		written.engine = "debugger";
 		written.sources = {"src"};
 		written.export_type = {"html:report"};
 		written.working_dir = "C:\\w";
@@ -209,7 +209,8 @@ namespace CppCoverage
 		OptionsSpec read;
 		ASSERT_FALSE(glz::read_json(read, json));
 		EXPECT_TRUE(read.branch_coverage);
-		EXPECT_TRUE(read.no_veh);
+		ASSERT_TRUE(read.engine.has_value());
+		EXPECT_EQ("debugger", *read.engine);
 		ASSERT_EQ(1u, read.sources.size());
 		EXPECT_EQ("src", read.sources[0]);
 		ASSERT_EQ(1u, read.export_type.size());

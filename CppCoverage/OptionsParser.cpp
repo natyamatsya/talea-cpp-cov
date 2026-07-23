@@ -173,6 +173,72 @@ namespace CppCoverage
 		}
 
 		//----------------------------------------------------------------------------
+		// Resolves --engine into the Options engine and checks it against the
+		// other inputs. Importing a dump selects the instrumentation engine;
+		// running a program selects the breakpoint engine unless --engine says
+		// otherwise. The three engines are mutually exclusive with each other's
+		// input: instrumentation imports a dump and does not run a program, and
+		// the breakpoint/debugger engines run a program and do not import a dump.
+		Tools::Expected<void> ResolveEngine(const OptionsSpec& spec,
+		                                    Options& options)
+		{
+			const bool hasFastCov = !options.GetInputFastCovPaths().empty();
+			const bool hasProgram = options.GetStartInfo() != nullptr;
+
+			CoverageEngine engine;
+			if (spec.engine)
+			{
+				const auto& value = *spec.engine;
+				if (value == ProgramOptions::EngineInstrumentationValue)
+					engine = CoverageEngine::Instrumentation;
+				else if (value == ProgramOptions::EngineBreakpointValue)
+					engine = CoverageEngine::Breakpoint;
+				else if (value == ProgramOptions::EngineDebuggerValue)
+					engine = CoverageEngine::Debugger;
+				else
+					return std::unexpected(OptionError(
+					    "Invalid --" + ProgramOptions::EngineOption + " <" +
+					    value + ">. Expected " +
+					    ProgramOptions::EngineInstrumentationValue + ", " +
+					    ProgramOptions::EngineBreakpointValue + " or " +
+					    ProgramOptions::EngineDebuggerValue + "."));
+			}
+			else
+			{
+				engine = hasFastCov ? CoverageEngine::Instrumentation
+				                    : CoverageEngine::Breakpoint;
+			}
+
+			if (engine == CoverageEngine::Instrumentation)
+			{
+				if (!hasFastCov)
+					return std::unexpected(OptionError(
+					    "The instrumentation engine imports a dump; pass --" +
+					    ProgramOptions::InputFastCovValue + "."));
+				if (hasProgram)
+					return std::unexpected(OptionError(
+					    "The instrumentation engine imports a dump; it does not "
+					    "run a program. Drop the program, or select --" +
+					    ProgramOptions::EngineOption + " " +
+					    ProgramOptions::EngineBreakpointValue + "."));
+			}
+			else if (hasFastCov)
+			{
+				return std::unexpected(OptionError(
+				    "--" + ProgramOptions::InputFastCovValue +
+				    " selects the instrumentation engine and cannot be combined "
+				    "with the " +
+				    (engine == CoverageEngine::Breakpoint
+				         ? ProgramOptions::EngineBreakpointValue
+				         : ProgramOptions::EngineDebuggerValue) +
+				    " engine."));
+			}
+
+			options.SetEngine(engine);
+			return {};
+		}
+
+		//----------------------------------------------------------------------------
 		std::pair<fs::path, std::optional<fs::path>>
 		ExtractUnifiedDiffOption(const std::string& option)
 		{
@@ -494,9 +560,6 @@ namespace CppCoverage
 			options.EnableNoLineMergingMode();
 		if (spec.preparse_imports)
 			options.EnablePreparseImportsMode();
-		// VEH is the default engine; --no_veh falls back to the debugger.
-		if (spec.no_veh)
-			options.DisableVehMode();
 
 		if (auto added = AddInputCoverages(spec, options); !added)
 			return std::unexpected(std::move(added.error()));
@@ -514,6 +577,9 @@ namespace CppCoverage
 			    "You must specify a program to execute or use --" +
 			    ProgramOptions::InputCoverageValue + " or --" +
 			    ProgramOptions::InputFastCovValue));
+
+		if (auto resolved = ResolveEngine(spec, options); !resolved)
+			return std::unexpected(std::move(resolved.error()));
 
 		for (const auto& optionParser : optionParsers_)
 		{
