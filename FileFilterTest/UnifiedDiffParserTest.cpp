@@ -82,18 +82,14 @@ namespace FileFilterTest
 			std::wstring GetError(const std::wstring& diffContent) const
 			{
 				std::wistringstream istr{ diffContent };
-				try
-				{
-					unifiedDiffParser_.Parse(istr);
-				}
-				catch (UnifiedDiffParserException& e)
-				{
-					auto fullMessage = Tools::LocalToWString(e.what());
-					auto index = fullMessage.find('\n');
+				auto result = unifiedDiffParser_.Parse(istr);
+				if (result)
+					return L"";
 
-					if (index != std::string::npos)
-						return fullMessage.substr(index + 1);
-				}
+				const auto& fullMessage = result.error().message;
+				auto index = fullMessage.find('\n');
+				if (index != std::wstring::npos)
+					return fullMessage.substr(index + 1);
 				return L"";
 			}
 
@@ -112,7 +108,7 @@ namespace FileFilterTest
 	TEST_F(UnifiedDiffParserTest, ExpectedFiles)
 	{
 		std::wifstream diffFile{ diffPath_.string() };
-		auto files = unifiedDiffParser_.Parse(diffFile);
+		auto files = unifiedDiffParser_.Parse(diffFile).value();
 		
 		ASSERT_EQ(1, GetSelectedLinesCount(files, "CppCoverage/CodeCoverageRunner.cpp"));
 		ASSERT_EQ(3, GetSelectedLinesCount(files, "CppCoverage/CoverageData.cpp"));
@@ -131,7 +127,7 @@ namespace FileFilterTest
 	TEST_F(UnifiedDiffParserTest, ExpectedUpdatedLines)
 	{
 		std::wifstream diffFile{ diffPath_.string() };
-		auto files = unifiedDiffParser_.Parse(diffFile);
+		auto files = unifiedDiffParser_.Parse(diffFile).value();
 
 		const auto& file = GetFile(files, "CppCoverage/ExecutedAddressManager.cpp");
 		const auto& lines = file.GetSelectedLines();
@@ -182,7 +178,7 @@ namespace FileFilterTest
 		std::wistringstream istr{ L"--- foo\t2002-02-21 23:30:39.942229878 -0800\n"
 								  L"+++ bar\t2002-02 - 21 23:30 : 50.442260588 - 0800\n"
 								  L"@@ -1,0 +1,0 @@" };
-		auto files = unifiedDiffParser_.Parse(istr);
+		auto files = unifiedDiffParser_.Parse(istr).value();
 
 		ASSERT_EQ(1, files.size());
 		ASSERT_EQ(L"bar", files.at(0).GetPath().wstring());
@@ -192,10 +188,10 @@ namespace FileFilterTest
 	TEST_F(UnifiedDiffParserTest, GitDiff)
 	{
 		std::wifstream diffFile{ diffPath_.wstring() };
-		auto files = unifiedDiffParser_.Parse(diffFile);
+		auto files = unifiedDiffParser_.Parse(diffFile).value();
 
 		std::wifstream gitDiffFile{ GetFullPath(L"test_git.diff").wstring() };
-		auto gitFiles = unifiedDiffParser_.Parse(gitDiffFile);
+		auto gitFiles = unifiedDiffParser_.Parse(gitDiffFile).value();
 
 		CheckEqual(files, gitFiles);
 	}
@@ -204,7 +200,7 @@ namespace FileFilterTest
 	TEST_F(UnifiedDiffParserTest, FileRemoved)
 	{
 		std::wifstream diffFile{ GetFullPath(L"test_remove.diff").wstring() };
-		auto files = unifiedDiffParser_.Parse(diffFile);
+		auto files = unifiedDiffParser_.Parse(diffFile).value();
 
 		ASSERT_TRUE(files.empty());
 	}
@@ -213,7 +209,7 @@ namespace FileFilterTest
 	TEST_F(UnifiedDiffParserTest, FileAdded)
 	{
 		std::wifstream diffFile{ GetFullPath(L"test_add.diff").wstring() };
-		auto files = unifiedDiffParser_.Parse(diffFile);
+		auto files = unifiedDiffParser_.Parse(diffFile).value();
 
 		GetFile(files, "FileFilter/stdafx.h");		
 	}
@@ -228,7 +224,7 @@ namespace FileFilterTest
 									L"\\ No newline at end of file\n"
 									L"+ something\n"
 									L"\\ No newline at end of file\n"};
-		auto files = unifiedDiffParser_.Parse(istr);
+		auto files = unifiedDiffParser_.Parse(istr).value();
 		AssertSingleFile(files, L"b/test", { 1 });
 	}
 	
@@ -241,7 +237,7 @@ namespace FileFilterTest
 			L"@@ -0,0 +1 @@\n"
 			L"+ test\n"
 			L"\\ No newline at end of file\n" };
-		auto files = unifiedDiffParser_.Parse(istr);
+		auto files = unifiedDiffParser_.Parse(istr).value();
 		AssertSingleFile(files, L"test2.txt", { 1 });
 	}
 
@@ -254,7 +250,7 @@ namespace FileFilterTest
 			L"@@ -1 +0,0 @@\n"
 			L"- test\n"
 			L"\\ No newline at end of file\n" };
-		auto files = unifiedDiffParser_.Parse(istr);
+		auto files = unifiedDiffParser_.Parse(istr).value();
 		AssertSingleFile(files, L"test1.txt", {});
 	}
 }

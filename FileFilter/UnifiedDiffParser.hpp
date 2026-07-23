@@ -19,6 +19,7 @@
 
 #include <filesystem>
 #include "FileFilterExport.hpp"
+#include "Tools/Error.hpp"
 
 namespace FileFilter
 {
@@ -31,8 +32,8 @@ namespace FileFilter
 		const static std::wstring ToFilePrefix;
 
 		UnifiedDiffParser() = default;
-				
-		std::vector<File> Parse(std::wistream&) const;		
+
+		Tools::Expected<std::vector<File>> Parse(std::wistream&) const;
 
 	private:
 		UnifiedDiffParser(const UnifiedDiffParser&) = delete;
@@ -43,18 +44,20 @@ namespace FileFilter
 		struct HunksDifferences;
 		struct Stream;
 
-		std::filesystem::path ExtractTargetFile(Stream&) const;
-		HunksDifferences ExtractHunksDifferences(
-							const Stream&, 
+		Tools::Expected<std::filesystem::path> ExtractTargetFile(Stream&) const;
+		Tools::Expected<HunksDifferences> ExtractHunksDifferences(
+							const Stream&,
 							const std::wstring& hunksDifferencesLine) const;
 
-		std::vector<std::int32_t> ExtractUpdatedLines(
-							Stream&, 
+		Tools::Expected<std::vector<std::int32_t>> ExtractUpdatedLines(
+							Stream&,
 							const std::wstring& hunksDifferencesLine) const;
 
-		void ThrowError(const Stream&, const std::wstring&) const;
+		// Builds (does not throw) the "Error line N: <line>\n<message>" error
+		// that the helpers return as std::unexpected.
+		Tools::Error MakeError(const Stream&, const std::wstring&) const;
 
-		void FillUpdatedLines(
+		Tools::Expected<void> FillUpdatedLines(
 			const std::wstring& line,
 			std::vector<File>& files,
 			Stream& stream) const;

@@ -37,7 +37,7 @@ namespace FileFilter
 			if (!ifs)
 				throw std::runtime_error("The file " + unifiedDiffPath.string() + " cannot be opened.");
 
-			auto files = UnifiedDiffParser{}.Parse(ifs);
+			auto files = Tools::ValueOrThrow(UnifiedDiffParser{}.Parse(ifs));
 			LOG_DEBUG("Unified diff: {}", unifiedDiffPath);
 			for (const auto& file : files)
 			{

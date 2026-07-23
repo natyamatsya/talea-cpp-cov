@@ -60,7 +60,7 @@ namespace FileFilter
 		}
 
 		//-----------------------------------------------------------------------
-		void UpdateFilePathIfGitDetected(
+		Tools::Expected<void> UpdateFilePathIfGitDetected(
 			std::vector<File>& files,
 			const std::vector<std::wstring>& sourceFileLines,
 			bool foundGitHeader)
@@ -73,11 +73,13 @@ namespace FileFilter
 					auto path = file.GetPath().wstring();
 
 					if (!path.starts_with(GitTargetPrefix))
-						THROW(L"File should have the prefix: " + GitTargetPrefix);
+						return std::unexpected(MAKE_ERROR(
+						    L"File should have the prefix: " + GitTargetPrefix));
 					path.erase(0, GitTargetPrefix.size());
 					file.SetPath(path);
 				}
 			}
+			return {};
 		}
 
 		//---------------------------------------------------------------------
@@ -142,7 +144,8 @@ namespace FileFilter
 	const std::wstring UnifiedDiffParser::ToFilePrefix = L"+++ ";
 
 	//-------------------------------------------------------------------------
-	std::vector<File> UnifiedDiffParser::Parse(std::wistream& istr) const
+	Tools::Expected<std::vector<File>>
+	UnifiedDiffParser::Parse(std::wistream& istr) const
 	{
 		std::wstring line;
 		std::vector<File> files;
@@ -157,51 +160,67 @@ namespace FileFilter
 			else if (line.starts_with(FromFilePrefix))
 			{
 				sourceFileLines.push_back(line);
-				files.emplace_back(ExtractTargetFile(stream));
+				auto targetFile = ExtractTargetFile(stream);
+				if (!targetFile)
+					return std::unexpected(std::move(targetFile.error()));
+				files.emplace_back(*targetFile);
 			}
 			else if (line.starts_with(L"@@"))
-				FillUpdatedLines(line, files, stream);
+			{
+				if (auto filled = FillUpdatedLines(line, files, stream); !filled)
+					return std::unexpected(std::move(filled.error()));
+			}
 		}
 		RemoveDevNull(files, sourceFileLines);
-		UpdateFilePathIfGitDetected(files, sourceFileLines, foundGitHeader);
+		if (auto updated =
+		        UpdateFilePathIfGitDetected(files, sourceFileLines, foundGitHeader);
+		    !updated)
+			return std::unexpected(std::move(updated.error()));
 
 		return files;
 	}
 
 	//---------------------------------------------------------------------
-	void UnifiedDiffParser::FillUpdatedLines(
+	Tools::Expected<void> UnifiedDiffParser::FillUpdatedLines(
 		const std::wstring& line,
 		std::vector<File>& files,
 		Stream& stream) const
 	{
 		if (files.empty())
-			ThrowError(stream, UnifiedDiffParserException::ErrorNoFilenameBeforeHunks);
+			return std::unexpected(MakeError(
+			    stream, UnifiedDiffParserException::ErrorNoFilenameBeforeHunks));
 		auto updatedLines = ExtractUpdatedLines(stream, line);
-		files.back().AddSelectedLines(updatedLines);
+		if (!updatedLines)
+			return std::unexpected(std::move(updatedLines.error()));
+		files.back().AddSelectedLines(*updatedLines);
+		return {};
 	}
 
 	//---------------------------------------------------------------------
-	std::filesystem::path UnifiedDiffParser::ExtractTargetFile(Stream& stream) const
+	Tools::Expected<std::filesystem::path>
+	UnifiedDiffParser::ExtractTargetFile(Stream& stream) const
 	{
-		std::wstring line;		
+		std::wstring line;
 		if (!stream.GetLine(line))
-			ThrowError(stream, UnifiedDiffParserException::ErrorCannotReadLine);
-		
+			return std::unexpected(MakeError(
+			    stream, UnifiedDiffParserException::ErrorCannotReadLine));
+
 		if (!line.starts_with(ToFilePrefix))
-			ThrowError(stream, UnifiedDiffParserException::ErrorExpectFromFilePrefix);
+			return std::unexpected(MakeError(
+			    stream, UnifiedDiffParserException::ErrorExpectFromFilePrefix));
 
 		const auto startIndex = ToFilePrefix.size();
 		const auto endIndex = line.find('\t');
-		
+
 		if (endIndex != std::string::npos)
 			return line.substr(startIndex, endIndex - startIndex);
 		return line.substr(startIndex);
 	}
 
 	//-------------------------------------------------------------------------
-	UnifiedDiffParser::HunksDifferences 
+	Tools::Expected<UnifiedDiffParser::HunksDifferences>
 		UnifiedDiffParser::ExtractHunksDifferences(
-			const Stream& stream, 
+			const Stream& stream,
 			const std::wstring& hunksDifferencesLine) const
 	{
 		// Groups: 1 = startFrom, 2 = countFrom (optional), 3 = startTo,
@@ -223,16 +242,20 @@ namespace FileFilter
 			return hunksDifferences;
 		}
 
-		ThrowError(stream, UnifiedDiffParserException::ErrorInvalidHunks);
-		return{}; 
+		return std::unexpected(
+		    MakeError(stream, UnifiedDiffParserException::ErrorInvalidHunks));
 	}
-	
+
 	//-------------------------------------------------------------------------
-	std::vector<std::int32_t> UnifiedDiffParser::ExtractUpdatedLines(		
+	Tools::Expected<std::vector<std::int32_t>>
+	UnifiedDiffParser::ExtractUpdatedLines(
 		Stream& stream,
 		const std::wstring& hunksDifferencesLine) const
 	{
-		HunksDifferences hunksDifferences = ExtractHunksDifferences(stream, hunksDifferencesLine);
+		auto hunksResult = ExtractHunksDifferences(stream, hunksDifferencesLine);
+		if (!hunksResult)
+			return std::unexpected(std::move(hunksResult.error()));
+		const HunksDifferences& hunksDifferences = *hunksResult;
 
 		std::wstring lineStr;
 		std::int32_t currentLine = hunksDifferences.startTo;
@@ -250,17 +273,19 @@ namespace FileFilter
 		}
 
 		if (currentLine != endLine)
-			ThrowError(stream, UnifiedDiffParserException::ErrorContextHunks);
+			return std::unexpected(
+			    MakeError(stream, UnifiedDiffParserException::ErrorContextHunks));
 		return updatedLines;
 	}
-	
+
 	//-------------------------------------------------------------------------
-	void UnifiedDiffParser::ThrowError(const Stream& stream, const std::wstring& message) const
+	Tools::Error UnifiedDiffParser::MakeError(const Stream& stream,
+	                                          const std::wstring& message) const
 	{
 		std::wostringstream ostr;
 
 		ostr << L"Error line " << stream.currentLine_ << L": " << stream.lastLineRead_ << std::endl;
 		ostr << message;
-		throw UnifiedDiffParserException(ostr.str());
+		return Tools::Error{ostr.str()};
 	}
 }
