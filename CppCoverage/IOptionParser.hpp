@@ -32,7 +32,7 @@ namespace CppCoverage
 	  public:
 		virtual ~IOptionParser() = default;
 
-		virtual Tools::Expected<void> ParseOption(const OptionsSpec&,
-		                                          Options&) = 0;
+		[[nodiscard]] virtual Tools::Expected<void> ParseOption(const OptionsSpec&,
+		                                                        Options&) = 0;
 	};
 }

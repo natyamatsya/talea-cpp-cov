@@ -58,7 +58,7 @@ namespace CppCoverage
 		OptionsParser(OptionsParser&&) = delete;
 		OptionsParser& operator=(OptionsParser&&) = delete;
 
-		Tools::Expected<std::optional<Options>> Parse(int argc, const char** argv) const;
+		[[nodiscard]] Tools::Expected<std::optional<Options>> Parse(int argc, const char** argv) const;
 		void ShowExplanation(std::wostream* emptyOptionsExplanation, const char* message) const;
 
 		std::shared_ptr<Tools::WarningManager> optionalWarningManager_;

@@ -32,7 +32,7 @@ namespace Tools
 		// Returns the mapped file, a null pointer when the path is missing or
 		// empty (not an error), or a Tools::Error when an existing file cannot
 		// be mapped.
-		static Expected<std::unique_ptr<MappedFile>>
+		[[nodiscard]] static Expected<std::unique_ptr<MappedFile>>
 		TryCreate(const std::filesystem::path&);
 
 		const std::vector<std::string>& GetLines() const;

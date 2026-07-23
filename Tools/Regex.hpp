@@ -59,9 +59,9 @@ namespace Tools
 		// Two overloads instead of a defaulted Options argument: clang rejects
 		// using Options' default member initializers inside the enclosing
 		// class definition.
-		static Expected<Regex> Compile(std::string_view pattern);
-		static Expected<Regex> Compile(std::string_view pattern,
-		                               const Options& options);
+		[[nodiscard]] static Expected<Regex> Compile(std::string_view pattern);
+		[[nodiscard]] static Expected<Regex> Compile(std::string_view pattern,
+		                                             const Options& options);
 
 		// Throwing convenience wrappers over Compile (the expected->throw bridge
 		// for callers not yet migrated): throw Tools::ToolsException if the

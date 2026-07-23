@@ -48,7 +48,7 @@ namespace FileFilter
 
 		// The matched File (nullptr when nothing matches), or the ambiguous
 		// paths when one filename postfix matches two different files.
-		std::expected<File*, AmbiguousPath> Match(const std::filesystem::path&);
+		[[nodiscard]] std::expected<File*, AmbiguousPath> Match(const std::filesystem::path&);
 
 		using PathCollection = std::vector<std::filesystem::path>;
 		PathCollection GetUnmatchedPaths() const;

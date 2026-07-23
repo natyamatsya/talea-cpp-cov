@@ -36,7 +36,7 @@ namespace Exporter
 
 		// Returns the deserialized coverage, or a Tools::Error carrying
 		// errorIfNotCorrectFormat when the file is not the columnar format.
-		Tools::Expected<Plugin::CoverageData>
+		[[nodiscard]] Tools::Expected<Plugin::CoverageData>
 		Deserialize(const std::filesystem::path&, const std::string& errorIfNotCorrectFormat) const;
 		
 	private:

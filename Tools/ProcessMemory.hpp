@@ -26,23 +26,23 @@
 
 namespace Tools
 {
-	TOOLS_DLL Expected<void> WriteProcessMemory(HANDLE hProcess,
-	                                            void* address,
-	                                            void* buffer,
-	                                            size_t size);
+	[[nodiscard]] TOOLS_DLL Expected<void> WriteProcessMemory(HANDLE hProcess,
+	                                                          void* address,
+	                                                          void* buffer,
+	                                                          size_t size);
 
-	TOOLS_DLL Expected<std::vector<std::uint8_t>>
+	[[nodiscard]] TOOLS_DLL Expected<std::vector<std::uint8_t>>
 	ReadProcessMemory(HANDLE hProcess, void* address, size_t size);
 
-	TOOLS_DLL Expected<void> ReadProcessMemory(HANDLE hProcess,
-	                                           DWORD64 address,
-	                                           void* buffer,
-	                                           SIZE_T size);
+	[[nodiscard]] TOOLS_DLL Expected<void> ReadProcessMemory(HANDLE hProcess,
+	                                                         DWORD64 address,
+	                                                         void* buffer,
+	                                                         SIZE_T size);
 
 	//-------------------------------------------------------------------------
 	template <typename T>
-	Expected<std::unique_ptr<T>> ReadStructInProcessMemory(HANDLE hProcess,
-	                                                       DWORD64 address)
+	[[nodiscard]] Expected<std::unique_ptr<T>>
+	ReadStructInProcessMemory(HANDLE hProcess, DWORD64 address)
 	{
 		auto data = std::make_unique<T>();
 		auto result =

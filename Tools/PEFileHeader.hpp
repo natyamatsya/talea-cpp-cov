@@ -38,7 +38,7 @@ namespace Tools
 	class TOOLS_DLL PEFileHeader
 	{
 	  public:
-		Expected<void>
+		[[nodiscard]] Expected<void>
 		Load(HANDLE hProcess, DWORD64 baseOfImage, IPEFileHeaderHandler&) const;
 	};
 }

@@ -80,7 +80,7 @@ namespace CppCoverage
 		    const std::vector<std::wstring>& excludedLineRegexes,
 		    const std::vector<SubstitutePdbSourcePath>&);
 
-		Tools::Expected<Result> Import(const std::filesystem::path& dumpPath);
+		[[nodiscard]] Tools::Expected<Result> Import(const std::filesystem::path& dumpPath);
 
 		// Renders the per-template report as GitHub-flavored Markdown.
 		static std::wstring

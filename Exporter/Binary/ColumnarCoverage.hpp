@@ -79,7 +79,7 @@ namespace Exporter
 
 		// Reads a columnar v2 file back into a CoverageData, preserving the
 		// stored module/file order (single-file round-trip; the merger sorts).
-		EXPORTER_DLL Tools::Expected<Plugin::CoverageData>
+		[[nodiscard]] EXPORTER_DLL Tools::Expected<Plugin::CoverageData>
 		Read(const std::filesystem::path&);
 
 		// True if the file at path starts with the columnar magic. Cheap: reads
@@ -87,7 +87,7 @@ namespace Exporter
 		EXPORTER_DLL bool IsColumnarFile(const std::filesystem::path&);
 
 		// Reads a whole columnar file into memory.
-		EXPORTER_DLL Tools::Expected<std::vector<char>>
+		[[nodiscard]] EXPORTER_DLL Tools::Expected<std::vector<char>>
 		ReadFile(const std::filesystem::path&);
 	}
 

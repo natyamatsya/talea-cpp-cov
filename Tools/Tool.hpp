@@ -55,13 +55,13 @@ namespace Tools
 		throw Exception(buildErrorMsg(error));
 	}
 
-	TOOLS_DLL Expected<std::filesystem::path> GetExecutableFolder();
+	[[nodiscard]] TOOLS_DLL Expected<std::filesystem::path> GetExecutableFolder();
 
 
 	TOOLS_DLL void ShowOutputMessage(const std::wstring& message, const std::filesystem::path& path);
 	TOOLS_DLL std::wstring GetSeparatorLine();
 
-	TOOLS_DLL Expected<void> CreateParentFolderIfNeeded(const std::filesystem::path& path);
+	[[nodiscard]] TOOLS_DLL Expected<void> CreateParentFolderIfNeeded(const std::filesystem::path& path);
 	TOOLS_DLL bool FileExists(const std::filesystem::path& path);
 }
 

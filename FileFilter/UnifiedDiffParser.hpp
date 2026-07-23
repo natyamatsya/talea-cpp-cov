@@ -33,7 +33,7 @@ namespace FileFilter
 
 		UnifiedDiffParser() = default;
 
-		Tools::Expected<std::vector<File>> Parse(std::wistream&) const;
+		[[nodiscard]] Tools::Expected<std::vector<File>> Parse(std::wistream&) const;
 
 	private:
 		UnifiedDiffParser(const UnifiedDiffParser&) = delete;

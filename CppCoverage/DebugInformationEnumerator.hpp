@@ -107,8 +107,8 @@ namespace CppCoverage
 		// Returns whether the module had usable debug information, or a
 		// Tools::Error if the DIA/PDB parse failed. The parser reports failures
 		// by throwing internally; Enumerate adapts that to the Expected boundary.
-		Tools::Expected<bool> Enumerate(const std::filesystem::path&,
-		                                IDebugInformationHandler&);
+		[[nodiscard]] Tools::Expected<bool> Enumerate(const std::filesystem::path&,
+		                                              IDebugInformationHandler&);
 
 	  private:
 		bool EnumerateOrThrow(const std::filesystem::path&,
