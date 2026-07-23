@@ -42,8 +42,9 @@ namespace CppCoverage
 		auto memorySpaceSize =
 		    *(end - 1) - firstValue + sizeof(BreakPoint::breakPointInstruction);
 		auto firstAddress = reinterpret_cast<void*>(firstValue);
-		auto buffer = Tools::ReadProcessMemory(
-		    hProcess, firstAddress, static_cast<size_t>(memorySpaceSize));
+		auto buffer = Tools::ValueOrThrow(
+		    Tools::ReadProcessMemory(
+		        hProcess, firstAddress, static_cast<size_t>(memorySpaceSize)));
 
 		for (auto it = begin; it < end; ++it)
 		{
@@ -52,8 +53,8 @@ namespace CppCoverage
 			buffer[index] = BreakPoint::breakPointInstruction;
 			oldInstructions.emplace_back(oldInstruction, *it);
 		}
-		Tools::WriteProcessMemory(
-		    hProcess, firstAddress, &buffer[0], buffer.size());
+		Tools::ThrowOnError(Tools::WriteProcessMemory(
+		    hProcess, firstAddress, &buffer[0], buffer.size()));
 	}
 
 	const std::uint8_t BreakPoint::breakPointInstruction = 0xCC;
@@ -85,20 +86,22 @@ namespace CppCoverage
 	void BreakPoint::RemoveBreakPoint(const Address& address,
 	                                  std::uint8_t oldInstruction) const
 	{
-		Tools::WriteProcessMemory(address.GetProcessHandle(),
-		                          address.GetValue(),
-		                          &oldInstruction,
-		                          sizeof(oldInstruction));
+		Tools::ThrowOnError(
+		    Tools::WriteProcessMemory(address.GetProcessHandle(),
+		                              address.GetValue(),
+		                              &oldInstruction,
+		                              sizeof(oldInstruction)));
 	}
 
 	//-------------------------------------------------------------------------
 	void BreakPoint::SetBreakPoint(const Address& address) const
 	{
 		auto instruction = breakPointInstruction;
-		Tools::WriteProcessMemory(address.GetProcessHandle(),
-		                          address.GetValue(),
-		                          &instruction,
-		                          sizeof(instruction));
+		Tools::ThrowOnError(
+		    Tools::WriteProcessMemory(address.GetProcessHandle(),
+		                              address.GetValue(),
+		                              &instruction,
+		                              sizeof(instruction)));
 	}
 
 	//-------------------------------------------------------------------------

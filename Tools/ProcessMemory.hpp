@@ -22,29 +22,33 @@
 #include <vector>
 
 #include "ToolsExport.hpp"
+#include "Error.hpp"
 
 namespace Tools
 {
-	TOOLS_DLL void WriteProcessMemory(HANDLE hProcess,
-	                                  void* address,
-	                                  void* buffer,
-	                                  size_t size);
+	TOOLS_DLL Expected<void> WriteProcessMemory(HANDLE hProcess,
+	                                            void* address,
+	                                            void* buffer,
+	                                            size_t size);
 
-	TOOLS_DLL std::vector<std::uint8_t>
+	TOOLS_DLL Expected<std::vector<std::uint8_t>>
 	ReadProcessMemory(HANDLE hProcess, void* address, size_t size);
 
-	TOOLS_DLL void ReadProcessMemory(HANDLE hProcess,
-	                                 DWORD64 address,
-	                                 void* buffer,
-	                                 SIZE_T size);
+	TOOLS_DLL Expected<void> ReadProcessMemory(HANDLE hProcess,
+	                                           DWORD64 address,
+	                                           void* buffer,
+	                                           SIZE_T size);
 
 	//-------------------------------------------------------------------------
 	template <typename T>
-	std::unique_ptr<T> ReadStructInProcessMemory(HANDLE hProcess,
-	                                             DWORD64 address)
+	Expected<std::unique_ptr<T>> ReadStructInProcessMemory(HANDLE hProcess,
+	                                                       DWORD64 address)
 	{
 		auto data = std::make_unique<T>();
-		::Tools::ReadProcessMemory(hProcess, address, data.get(), sizeof(T));
+		auto result =
+		    ::Tools::ReadProcessMemory(hProcess, address, data.get(), sizeof(T));
+		if (!result)
+			return std::unexpected(std::move(result.error()));
 
 		return data;
 	}

@@ -17,6 +17,7 @@
 #pragma once
 
 #include "ToolsExport.hpp"
+#include "Error.hpp"
 
 #include <Windows.h>
 
@@ -37,7 +38,7 @@ namespace Tools
 	class TOOLS_DLL PEFileHeader
 	{
 	  public:
-		void
+		Expected<void>
 		Load(HANDLE hProcess, DWORD64 baseOfImage, IPEFileHeaderHandler&) const;
 	};
 }

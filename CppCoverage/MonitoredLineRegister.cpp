@@ -56,7 +56,8 @@ namespace CppCoverage
 			{
 				Tools::PEFileHeader fileHeader;
 
-				fileHeader.Load(hProcess, baseOfImage, *this);
+				Tools::ThrowOnError(
+				    fileHeader.Load(hProcess, baseOfImage, *this));
 				return isNativeModule_;
 			}
 
@@ -441,25 +442,22 @@ namespace CppCoverage
 
 		if (function.length_ > MaxScannedFunctionSize)
 			return nullptr;
-		try
-		{
-			auto buffer = Tools::ReadProcessMemory(
-			    hProcess,
-			    reinterpret_cast<void*>(functionStart),
-			    function.length_);
-			RestoreOriginalBytes(hProcess, functionStart, buffer);
-			auto branches = branchDisassembler_->FindConditionalBranches(
-			    buffer.data(), buffer.size(), functionStart);
-			if (branches)
-			{
-				cached->second =
-				    std::make_shared<const std::vector<BranchInstruction>>(
-				        std::move(*branches));
-			}
-		}
-		catch (const std::exception&)
+
+		auto buffer = Tools::ReadProcessMemory(
+		    hProcess, reinterpret_cast<void*>(functionStart), function.length_);
+		if (!buffer)
 		{
 			// Unreadable code: keep the negative cache entry.
+			return cached->second.get();
+		}
+		RestoreOriginalBytes(hProcess, functionStart, *buffer);
+		auto branches = branchDisassembler_->FindConditionalBranches(
+		    buffer->data(), buffer->size(), functionStart);
+		if (branches)
+		{
+			cached->second =
+			    std::make_shared<const std::vector<BranchInstruction>>(
+			        std::move(*branches));
 		}
 		return cached->second.get();
 	}
@@ -558,22 +556,19 @@ namespace CppCoverage
 			std::optional<std::vector<LineRun>> runs;
 			if (function.length_ <= MaxScannedFunctionSize)
 			{
-				try
+				auto buffer = Tools::ReadProcessMemory(
+				    hProcess,
+				    reinterpret_cast<void*>(functionStart),
+				    function.length_);
+				if (buffer)
 				{
-					auto buffer = Tools::ReadProcessMemory(
-					    hProcess,
-					    reinterpret_cast<void*>(functionStart),
-					    function.length_);
-					RestoreOriginalBytes(hProcess, functionStart, buffer);
-					runs = scanner.ComputeRuns(buffer.data(),
-					                           buffer.size(),
+					RestoreOriginalBytes(hProcess, functionStart, *buffer);
+					runs = scanner.ComputeRuns(buffer->data(),
+					                           buffer->size(),
 					                           functionStart,
 					                           scannerLines);
 				}
-				catch (const std::exception&)
-				{
-					// Unreadable code: fall back to one probe per line.
-				}
+				// else: unreadable code, fall back to one probe per line.
 			}
 
 			if (runs)

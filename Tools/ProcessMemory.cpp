@@ -23,22 +23,24 @@
 namespace Tools
 {
 	//-------------------------------------------------------------------------
-	std::vector<std::uint8_t>
+	Expected<std::vector<std::uint8_t>>
 	ReadProcessMemory(HANDLE hProcess, void* address, size_t size)
 	{
 		std::vector<std::uint8_t> data(size);
-		ReadProcessMemory(hProcess,
-		                  reinterpret_cast<DWORD64>(address),
-		                  &data[0],
-		                  data.size());
+		auto result = ReadProcessMemory(hProcess,
+		                                reinterpret_cast<DWORD64>(address),
+		                                &data[0],
+		                                data.size());
+		if (!result)
+			return std::unexpected(std::move(result.error()));
 		return data;
 	}
 
 	//-------------------------------------------------------------------------
-	void ReadProcessMemory(HANDLE hProcess,
-	                       DWORD64 address,
-	                       void* buffer,
-	                       SIZE_T size)
+	Expected<void> ReadProcessMemory(HANDLE hProcess,
+	                                 DWORD64 address,
+	                                 void* buffer,
+	                                 SIZE_T size)
 	{
 		SIZE_T totalBytesRead = 0;
 		SIZE_T bytesRead = 0;
@@ -55,17 +57,18 @@ namespace Tools
 				LOG_ERROR("Cannot read memory");
 			}
 			if (bytesRead == 0)
-				THROW("Cannot ready process memory");
+				return std::unexpected(MAKE_ERROR("Cannot ready process memory"));
 
 			totalBytesRead += bytesRead;
 		}
+		return {};
 	}
 
 	//-------------------------------------------------------------------------
-	void WriteProcessMemory(HANDLE hProcess,
-	                        void* address,
-	                        void* buffer,
-	                        size_t size)
+	Expected<void> WriteProcessMemory(HANDLE hProcess,
+	                                  void* address,
+	                                  void* buffer,
+	                                  size_t size)
 	{
 		SIZE_T totalWritten = 0;
 		SIZE_T written = 0;
@@ -83,7 +86,7 @@ namespace Tools
 			}
 
 			if (written == 0)
-				THROW("Cannot write process memory");
+				return std::unexpected(MAKE_ERROR("Cannot write process memory"));
 
 			// No FlushInstructionCache: on x86/x64 the instruction cache is
 			// kept coherent with stores by hardware, and the debuggee threads
@@ -93,5 +96,6 @@ namespace Tools
 			// transition from the per-hit breakpoint-removal path.
 			totalWritten += written;
 		}
+		return {};
 	}
 }

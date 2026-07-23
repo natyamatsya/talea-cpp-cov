@@ -34,17 +34,19 @@ namespace FileFilter
 			std::int32_t sizeOfPointer,
 			std::unordered_set<DWORD64>& relocations)
 		{
-			auto imageBaseRelocation = Tools::ReadStructInProcessMemory<IMAGE_BASE_RELOCATION>(
-				hProcess, imageBaseRelocationPtr);
+			auto imageBaseRelocation =
+				Tools::ValueOrThrow(
+					Tools::ReadStructInProcessMemory<IMAGE_BASE_RELOCATION>(
+						hProcess, imageBaseRelocationPtr));
 			auto sizeOfBlock = imageBaseRelocation->SizeOfBlock;
 			auto count = (sizeOfBlock - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(WORD);
 
 			std::vector<WORD> relocationPtrs(count);
-			Tools::ReadProcessMemory(
+			Tools::ThrowOnError(Tools::ReadProcessMemory(
 				hProcess,
 				imageBaseRelocationPtr + sizeof(IMAGE_BASE_RELOCATION),
 				&relocationPtrs[0],
-				relocationPtrs.size() * sizeof(WORD));
+				relocationPtrs.size() * sizeof(WORD)));
 
 			for (auto relocationPtr : relocationPtrs)
 			{
@@ -55,7 +57,8 @@ namespace FileFilter
 					auto rva = relocationPtr & 0x0fff;
 					auto relocationAddress = imageBaseRelocation->VirtualAddress + rva + baseOfImage;
 					DWORD_PTR relocationValue = 0;
-					Tools::ReadProcessMemory(hProcess, relocationAddress, &relocationValue, sizeOfPointer);
+					Tools::ThrowOnError(
+						Tools::ReadProcessMemory(hProcess, relocationAddress, &relocationValue, sizeOfPointer));
 
 					auto relocation = relocationValue - baseOfImage;
 					relocations.insert(relocation);
@@ -146,7 +149,8 @@ namespace FileFilter
 		Tools::PEFileHeader peFileHeader;
 		PEFileHeaderHandler handler;
 
-		peFileHeader.Load(hProcess, baseOfImage, handler);
+		Tools::ThrowOnError(
+		    peFileHeader.Load(hProcess, baseOfImage, handler));
 
 		return std::move(handler.relocations_);
 	}
