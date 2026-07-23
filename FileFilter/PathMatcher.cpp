@@ -25,7 +25,6 @@
 #include <unordered_map>
 #include <map>
 
-#include "AmbiguousPathException.hpp"
 #include "File.hpp"
 
 namespace fs = std::filesystem;
@@ -49,7 +48,7 @@ namespace FileFilter
 	{
 	public:
 		virtual ~IPathMatcherEngine() = default;
-		virtual File* Match(const fs::path&) = 0;
+		virtual std::expected<File*, AmbiguousPath> Match(const fs::path&) = 0;
 		virtual PathCollection GetUnmatchedPaths() const = 0;
 	};
 
@@ -69,15 +68,15 @@ namespace FileFilter
 		}
 
 		//-----------------------------------------------------------------
-		File* Match(const fs::path& path) override
-		{		
+		std::expected<File*, AmbiguousPath> Match(const fs::path& path) override
+		{
 			const auto normalizedPath = NormalizePath(path);
 			const auto filenameStr = normalizedPath.filename().wstring();
 			auto it = postFixPathByFilename_.find(filenameStr);
 
 			if (it == postFixPathByFilename_.end())
 				return nullptr;
-						
+
 			for (auto& pathData : it->second)
 			{
 				auto postFixPath = NormalizePath(pathData.postFixPath_.GetPath());
@@ -87,8 +86,8 @@ namespace FileFilter
 					if (pathData.matchedPath_ &&
 						pathData.matchedPath_->wstring() != normalizedPath.wstring())
 					{
-						throw AmbiguousPathException(postFixPath,
-							*pathData.matchedPath_, normalizedPath);
+						return std::unexpected(AmbiguousPath{
+							postFixPath, *pathData.matchedPath_, normalizedPath});
 					}
 					pathData.matchedPath_ = normalizedPath;
 					return &pathData.postFixPath_;
@@ -145,7 +144,7 @@ namespace FileFilter
 		}
 
 		//-----------------------------------------------------------------
-		File* Match(const fs::path& path) override
+		std::expected<File*, AmbiguousPath> Match(const fs::path& path) override
 		{
 			auto normalizedPath = NormalizePath(path);
 			auto it = pathDataByPath_.find(normalizedPath.wstring());
@@ -209,9 +208,9 @@ namespace FileFilter
 	}
 
 	//-------------------------------------------------------------------------
-	File* PathMatcher::Match(const fs::path& path)
+	std::expected<File*, AmbiguousPath> PathMatcher::Match(const fs::path& path)
 	{
-		return pathMatcherEngine_->Match(path);		
+		return pathMatcherEngine_->Match(path);
 	}
 
 	//-------------------------------------------------------------------------

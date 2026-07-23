@@ -24,7 +24,6 @@
 #include "UnifiedDiffCoverageFilter.hpp"
 #include "UnifiedDiffParser.hpp"
 #include "File.hpp"
-#include "AmbiguousPathException.hpp"
 
 namespace FileFilter
 {
@@ -89,23 +88,22 @@ namespace FileFilter
 		if (path == lastPath_)
 			return lastFile_;
 
-		try
+		auto file = pathMatcher_.Match(path);
+		if (!file)
 		{
-			auto file = pathMatcher_.Match(path);
-			lastFile_ = file;
-		}
-		catch (const AmbiguousPathException& e)
-		{
+			const auto& ambiguous = file.error();
 			std::ostringstream ostr;
 
 			ostr << "A path is ambiguous in the unified diff file." << std::endl;
-			ostr << e.GetPostFixPath() << " can be either " << e.GetFirstPossiblePath();
-			ostr << " or " << e.GetSecondPossiblePath() << std::endl;
+			ostr << ambiguous.postFixPath << " can be either "
+			     << ambiguous.firstPossiblePath;
+			ostr << " or " << ambiguous.secondPossiblePath << std::endl;
 			ostr << "Please specify root folder. See help for more information.";
 
 			throw std::runtime_error(ostr.str());
 		}
 
+		lastFile_ = *file;
 		lastPath_ = path;
 		return lastFile_;
 	}

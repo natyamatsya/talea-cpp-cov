@@ -1,5 +1,4 @@
 add_library(FileFilter STATIC
-	AmbiguousPathException.cpp
 	File.cpp
 	LineFilter.cpp
 	PathMatcher.cpp

@@ -20,7 +20,6 @@
 
 #include "FileFilter/PathMatcher.hpp"
 #include "FileFilter/File.hpp"
-#include "FileFilter/AmbiguousPathException.hpp"
 #include "Tools.hpp"
 
 using namespace FileFilter;
@@ -45,7 +44,7 @@ namespace FileFilterTest
 		//-------------------------------------------------------------------------
 		std::wstring Match(PathMatcher& pathMatcher, const fs::path& path)
 		{
-			const auto* file = pathMatcher.Match(path);
+			const auto* file = pathMatcher.Match(path).value();
 
 			return (file) ? file->GetPath().wstring() : L"No file found";
 		}
@@ -62,9 +61,9 @@ namespace FileFilterTest
 		ASSERT_EQ(filenames.at(1), Match(pathMatcher, "Test\\Test\\Test2.txt"));
 		ASSERT_EQ(filenames.at(1), Match(pathMatcher, "test\\test\\test2.txt"));
 
-		ASSERT_EQ(nullptr, pathMatcher.Match("Test2\\Test2.txt"));
-		ASSERT_EQ(nullptr, pathMatcher.Match("Test2.txt"));
-		ASSERT_EQ(nullptr, pathMatcher.Match("Test3.txt"));
+		ASSERT_EQ(nullptr, pathMatcher.Match("Test2\\Test2.txt").value());
+		ASSERT_EQ(nullptr, pathMatcher.Match("Test2.txt").value());
+		ASSERT_EQ(nullptr, pathMatcher.Match("Test3.txt").value());
 		ASSERT_EQ(0, pathMatcher.GetUnmatchedPaths().size());
 	}	
 
@@ -80,18 +79,12 @@ namespace FileFilterTest
 		PathMatcher pathMatcher{ std::move(files), std::nullopt };
 
 		Match(pathMatcher, test1);
-		
-		try
-		{
-			Match(pathMatcher, test2);
-			FAIL();
-		}
-		catch (const AmbiguousPathException& e)
-		{
-			ASSERT_EQ(filename, e.GetPostFixPath());
-			ASSERT_EQ(test1, e.GetFirstPossiblePath());
-			ASSERT_EQ(test2, e.GetSecondPossiblePath());
-		}
+
+		auto result = pathMatcher.Match(test2);
+		ASSERT_FALSE(result);
+		ASSERT_EQ(filename, result.error().postFixPath);
+		ASSERT_EQ(test1, result.error().firstPossiblePath);
+		ASSERT_EQ(test2, result.error().secondPossiblePath);
 	}
 	
 	//-------------------------------------------------------------------------
@@ -102,7 +95,7 @@ namespace FileFilterTest
 
 		PathMatcher pathMatcher{ std::move(files), std::nullopt };
 
-		pathMatcher.Match(filenames.at(1));
+		[[maybe_unused]] auto matched = pathMatcher.Match(filenames.at(1));
 		auto unmatchedPaths = pathMatcher.GetUnmatchedPaths();
 		ASSERT_EQ(3, unmatchedPaths.size());
 		ASSERT_EQ(filenames.at(0), unmatchedPaths.at(0).wstring());
@@ -118,7 +111,7 @@ namespace FileFilterTest
 		fs::path parentPath = "test";
 		PathMatcher pathMatcher{ std::move(files), parentPath };
 
-		ASSERT_EQ(nullptr, pathMatcher.Match(filenames.at(0)));
+		ASSERT_EQ(nullptr, pathMatcher.Match(filenames.at(0)).value());
 		ASSERT_EQ(filenames.at(0), Match(pathMatcher, parentPath / filenames.at(0)));
 
 		auto unmatchedPaths = pathMatcher.GetUnmatchedPaths();
