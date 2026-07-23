@@ -340,11 +340,12 @@ namespace CppCoverage
 	{
 		// Fast path: read the line table straight from the PDB with raw_pdb
 		// (mmap + columnar scan, parsed in parallel) instead of DIA's per-record
-		// COM calls. It does not provide symbol indexes or demangled function
-		// names, so the optimized-build filter and the fast-mode instantiation
-		// axis still use DIA; everything else falls back to DIA only when
-		// raw_pdb cannot handle the PDB (missing, FASTLINK, mismatched).
-		if (useRawPdb_ && !needSymbolIndex_ && !needFunctionNames_)
+		// COM calls. It provides line records, function ranges and - from the
+		// proc records - function names, but not symbol indexes, so the
+		// optimized-build filter (needSymbolIndex_) still uses DIA; everything
+		// else falls back to DIA only when raw_pdb cannot handle the PDB
+		// (missing, FASTLINK, mismatched).
+		if (useRawPdb_ && !needSymbolIndex_)
 		{
 			auto lineTable = std::make_shared<ModuleLineTable>();
 			if (RawPdbReader::TryRead(path, *lineTable))

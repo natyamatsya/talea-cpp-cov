@@ -270,8 +270,14 @@ namespace CppCoverage
 						    return;
 					    auto rva = sectionStream.ConvertSectionOffsetToRVA(
 					        section, offset);
+					    // The proc record carries the function name; capturing it
+					    // lets raw_pdb feed the fast-mode template axis too, so a
+					    // coverage import no longer needs the ~10x slower DIA parse
+					    // just for names.
 					    contribution.functions_.push_back(
-					        {static_cast<std::int64_t>(rva), codeSize, {}});
+					        {static_cast<std::int64_t>(rva),
+					         codeSize,
+					         Utf8ToWide(record->data.S_GPROC32.name)});
 				    });
 			}
 
