@@ -28,7 +28,6 @@
 #include "ExecutedAddressManager.hpp"
 #include "BranchCoverageManager.hpp"
 #include "BranchDisassembler.hpp"
-#include "CppCoverageException.hpp"
 #include "FilterAssistant.hpp"
 #include "LineRunScanner.hpp"
 
@@ -143,7 +142,7 @@ namespace CppCoverage
 	}
 
 	//----------------------------------------------------------------------------
-	bool MonitoredLineRegister::RegisterLineToMonitor(
+	Tools::Expected<bool> MonitoredLineRegister::RegisterLineToMonitor(
 	    const std::filesystem::path& modulePath,
 	    HANDLE hProcess,
 	    void* baseOfImage)
@@ -173,13 +172,23 @@ namespace CppCoverage
 		pendingFiles_.clear();
 		functionRanges_.clear();
 		functionBranchCache_.clear();
+		error_ = std::nullopt;
 
-		if (!Tools::ValueOrThrow(
-		        debugInformationEnumerator_->Enumerate(modulePath, *this)))
+		auto enumerated =
+		    debugInformationEnumerator_->Enumerate(modulePath, *this);
+		if (!enumerated)
+			return std::unexpected(enumerated.error());
+		// A source-file callback cannot return an error, so it parks one here.
+		if (error_)
+			return std::unexpected(*error_);
+		if (!*enumerated)
 			return false;
 
 		if (enableLineMerging_)
-			RegisterPendingLines();
+		{
+			if (auto result = RegisterPendingLines(); !result)
+				return std::unexpected(result.error());
+		}
 		return true;
 	}
 
@@ -204,6 +213,11 @@ namespace CppCoverage
 	MonitoredLineRegister::OnSourceFile(const std::filesystem::path& path,
 	                                    const std::vector<Line>& lines)
 	{
+		// Sticky: once a file's registration failed, skip the rest of the
+		// module's callbacks and let RegisterLineToMonitor surface the error.
+		if (error_)
+			return;
+
 		std::vector<FileFilter::LineInfo> lineInfos;
 
 		for (const auto& line : lines)
@@ -265,26 +279,38 @@ namespace CppCoverage
 		}
 		if (!enableLineMerging_)
 		{
-			SetBreakPoint(path,
-			              moduleInfo.hProcess_,
-			              std::move(addresses),
-			              lineNumberByAddress);
+			if (auto result = SetBreakPoint(path,
+			                                moduleInfo.hProcess_,
+			                                std::move(addresses),
+			                                lineNumberByAddress);
+			    !result)
+			{
+				error_ = result.error();
+				return;
+			}
 		}
 
 		if (branchCoverageManager_)
-			RegisterBranches(path, moduleInfo.hProcess_, selectedLines);
+		{
+			if (auto result =
+			        RegisterBranches(path, moduleInfo.hProcess_, selectedLines);
+			    !result)
+				error_ = result.error();
+		}
 	}
 
 	//--------------------------------------------------------------------------
-	void MonitoredLineRegister::SetBreakPoint(
+	Tools::Expected<void> MonitoredLineRegister::SetBreakPoint(
 	    const std::filesystem::path& path,
 	    HANDLE hProcess,
 	    std::vector<DWORD64>&& addressCollection,
 	    const LineNumberByAddress& lineNumberByAddress)
 	{
-		auto oldInstructions = Tools::ValueOrThrow(
-		    breakPoint_->SetBreakPoints(hProcess, std::move(addressCollection)));
-		for (const auto& value : oldInstructions)
+		auto oldInstructions =
+		    breakPoint_->SetBreakPoints(hProcess, std::move(addressCollection));
+		if (!oldInstructions)
+			return std::unexpected(oldInstructions.error());
+		for (const auto& value : *oldInstructions)
 		{
 			auto oldInstruction = value.first;
 			const auto& addressValue = value.second;
@@ -301,23 +327,28 @@ namespace CppCoverage
 				const auto& lineNumbers = it->second;
 				for (auto lineNumber : lineNumbers)
 				{
-					if (!Tools::ValueOrThrow(
-					        executedAddressManager_->RegisterAddress(
-					            address,
-					            path.wstring(),
-					            lineNumber,
-					            registeredInstruction)))
+					auto kept = executedAddressManager_->RegisterAddress(
+					    address,
+					    path.wstring(),
+					    lineNumber,
+					    registeredInstruction);
+					if (!kept)
+						return std::unexpected(kept.error());
+					if (!*kept)
 					{
-						Tools::ThrowOnError(breakPoint_->RemoveBreakPoint(
-						    address, oldInstruction));
+						if (auto result = breakPoint_->RemoveBreakPoint(
+						        address, oldInstruction);
+						    !result)
+							return std::unexpected(result.error());
 					}
 				}
 			}
 		}
+		return {};
 	}
 
 	//--------------------------------------------------------------------------
-	void MonitoredLineRegister::RegisterBranches(
+	Tools::Expected<void> MonitoredLineRegister::RegisterBranches(
 	    const std::filesystem::path& path,
 	    HANDLE hProcess,
 	    const std::vector<SelectedLine>& selectedLines)
@@ -368,13 +399,17 @@ namespace CppCoverage
 					// The address already has a line breakpoint: reuse its
 					// original instruction and make sure the breakpoint is
 					// armed even if it has already fired.
-					Tools::ThrowOnError(branchCoverageManager_->RegisterBranch(
-					    address,
-					    path.wstring(),
-					    selectedLine.lineNumber_,
-					    branch.condition_,
-					    *lineInstruction));
-					Tools::ThrowOnError(breakPoint_->SetBreakPoint(address));
+					if (auto result = branchCoverageManager_->RegisterBranch(
+					        address,
+					        path.wstring(),
+					        selectedLine.lineNumber_,
+					        branch.condition_,
+					        *lineInstruction);
+					    !result)
+						return std::unexpected(result.error());
+					if (auto result = breakPoint_->SetBreakPoint(address);
+					    !result)
+						return std::unexpected(result.error());
 				}
 				else if (branchByAddress
 				             .emplace(branch.virtualAddress_,
@@ -388,9 +423,11 @@ namespace CppCoverage
 			}
 		}
 
-		auto oldInstructions = Tools::ValueOrThrow(
-		    breakPoint_->SetBreakPoints(hProcess, std::move(addresses)));
-		for (const auto& value : oldInstructions)
+		auto oldInstructions =
+		    breakPoint_->SetBreakPoints(hProcess, std::move(addresses));
+		if (!oldInstructions)
+			return std::unexpected(oldInstructions.error());
+		for (const auto& value : *oldInstructions)
 		{
 			auto oldInstruction = value.first;
 			const auto& addressValue = value.second;
@@ -400,13 +437,16 @@ namespace CppCoverage
 				continue;
 
 			Address address{hProcess, reinterpret_cast<void*>(addressValue)};
-			Tools::ThrowOnError(branchCoverageManager_->RegisterBranch(
-			    address,
-			    path.wstring(),
-			    it->second.lineNumber_,
-			    it->second.condition_,
-			    oldInstruction));
+			if (auto result = branchCoverageManager_->RegisterBranch(
+			        address,
+			        path.wstring(),
+			        it->second.lineNumber_,
+			        it->second.condition_,
+			        oldInstruction);
+			    !result)
+				return std::unexpected(result.error());
 		}
+		return {};
 	}
 
 	//--------------------------------------------------------------------------
@@ -489,10 +529,10 @@ namespace CppCoverage
 	}
 
 	//--------------------------------------------------------------------------
-	void MonitoredLineRegister::RegisterPendingLines()
+	Tools::Expected<void> MonitoredLineRegister::RegisterPendingLines()
 	{
 		if (pendingLines_.empty())
-			return;
+			return {};
 
 		const auto& moduleInfo = GetModuleInfo();
 		auto hProcess = moduleInfo.hProcess_;
@@ -605,9 +645,11 @@ namespace CppCoverage
 		for (; lineCursor < pendingLines_.size(); ++lineCursor)
 			addProbe(pendingLines_[lineCursor].address_, lineCursor);
 
-		auto oldInstructions = Tools::ValueOrThrow(
-		    breakPoint_->SetBreakPoints(hProcess, std::move(addresses)));
-		for (const auto& [oldInstruction, addressValue] : oldInstructions)
+		auto oldInstructions =
+		    breakPoint_->SetBreakPoints(hProcess, std::move(addresses));
+		if (!oldInstructions)
+			return std::unexpected(oldInstructions.error());
+		for (const auto& [oldInstruction, addressValue] : *oldInstructions)
 		{
 			auto it = linesByLeader.find(addressValue);
 			if (it == linesByLeader.end())
@@ -624,32 +666,40 @@ namespace CppCoverage
 			for (auto pendingIndex : it->second)
 			{
 				const auto& pending = pendingLines_[pendingIndex];
-				bool kept = Tools::ValueOrThrow(
-				    executedAddressManager_->RegisterAddress(
-				        address,
-				        fileNames[pending.fileIndex_],
-				        pending.lineNumber_,
-				        registeredInstruction));
+				auto kept = executedAddressManager_->RegisterAddress(
+				    address,
+				    fileNames[pending.fileIndex_],
+				    pending.lineNumber_,
+				    registeredInstruction);
+				if (!kept)
+					return std::unexpected(kept.error());
 				if (isFirstRegistration)
 				{
-					keepBreakpoint = kept;
+					keepBreakpoint = *kept;
 					isFirstRegistration = false;
 				}
 			}
 			if (!keepBreakpoint)
-				Tools::ThrowOnError(
-				    breakPoint_->RemoveBreakPoint(address, oldInstruction));
+			{
+				if (auto result =
+				        breakPoint_->RemoveBreakPoint(address, oldInstruction);
+				    !result)
+					return std::unexpected(result.error());
+			}
 		}
 
 		pendingLines_.clear();
 		pendingFiles_.clear();
+		return {};
 	}
 
 	//--------------------------------------------------------------------------
 	const FileFilter::ModuleInfo& MonitoredLineRegister::GetModuleInfo() const
 	{
-		if (!moduleInfo_)
-			THROW("moduleInfo_ is null.");
+		// RegisterLineToMonitor assigns moduleInfo_ before it runs Enumerate,
+		// and every caller of GetModuleInfo runs during that Enumerate (a
+		// source-file callback or the post-enumeration pending-line pass), so
+		// moduleInfo_ is always set here by construction.
 		return *moduleInfo_;
 	}
 }

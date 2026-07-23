@@ -353,8 +353,9 @@ namespace CppCoverage
 		auto isSelected = coverageFilterManager_->IsModuleSelected(filename);
 		if (isSelected)
 		{
-			isSelected = monitoredLineRegister_->RegisterLineToMonitor(
-			    filename, hProcess, baseOfImage);
+			isSelected = Tools::ValueOrThrow(
+			    monitoredLineRegister_->RegisterLineToMonitor(
+			        filename, hProcess, baseOfImage));
 		}
 		filterAssistant_->OnNewModule(filename, isSelected);
 	}

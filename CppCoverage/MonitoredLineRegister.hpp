@@ -19,7 +19,9 @@
 
 #include "DebugInformationEnumerator.hpp"
 #include "BranchInstruction.hpp"
+#include "Tools/Error.hpp"
 #include <memory>
+#include <optional>
 #include <unordered_map>
 #include <filesystem>
 
@@ -51,9 +53,10 @@ namespace CppCoverage
 		                      bool enableLineMerging = false);
 		~MonitoredLineRegister();
 
-		bool RegisterLineToMonitor(const std::filesystem::path& modulePath,
-		                           HANDLE hProcess,
-		                           void* baseOfImage);
+		[[nodiscard]] Tools::Expected<bool>
+		RegisterLineToMonitor(const std::filesystem::path& modulePath,
+		                      HANDLE hProcess,
+		                      void* baseOfImage);
 
 	  private:
 		bool IsSourceFileSelected(const std::filesystem::path&) override;
@@ -70,10 +73,11 @@ namespace CppCoverage
 
 		using LineNumberByAddress =
 		    std::unordered_map<DWORD64, std::vector<std::int32_t>>;
-		void SetBreakPoint(const std::filesystem::path&,
-		                   HANDLE hProcess,
-		                   std::vector<DWORD64>&&,
-		                   const LineNumberByAddress&);
+		[[nodiscard]] Tools::Expected<void>
+		SetBreakPoint(const std::filesystem::path&,
+		              HANDLE hProcess,
+		              std::vector<DWORD64>&&,
+		              const LineNumberByAddress&);
 
 		struct SelectedLine
 		{
@@ -81,9 +85,10 @@ namespace CppCoverage
 			DWORD64 startAddress_;
 			std::uint32_t length_;
 		};
-		void RegisterBranches(const std::filesystem::path&,
-		                      HANDLE hProcess,
-		                      const std::vector<SelectedLine>&);
+		[[nodiscard]] Tools::Expected<void>
+		RegisterBranches(const std::filesystem::path&,
+		                 HANDLE hProcess,
+		                 const std::vector<SelectedLine>&);
 
 		// The validated conditional branches of the function containing
 		// lineAddress, or nullptr when there is no enclosing function or its
@@ -92,7 +97,7 @@ namespace CppCoverage
 		const std::vector<BranchInstruction>*
 		GetFunctionBranches(HANDLE hProcess, DWORD64 lineAddress);
 
-		void RegisterPendingLines();
+		[[nodiscard]] Tools::Expected<void> RegisterPendingLines();
 		void RestoreOriginalBytes(HANDLE hProcess,
 		                          DWORD64 startAddress,
 		                          std::vector<std::uint8_t>& buffer) const;
@@ -100,6 +105,10 @@ namespace CppCoverage
 		const FileFilter::ModuleInfo& GetModuleInfo() const;
 
 		std::unique_ptr<FileFilter::ModuleInfo> moduleInfo_;
+		// Set by a source-file callback whose breakpoint/branch registration
+		// failed; RegisterLineToMonitor reports it after Enumerate returns
+		// (the IDebugInformationHandler callbacks cannot return an error).
+		std::optional<Tools::Error> error_;
 		const std::shared_ptr<BreakPoint> breakPoint_;
 		const std::shared_ptr<ExecutedAddressManager> executedAddressManager_;
 		const std::shared_ptr<ICoverageFilterManager> coverageFilterManager_;
