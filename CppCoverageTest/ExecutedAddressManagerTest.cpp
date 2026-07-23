@@ -48,10 +48,10 @@ namespace CppCoverageTest
 		cov::ExecutedAddressManager manager;
 		cov::Address address = CreateAddress(0);
 
-		ASSERT_THROW(manager.RegisterAddress(address, L"", 0, 0), cov::CppCoverageException);
+		ASSERT_FALSE(manager.RegisterAddress(address, L"", 0, 0));
 
 		manager.AddModule(L"", nullptr);
-		manager.RegisterAddress(address, L"", 0, 0);
+		ASSERT_TRUE(manager.RegisterAddress(address, L"", 0, 0));
 	}
 
 	//-------------------------------------------------------------------------
@@ -64,7 +64,7 @@ namespace CppCoverageTest
 
 		ASSERT_EQ(std::nullopt, manager.MarkAddressAsExecuted(address));
 
-		manager.RegisterAddress(address, L"", 0, 0);
+		ASSERT_TRUE(manager.RegisterAddress(address, L"", 0, 0));
 		ASSERT_NO_THROW(manager.MarkAddressAsExecuted(address));
 	}	
 
@@ -81,8 +81,8 @@ namespace CppCoverageTest
 		cov::Address address2 = CreateAddress(2); 
 		HANDLE hProcess = nullptr;
 		manager.AddModule(moduleName, nullptr);
-		manager.RegisterAddress(address1, filename, 42, instructionLine42);
-		manager.RegisterAddress(address2, filename, 43, instructionLine43);
+		ASSERT_TRUE(manager.RegisterAddress(address1, filename, 42, instructionLine42));
+		ASSERT_TRUE(manager.RegisterAddress(address2, filename, 43, instructionLine43));
 		manager.MarkAddressAsExecuted(address2);
 		manager.OnExitProcess(hProcess);
 

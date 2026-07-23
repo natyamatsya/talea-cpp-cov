@@ -43,6 +43,7 @@
 #include "BranchDisassembler.hpp"
 #include "BranchInstruction.hpp"
 #include "CppCoverageException.hpp"
+#include "Tools/Error.hpp"
 #include "CoverageFilterManager.hpp"
 #include "DebugInformationEnumerator.hpp"
 #include "FileSystem.hpp"
@@ -1009,8 +1010,13 @@ namespace CppCoverage
 				    reinterpret_cast<void*>(
 				        static_cast<std::uintptr_t>(module.probeRvas_[i]))};
 				for (const auto& [fileIndex, lineNumber] : module.probeLines_[i])
-					manager.RegisterAddress(
-					    address, module.files_[fileIndex], lineNumber, 0);
+				{
+					// AddModule above sets the last module, so this cannot fail;
+					// bridge the invariant back to a throw for the VEH path.
+					[[maybe_unused]] auto kept = Tools::ValueOrThrow(
+					    manager.RegisterAddress(
+					        address, module.files_[fileIndex], lineNumber, 0));
+				}
 				if (hits[i])
 					manager.MarkAddressAsExecuted(address);
 			}

@@ -23,7 +23,8 @@
 
 #include "Tools/Log.hpp"
 
-#include "CppCoverageException.hpp"
+#include "Tools/Error.hpp"
+#include "CppCoverageException.hpp" // CppCoverage::GetErrorMessage
 #include "Coverage/ModuleCoverage.hpp"
 #include "Coverage/FileCoverage.hpp"
 #include "Coverage/BranchCoverage.hpp"
@@ -104,16 +105,7 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	BranchCoverageManager::Module& BranchCoverageManager::GetLastAddedModule()
-	{
-		if (!lastModule_.module_)
-			THROW("Cannot get last module.");
-
-		return *lastModule_.module_;
-	}
-
-	//-------------------------------------------------------------------------
-	void BranchCoverageManager::RegisterBranch(
+	Tools::Expected<void> BranchCoverageManager::RegisterBranch(
 	    const Address& address,
 	    const std::wstring& filename,
 	    std::uint32_t lineNumber,
@@ -121,9 +113,11 @@ namespace CppCoverage
 	    std::uint8_t originalInstruction)
 	{
 		if (branches_.count(address) != 0)
-			THROW("Branch is already registered.");
+			return std::unexpected(MAKE_ERROR(L"Branch is already registered."));
 
-		auto& module = GetLastAddedModule();
+		if (!lastModule_.module_)
+			return std::unexpected(MAKE_ERROR(L"Cannot get last module."));
+		auto& module = *lastModule_.module_;
 		auto& file = module.files_[filename];
 		auto& branches = file.branchesByLine_[lineNumber];
 
@@ -135,6 +129,7 @@ namespace CppCoverage
 		                              lastModule_.baseOfImage_,
 		                              condition,
 		                              &outcome});
+		return {};
 	}
 
 	//-------------------------------------------------------------------------
@@ -155,21 +150,24 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	void BranchCoverageManager::OnBreakPointHit(const Address& address,
-	                                            HANDLE hThread,
-	                                            const BreakPoint& breakPoint)
+	Tools::Expected<void> BranchCoverageManager::OnBreakPointHit(
+	    const Address& address,
+	    HANDLE hThread,
+	    const BreakPoint& breakPoint)
 	{
 		auto it = branches_.find(address);
 
 		if (it == branches_.end())
-			THROW("Address is not a monitored branch.");
+			return std::unexpected(MAKE_ERROR(L"Address is not a monitored branch."));
 
 		auto& state = it->second;
 
 		CONTEXT context;
 		context.ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
 		if (!GetThreadContext(hThread, &context))
-			THROW_LAST_ERROR("Error in GetThreadContext", GetLastError());
+			return std::unexpected(MAKE_ERROR(
+			    L"Error in GetThreadContext"
+			    << CppCoverage::GetErrorMessage(GetLastError())));
 
 		DWORD64 rcx = context.Rcx;
 		if (IsBranchTaken(state.condition_, context.EFlags, rcx))
@@ -186,6 +184,7 @@ namespace CppCoverage
 		auto threadId = GetThreadId(hThread);
 		pendingReArms_[threadId] = std::make_pair(
 		    address.GetProcessHandle(), address.GetValue());
+		return {};
 	}
 
 	//-------------------------------------------------------------------------

@@ -25,7 +25,7 @@
 
 #include "Tools/Log.hpp"
 
-#include "CppCoverageException.hpp"
+#include "Tools/Error.hpp"
 #include "Coverage/ModuleCoverage.hpp"
 #include "Coverage/FileCoverage.hpp"
 #include "Address.hpp"
@@ -134,14 +134,14 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	bool ExecutedAddressManager::RegisterAddress(
+	Tools::Expected<bool> ExecutedAddressManager::RegisterAddress(
 		const Address& address,
 		const std::wstring& filename,
 		std::uint32_t lineNumber,
 		std::uint8_t instructionValue)
 	{
 		if (!hasLastModule_)
-			THROW("Cannot get last module.");
+			return std::unexpected(MAKE_ERROR(L"Cannot get last module."));
 
 		// Different {filename, line} can have the same address.
 		// Same {filename, line} can have several addresses.

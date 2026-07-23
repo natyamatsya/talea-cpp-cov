@@ -321,8 +321,8 @@ namespace CppCoverage
 			// mark it as executed but keep the branch breakpoint
 			// life cycle (restore, single-step and set again).
 			executedAddressManager_->MarkAddressAsExecuted(address);
-			branchCoverageManager_->OnBreakPointHit(
-			    address, hThread, *breakpoint_);
+			Tools::ThrowOnError(branchCoverageManager_->OnBreakPointHit(
+			    address, hThread, *breakpoint_));
 			return true;
 		}
 

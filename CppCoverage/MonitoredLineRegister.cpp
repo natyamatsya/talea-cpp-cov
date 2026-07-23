@@ -301,11 +301,12 @@ namespace CppCoverage
 				const auto& lineNumbers = it->second;
 				for (auto lineNumber : lineNumbers)
 				{
-					if (!executedAddressManager_->RegisterAddress(
-					        address,
-					        path.wstring(),
-					        lineNumber,
-					        registeredInstruction))
+					if (!Tools::ValueOrThrow(
+					        executedAddressManager_->RegisterAddress(
+					            address,
+					            path.wstring(),
+					            lineNumber,
+					            registeredInstruction)))
 					{
 						breakPoint_->RemoveBreakPoint(address, oldInstruction);
 					}
@@ -366,12 +367,12 @@ namespace CppCoverage
 					// The address already has a line breakpoint: reuse its
 					// original instruction and make sure the breakpoint is
 					// armed even if it has already fired.
-					branchCoverageManager_->RegisterBranch(
+					Tools::ThrowOnError(branchCoverageManager_->RegisterBranch(
 					    address,
 					    path.wstring(),
 					    selectedLine.lineNumber_,
 					    branch.condition_,
-					    *lineInstruction);
+					    *lineInstruction));
 					breakPoint_->SetBreakPoint(address);
 				}
 				else if (branchByAddress
@@ -398,11 +399,12 @@ namespace CppCoverage
 				continue;
 
 			Address address{hProcess, reinterpret_cast<void*>(addressValue)};
-			branchCoverageManager_->RegisterBranch(address,
-			                                       path.wstring(),
-			                                       it->second.lineNumber_,
-			                                       it->second.condition_,
-			                                       oldInstruction);
+			Tools::ThrowOnError(branchCoverageManager_->RegisterBranch(
+			    address,
+			    path.wstring(),
+			    it->second.lineNumber_,
+			    it->second.condition_,
+			    oldInstruction));
 		}
 	}
 
@@ -621,11 +623,12 @@ namespace CppCoverage
 			for (auto pendingIndex : it->second)
 			{
 				const auto& pending = pendingLines_[pendingIndex];
-				bool kept = executedAddressManager_->RegisterAddress(
-				    address,
-				    fileNames[pending.fileIndex_],
-				    pending.lineNumber_,
-				    registeredInstruction);
+				bool kept = Tools::ValueOrThrow(
+				    executedAddressManager_->RegisterAddress(
+				        address,
+				        fileNames[pending.fileIndex_],
+				        pending.lineNumber_,
+				        registeredInstruction));
 				if (isFirstRegistration)
 				{
 					keepBreakpoint = kept;

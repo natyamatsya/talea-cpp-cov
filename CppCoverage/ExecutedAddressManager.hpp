@@ -29,6 +29,8 @@
 #include "Address.hpp"
 #include "CppCoverageExport.hpp"
 
+#include "Tools/Error.hpp"
+
 namespace CppCoverage
 {
 	// Records which addresses cover which (module, file, line) probes and,
@@ -48,7 +50,7 @@ namespace CppCoverage
 		void AddModule(const std::wstring& moduleName, void* dllBaseOfImage);
 		void OnUnloadModule(HANDLE hProcess, void* dllBaseOfImage);
 
-		bool RegisterAddress(
+		[[nodiscard]] Tools::Expected<bool> RegisterAddress(
 			const Address&,
 			const std::wstring& filename,
 			std::uint32_t line,

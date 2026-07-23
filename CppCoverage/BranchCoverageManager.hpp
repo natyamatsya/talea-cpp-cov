@@ -29,6 +29,8 @@
 #include "Address.hpp"
 #include "CppCoverageExport.hpp"
 
+#include "Tools/Error.hpp"
+
 namespace CppCoverage
 {
 	class BreakPoint;
@@ -48,16 +50,18 @@ namespace CppCoverage
 
 		void AddModule(const std::wstring& moduleName, void* dllBaseOfImage);
 
-		void RegisterBranch(const Address&,
-		                    const std::wstring& filename,
-		                    std::uint32_t lineNumber,
-		                    BranchCondition,
-		                    std::uint8_t originalInstruction);
+		[[nodiscard]] Tools::Expected<void>
+		RegisterBranch(const Address&,
+		               const std::wstring& filename,
+		               std::uint32_t lineNumber,
+		               BranchCondition,
+		               std::uint8_t originalInstruction);
 
 		bool IsMonitoredBranch(const Address&) const;
 		std::optional<std::uint8_t> GetOriginalInstruction(const Address&) const;
 
-		void OnBreakPointHit(const Address&, HANDLE hThread, const BreakPoint&);
+		[[nodiscard]] Tools::Expected<void>
+		OnBreakPointHit(const Address&, HANDLE hThread, const BreakPoint&);
 		bool OnSingleStep(HANDLE hProcess, HANDLE hThread, const BreakPoint&);
 
 		void OnExitProcess(HANDLE hProcess);
@@ -79,8 +83,6 @@ namespace CppCoverage
 			Module* module_;
 			void* baseOfImage_;
 		};
-
-		Module& GetLastAddedModule();
 
 		std::map<std::wstring, Module> modules_;
 		std::unordered_map<Address, BranchState, AddressHasher> branches_;

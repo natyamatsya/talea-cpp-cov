@@ -811,8 +811,12 @@ namespace CppCoverage
 				        moduleTag,
 				        reinterpret_cast<void*>(
 				            static_cast<std::uintptr_t>(record.rva_))};
-				    manager.RegisterAddress(
-				        address, record.filePath_, record.lineNumber_, 0);
+				    // AddModule above sets the last module, so this cannot fail;
+				    // bridge the invariant back to a throw (this scope is inside
+				    // ImportOrThrow's try/catch, which turns it into unexpected).
+				    [[maybe_unused]] auto kept = Tools::ValueOrThrow(
+				        manager.RegisterAddress(
+				            address, record.filePath_, record.lineNumber_, 0));
 				    if (count > 0)
 					    manager.MarkAddressAsExecuted(address);
 
