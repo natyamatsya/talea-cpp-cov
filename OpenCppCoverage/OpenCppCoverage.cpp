@@ -263,8 +263,8 @@ namespace OpenCppCoverage
 				if (options.IsVehModeEnabled())
 				{
 					cov::VehCoverageEngine vehEngine{warningManager};
-					coverageData.emplace(
-					    vehEngine.RunCoverage(runCoverageSettings));
+					coverageData.emplace(Tools::ValueOrThrow(
+					    vehEngine.RunCoverage(runCoverageSettings)));
 				}
 				else
 				{

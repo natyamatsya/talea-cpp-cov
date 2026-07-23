@@ -202,7 +202,7 @@ namespace CppCoverageTest
 			settings.SetLineMergingEnabled(args.lineMerging_);
 			settings.SetPreparseImports(args.preparseImports_);
 
-			return vehEngine.RunCoverage(settings);
+			return Tools::ValueOrThrow(vehEngine.RunCoverage(settings));
 		}
 	}
 }

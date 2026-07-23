@@ -1526,7 +1526,7 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	Coverage::CoverageData
+	Tools::Expected<Coverage::CoverageData>
 	VehCoverageEngine::RunCoverage(const RunCoverageSettings& settings)
 	{
 		const auto& startInfo = settings.GetStartInfo();
@@ -1588,11 +1588,12 @@ namespace CppCoverage
 		                    &startupInfo,
 		                    &processInfo))
 		{
-			THROW(L"VEH: cannot start " + exePath.wstring());
+			return std::unexpected(
+			    MAKE_ERROR(L"VEH: cannot start " << exePath.wstring()));
 		}
 
 		// Own the process/thread handles from here on so every exit path -
-		// including the throw below - releases them.
+		// including the error return below - releases them.
 		UniqueHandle processHandle{processInfo.hProcess};
 		UniqueHandle threadHandle{processInfo.hThread};
 
@@ -1612,7 +1613,8 @@ namespace CppCoverage
 		if (!Is64BitProcess(processHandle.get()))
 		{
 			TerminateProcess(processHandle.get(), 1);
-			THROW(L"VEH mode supports only 64-bit targets.");
+			return std::unexpected(
+			    MAKE_ERROR(L"VEH mode supports only 64-bit targets."));
 		}
 
 		auto coverChildren = settings.GetCoverChildren();

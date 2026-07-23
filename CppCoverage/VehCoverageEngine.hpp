@@ -21,6 +21,7 @@
 
 #include "CppCoverageExport.hpp"
 #include "Coverage/CoverageData.hpp"
+#include "Tools/Error.hpp"
 
 namespace Tools
 {
@@ -53,7 +54,8 @@ namespace CppCoverage
 		explicit VehCoverageEngine(std::shared_ptr<Tools::WarningManager>);
 		~VehCoverageEngine();
 
-		Coverage::CoverageData RunCoverage(const RunCoverageSettings&);
+		[[nodiscard]] Tools::Expected<Coverage::CoverageData>
+		RunCoverage(const RunCoverageSettings&);
 
 		// Absolute path of the helper DLL, next to the running module.
 		static std::filesystem::path GetHelperDllPath();
