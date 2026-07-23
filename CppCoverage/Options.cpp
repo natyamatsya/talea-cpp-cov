@@ -15,8 +15,8 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
+#include <utility>
 #include "Options.hpp"
-#include "CppCoverageException.hpp"
 #include "OptionsExport.hpp"
 
 namespace CppCoverage
@@ -32,7 +32,7 @@ namespace CppCoverage
 			case LogLevel::Quiet: return L"Quiet";
 			case LogLevel::Verbose: return L"Verbose";
 			}
-			THROW("Invalid Log level.");
+			std::unreachable();
 		}
 	}
 

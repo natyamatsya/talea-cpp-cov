@@ -17,7 +17,7 @@
 #include "stdafx.h"
 #include "BranchCondition.hpp"
 
-#include "CppCoverageException.hpp"
+#include <utility>
 
 namespace CppCoverage
 {
@@ -68,6 +68,6 @@ namespace CppCoverage
 			case BranchCondition::RcxZero: return rcx == 0;
 		}
 
-		THROW("Invalid branch condition");
+		std::unreachable();
 	}
 }

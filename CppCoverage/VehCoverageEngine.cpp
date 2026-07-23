@@ -145,7 +145,7 @@ namespace CppCoverage
 				case Src::EcxZero: return Dst::EcxZero;
 				case Src::RcxZero: return Dst::RcxZero;
 			}
-			THROW("Invalid branch condition");
+			std::unreachable();
 		}
 
 		//---------------------------------------------------------------------
