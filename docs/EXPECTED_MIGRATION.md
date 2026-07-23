@@ -110,7 +110,7 @@ Every place the two touch is flagged in §5.
 - `Plugin::OptionsParserException` — `Plugin/OptionsParserException.hpp:24` (cross-DLL option-validation error).
 
 **std / system / third-party types thrown or caught**
-- `std::runtime_error` — thrown directly in ~a dozen places (`Plugin/Exporter/FileCoverage.cpp:37/49/65/81`, `FileFilter/UnifiedDiffCoverageFilter.cpp:39/106`, `CppCoverage/Process.cpp:154`, `Exporter/Binary/CoverageDataDeserializer.cpp:38`, `Tools/Tool.cpp:59/78`).
+- `std::runtime_error` — thrown directly in ~a dozen places (`Coverage/FileCoverage.cpp:37/49/65/81`, `FileFilter/UnifiedDiffCoverageFilter.cpp:39/106`, `CppCoverage/Process.cpp:154`, `Exporter/Binary/CoverageDataDeserializer.cpp:38`, `Tools/Tool.cpp:59/78`).
 - `std::exception` — catch-all base at every top-level/best-effort handler (§3).
 - `std::filesystem::filesystem_error` — not caught by name; surfaces as `std::exception` at top level.
 - **glaze** — returns errors by value (`result.error`), converted to a thrown `OptionsParserException` at `OptionsParser.cpp:408`. Does not throw across the boundary.
@@ -130,7 +130,7 @@ removed since this analysis was first written, dropping ~8 sites).
 | Exporter.dll | ~20 | `Binary/ColumnarCoverage.cpp` (10), `Html/TemplateHtmlExporter.cpp` (3), `Html/HtmlFolderStructure.cpp` (2), + 1 each |
 | Tools.dll | ~11 | `Tool.cpp` (4), `ProcessMemory.cpp` (2), `PEFileHeader.cpp` (2), `MappedFile.cpp` (1), `Regex.cpp` (1), `Tool.hpp` (1) |
 | FileFilter.dll | ~5 | `UnifiedDiffParser.cpp` (2), `UnifiedDiffCoverageFilter.cpp` (2), `PathMatcher.cpp` (1) |
-| Plugin.dll | ~4 | `Exporter/FileCoverage.cpp` (4) |
+| Coverage.dll | ~4 | `FileCoverage.cpp` (4) |
 | OpenCppCoverage.exe | 0 | (macro definition only) |
 
 **Classification**
@@ -178,7 +178,7 @@ the old locale-imbue swallow in `Log.cpp` are gone — see below).
 
 **FileFilter.dll** — `UnifiedDiffParser::Parse` (`:76/264`), `UnifiedDiffCoverageFilter` (`:39/106`), `PathMatcher::Match` (`AmbiguousPathException`, `:90`).
 
-**Plugin.dll** — `FileCoverage` line-add API (`:37/49/65/81`), `IExportPlugin::CheckArgument` (`IExportPlugin.hpp:54` — **contract requires throwing** `OptionsParserException`; changing it is a plugin-ABI break, §6).
+**Coverage.dll** — `FileCoverage` line-add API (`:37/49/65/81`).
 
 ## 5. Hazards / must-stay-exceptions
 
@@ -204,7 +204,7 @@ the old locale-imbue swallow in `Log.cpp` are gone — see below).
 - Options: internal `OptionsParser::Parse(argc,argv)` → `expected<Options,E>`; public overload keeps returning `std::optional<Options>` (its `:364` catch becomes `if (!result) ShowExplanation(...)`). Dovetails with the **glaze** parser, which already returns `result.error` by value — the `:408` throw is a needless value→exception→value round-trip that `expected` eliminates end-to-end.
 - `DebugInformationEnumerator::Enumerate` → `expected`; simplifies the two `par` catch sites.
 
-**Leave on exceptions** — the debug-event loop (`Debugger`), the VEH/`ExceptionHandler`/`BranchCondition` path, all category-(c) `THROW_LAST_ERROR` Win32 sites, category-(b) invariants; `IExportPlugin::CheckArgument`'s throw-contract (plugin-ABI break — defer to a versioned API change); and the `main.cpp`/`OpenCppCoverage.cpp` top-level catches (final safety net).
+**Leave on exceptions** — the debug-event loop (`Debugger`), the VEH/`ExceptionHandler`/`BranchCondition` path, all category-(c) `THROW_LAST_ERROR` Win32 sites, category-(b) invariants; and the `main.cpp`/`OpenCppCoverage.cpp` top-level catches (final safety net).
 
 **Error-type design**
 - One shared, DLL-exported error struct in Tools, e.g. `Tools::Error { std::wstring message; std::optional<int> win32Code; }`, reused across DLLs so exported `std::expected<T, Tools::Error>` signatures don't multiply ABI types. Preserves what `ExceptionBase` carries (the `file:line`-prefixed message; `THROW_LAST_ERROR` → `win32Code`).
