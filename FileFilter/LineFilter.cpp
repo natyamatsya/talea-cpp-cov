@@ -98,7 +98,8 @@ namespace FileFilter
 	{
 		if (path != filePath_)
 		{
-			mappedFileForFilePath_ = Tools::MappedFile::TryCreate(path);
+			mappedFileForFilePath_ =
+			    Tools::ValueOrThrow(Tools::MappedFile::TryCreate(path));
 			if (mappedFileForFilePath_)
 				++fileReadCount_;
 			filePath_ = path;

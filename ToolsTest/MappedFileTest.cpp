@@ -53,7 +53,7 @@ namespace ToolsTests
 	TEST(MappedFileTest, GetLine)
 	{
 		auto path = CreateFile({ "\r\n", "abc\r\n", "123\n" });
-		auto file = Tools::MappedFile::TryCreate(path->GetPath());
+		auto file = Tools::MappedFile::TryCreate(path->GetPath()).value();
 		auto expectedLines = GetLines(*path);
 		ASSERT_EQ(expectedLines, file->GetLines());
 	}
@@ -62,20 +62,20 @@ namespace ToolsTests
 	TEST(MappedFileTest, EmptyFile)
 	{
 		TestHelper::TemporaryPath path{ TestHelper::TemporaryPathOption::CreateAsFile };
-		ASSERT_EQ(nullptr, Tools::MappedFile::TryCreate(path.GetPath()));
+		ASSERT_EQ(nullptr, Tools::MappedFile::TryCreate(path.GetPath()).value());
 	}
 
 	//---------------------------------------------------------------------
 	TEST(MappedFileTest, MissingFile)
 	{
-		ASSERT_EQ(nullptr, Tools::MappedFile::TryCreate("MissingFile"));
+		ASSERT_EQ(nullptr, Tools::MappedFile::TryCreate("MissingFile").value());
 	}
 
 	//---------------------------------------------------------------------
 	TEST(MappedFileTest, WholeFile)
 	{
 		auto lines = GetLines(__FILE__);
-		auto file = Tools::MappedFile::TryCreate(__FILE__);
+		auto file = Tools::MappedFile::TryCreate(__FILE__).value();
 
 		ASSERT_LT(0, static_cast<std::int32_t>(lines.size()));
 		ASSERT_EQ(lines, file->GetLines());
@@ -86,7 +86,7 @@ namespace ToolsTests
 	{
 		auto path = CreateFile({ "Test", "\n", "\n" });
 		auto expectedLines = GetLines(*path);
-		auto file = Tools::MappedFile::TryCreate(*path);
+		auto file = Tools::MappedFile::TryCreate(*path).value();
 
 		ASSERT_TRUE(file);
 		ASSERT_EQ(expectedLines, file->GetLines());
