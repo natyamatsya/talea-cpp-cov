@@ -40,7 +40,8 @@ namespace CppCoverageTest
 		EXPECT_CALL(debugEventsHandlerMock, OnException(testing::_, testing::_, testing::_))
 			.WillRepeatedly(testing::Return(cov::IDebugEventsHandler::ExceptionType::NotHandled));
 
-		debugger.Debug(startInfo, debugEventsHandlerMock);
+		[[maybe_unused]] auto exitCode =
+		    Tools::ValueOrThrow(debugger.Debug(startInfo, debugEventsHandlerMock));
 		ASSERT_EQ(0, debugger.GetRunningProcesses());
 		ASSERT_EQ(0, debugger.GetRunningThreads());
 	}	

@@ -180,7 +180,8 @@ namespace CppCoverage
 			    startInfo, settings, *coverageFilterManager_, pdbLineTableCache);
 		}
 
-		std::int32_t exitCode = debugger.Debug(startInfo, *this);
+		std::int32_t exitCode =
+		    Tools::ValueOrThrow(debugger.Debug(startInfo, *this));
 		const auto& path = startInfo.GetPath();
 
 		if (pdbLineTableCache)

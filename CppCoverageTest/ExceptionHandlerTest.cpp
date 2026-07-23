@@ -42,7 +42,8 @@ namespace CppCoverageTest
 				cov::Debugger debugger{ false, false, false };
 
 				startInfo.AddArgument(commandLineArgument);
-				debugger.Debug(startInfo, *this);
+				[[maybe_unused]] auto exitCode =
+				    Tools::ValueOrThrow(debugger.Debug(startInfo, *this));
 			}
 
 			//---------------------------------------------------------------------

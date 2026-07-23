@@ -66,7 +66,8 @@ namespace CppCoverageTest
 			cov::Debugger debugger{ false, false, false };
 			DebugEventsHandler debugEventsHandler{ action };
 
-			debugger.Debug(startInfo, debugEventsHandler);
+			[[maybe_unused]] auto exitCode =
+			    Tools::ValueOrThrow(debugger.Debug(startInfo, debugEventsHandler));
 		}
 
 		//---------------------------------------------------------------------

@@ -16,13 +16,14 @@
 
 #include "stdafx.h"
 #include <cstdint>
+#include <utility>
 #include "Debugger.hpp"
 
 #include "Tools/Log.hpp"
 #include "Tools/ScopedAction.hpp"
 
 #include "Process.hpp"
-#include "CppCoverageException.hpp"
+#include "CppCoverageException.hpp" // CppCoverage::GetErrorMessage
 #include "IDebugEventsHandler.hpp"
 
 #include "Tools/Tool.hpp"
@@ -67,13 +68,13 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	std::int32_t Debugger::Debug(
+	Tools::Expected<std::int32_t> Debugger::Debug(
 		const StartInfo& startInfo,
 		IDebugEventsHandler& debugEventsHandler)
 	{
 		Process process(startInfo);
 		process.Start((coverChildren_) ? DEBUG_PROCESS: DEBUG_ONLY_THIS_PROCESS);
-		
+
 		DEBUG_EVENT debugEvent;
 		std::optional<std::int32_t> exitCode;
 
@@ -84,26 +85,32 @@ namespace CppCoverage
 		while (!exitCode || !processHandles_.empty())
 		{
 			if (!WaitForDebugEvent(&debugEvent, INFINITE))
-				THROW_LAST_ERROR(L"Error WaitForDebugEvent:", GetLastError());
+				return std::unexpected(MAKE_ERROR(
+				    L"Error WaitForDebugEvent:"
+				    << CppCoverage::GetErrorMessage(GetLastError())));
 
-			ProcessStatus processStatus = HandleDebugEvent(debugEvent, debugEventsHandler);
-			
+			auto processStatus = HandleDebugEvent(debugEvent, debugEventsHandler);
+			if (!processStatus)
+				return std::unexpected(processStatus.error());
+
 			// Get the exit code of the root process
 			// Set once as we do not want EXCEPTION_BREAKPOINT to be override
-			if (processStatus.exitCode_ && rootProcessId_ == debugEvent.dwProcessId && !exitCode)
-				exitCode = processStatus.exitCode_;
+			if (processStatus->exitCode_ && rootProcessId_ == debugEvent.dwProcessId && !exitCode)
+				exitCode = processStatus->exitCode_;
 
-			auto continueStatus = processStatus.continueStatus_.value_or(DBG_CONTINUE);
+			auto continueStatus = processStatus->continueStatus_.value_or(DBG_CONTINUE);
 
 			if (!ContinueDebugEvent(debugEvent.dwProcessId, debugEvent.dwThreadId, continueStatus))
-				THROW_LAST_ERROR("Error in ContinueDebugEvent:", GetLastError());
+				return std::unexpected(MAKE_ERROR(
+				    L"Error in ContinueDebugEvent:"
+				    << CppCoverage::GetErrorMessage(GetLastError())));
 		}
 
 		return *exitCode;
 	}
 	
 	//-------------------------------------------------------------------------
-	Debugger::ProcessStatus Debugger::HandleDebugEvent(
+	Tools::Expected<Debugger::ProcessStatus> Debugger::HandleDebugEvent(
 		const DEBUG_EVENT& debugEvent,
 		IDebugEventsHandler& debugEventsHandler)
 	{
@@ -112,8 +119,20 @@ namespace CppCoverage
 
 		switch (debugEvent.dwDebugEventCode)
 		{
-			case CREATE_PROCESS_DEBUG_EVENT: OnCreateProcess(debugEvent, debugEventsHandler); break;
-			case CREATE_THREAD_DEBUG_EVENT: OnCreateThread(debugEvent.u.CreateThread.hThread, dwThreadId); break;
+			case CREATE_PROCESS_DEBUG_EVENT:
+			{
+				auto result = OnCreateProcess(debugEvent, debugEventsHandler);
+				if (!result)
+					return std::unexpected(result.error());
+				break;
+			}
+			case CREATE_THREAD_DEBUG_EVENT:
+			{
+				auto result = OnCreateThread(debugEvent.u.CreateThread.hThread, dwThreadId);
+				if (!result)
+					return std::unexpected(result.error());
+				break;
+			}
 			default:
 			{
 				auto hProcess = GetProcessHandle(dwProcessId);
@@ -122,11 +141,11 @@ namespace CppCoverage
 			}
 		}
 
-		return{};
+		return ProcessStatus{};
 	}
 
 	//-------------------------------------------------------------------------
-	Debugger::ProcessStatus
+	Tools::Expected<Debugger::ProcessStatus>
 		Debugger::HandleNotCreationalEvent(
 		const DEBUG_EVENT& debugEvent,
 		IDebugEventsHandler& debugEventsHandler,
@@ -139,12 +158,18 @@ namespace CppCoverage
 			case EXIT_PROCESS_DEBUG_EVENT:
 			{
 				auto exitCode = OnExitProcess(debugEvent, hProcess, hThread, debugEventsHandler);
-				return ProcessStatus{exitCode, std::nullopt};
+				if (!exitCode)
+					return std::unexpected(exitCode.error());
+				return ProcessStatus{*exitCode, std::nullopt};
 			}
 			case EXIT_THREAD_DEBUG_EVENT:
+			{
 				debugEventsHandler.OnExitThread(dwThreadId);
-				OnExitThread(dwThreadId);
+				auto result = OnExitThread(dwThreadId);
+				if (!result)
+					return std::unexpected(result.error());
 				break;
+			}
 			case LOAD_DLL_DEBUG_EVENT:
 			{
 				const auto& loadDll = debugEvent.u.LoadDll;
@@ -217,14 +242,14 @@ namespace CppCoverage
 				return ProcessStatus{ std::nullopt, DBG_EXCEPTION_NOT_HANDLED };
 			}
 		}
-		THROW("Invalid exception Type.");
+		std::unreachable();
 	}
 
 	//-------------------------------------------------------------------------
-	void Debugger::OnCreateProcess(
+	Tools::Expected<void> Debugger::OnCreateProcess(
 		const DEBUG_EVENT& debugEvent,
 		IDebugEventsHandler& debugEventsHandler)
-	{		
+	{
 		const auto& processInfo = debugEvent.u.CreateProcessInfo;
 		Tools::ScopedAction scopedAction{ [&processInfo]{ CloseHandle(processInfo.hFile); } };
 
@@ -234,21 +259,22 @@ namespace CppCoverage
 			rootProcessId_ = debugEvent.dwProcessId;
 
 		if (!processHandles_.emplace(debugEvent.dwProcessId, processInfo.hProcess).second)
-			THROW("Process id already exist");
-				
+			return std::unexpected(MAKE_ERROR(L"Process id already exist"));
+
 		debugEventsHandler.OnCreateProcess(processInfo);
 
-		OnCreateThread(processInfo.hThread, debugEvent.dwThreadId);
+		return OnCreateThread(processInfo.hThread, debugEvent.dwThreadId);
 	}
 
 	//-------------------------------------------------------------------------
-	std::int32_t Debugger::OnExitProcess(
+	Tools::Expected<std::int32_t> Debugger::OnExitProcess(
 		const DEBUG_EVENT& debugEvent,
 		HANDLE hProcess,
 		HANDLE hThread,
 		IDebugEventsHandler& debugEventsHandler)
 	{
-		OnExitThread(debugEvent.dwThreadId);
+		if (auto result = OnExitThread(debugEvent.dwThreadId); !result)
+			return std::unexpected(result.error());
 		auto processId = debugEvent.dwProcessId;
 
 		LOG_DEBUG("Exit Process:{}", processId);
@@ -257,29 +283,31 @@ namespace CppCoverage
 		debugEventsHandler.OnExitProcess(hProcess, hThread, exitProcess);
 
 		if (processHandles_.erase(processId) != 1)
-			THROW("Cannot find exited process.");
+			return std::unexpected(MAKE_ERROR(L"Cannot find exited process."));
 
-		return exitProcess.dwExitCode;
+		return static_cast<std::int32_t>(exitProcess.dwExitCode);
 	}
 
 	//-------------------------------------------------------------------------
-	void Debugger::OnCreateThread(
+	Tools::Expected<void> Debugger::OnCreateThread(
 		HANDLE hThread,
 		DWORD dwThreadId)
 	{
 		LOG_DEBUG("Create Thread:{}", dwThreadId);
 
 		if (!threadHandles_.emplace(dwThreadId, hThread).second)
-			THROW("Thread id already exist");
+			return std::unexpected(MAKE_ERROR(L"Thread id already exist"));
+		return {};
 	}
-	
+
 	//-------------------------------------------------------------------------
-	void Debugger::OnExitThread(DWORD dwThreadId)
-	{	
+	Tools::Expected<void> Debugger::OnExitThread(DWORD dwThreadId)
+	{
 		LOG_DEBUG("Exit thread:{}", dwThreadId);
 
 		if (threadHandles_.erase(dwThreadId) != 1)
-			THROW("Cannot find exited thread.");
+			return std::unexpected(MAKE_ERROR(L"Cannot find exited thread."));
+		return {};
 	}
 
 	//-------------------------------------------------------------------------

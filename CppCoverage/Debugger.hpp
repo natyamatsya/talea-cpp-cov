@@ -23,6 +23,8 @@
 #include <Windows.h>
 #include "CppCoverageExport.hpp"
 
+#include "Tools/Error.hpp"
+
 
 namespace CppCoverage
 {
@@ -37,38 +39,38 @@ namespace CppCoverage
 			bool continueAfterCppException,
             bool stopOnAssert);
 
-		std::int32_t Debug(const StartInfo&, IDebugEventsHandler&);
+		Tools::Expected<std::int32_t> Debug(const StartInfo&, IDebugEventsHandler&);
 		size_t GetRunningProcesses() const;
 		size_t GetRunningThreads() const;
 
 	private:
 		Debugger(const Debugger&) = delete;
 		Debugger& operator=(const Debugger&) = delete;
-	
-		void OnCreateProcess(
+
+		Tools::Expected<void> OnCreateProcess(
 			const DEBUG_EVENT& debugEvent,
 			IDebugEventsHandler& debugEventsHandler);
 
-		std::int32_t OnExitProcess(
+		Tools::Expected<std::int32_t> OnExitProcess(
 			const DEBUG_EVENT& debugEvent,
 			HANDLE hProcess,
 			HANDLE hThread,
 			IDebugEventsHandler& debugEventsHandler);
 
-		void OnCreateThread(
+		Tools::Expected<void> OnCreateThread(
 			HANDLE hThread,
 			DWORD dwThreadId);
 
-		void OnExitThread(DWORD dwProcessId);
+		Tools::Expected<void> OnExitThread(DWORD dwProcessId);
 
 		HANDLE GetProcessHandle(DWORD dwProcessId) const;
 		HANDLE GetThreadHandle(DWORD dwThreadId) const;
 
 		struct ProcessStatus;
 
-		ProcessStatus HandleDebugEvent(const DEBUG_EVENT&, IDebugEventsHandler&);
+		Tools::Expected<ProcessStatus> HandleDebugEvent(const DEBUG_EVENT&, IDebugEventsHandler&);
 
-		ProcessStatus HandleNotCreationalEvent(
+		Tools::Expected<ProcessStatus> HandleNotCreationalEvent(
 			const DEBUG_EVENT& debugEvent,
 			IDebugEventsHandler& debugEventsHandler,
 			HANDLE hProcess,
