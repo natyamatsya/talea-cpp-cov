@@ -97,11 +97,16 @@ namespace CppCoverage
 	Tools::Expected<void> ExportOptionParser::ParseOption(const OptionsSpec& spec,
 	                                                      Options& options)
 	{
-		// --export_type defaults to html when none is given.
+		// --export_type defaults to cobertura when none is given. The HTML
+		// exporter keeps an unaggregated per-module tree that balloons to
+		// gigabytes on a large multi-module run (and dilutes its roll-up with
+		// shared headers counted per module), so it is opt-in; the compact,
+		// aggregated Cobertura XML is the sensible default and renders to HTML
+		// through any Cobertura tool when a report is wanted.
 		std::vector<std::string> exportTypeStrCollection = spec.export_type;
 		if (exportTypeStrCollection.empty())
 			exportTypeStrCollection.push_back(
-			    ExportOptionParser::ExportTypeHtmlValue);
+			    ExportOptionParser::ExportTypeCoberturaValue);
 
 		for (const auto& exportTypeStr : exportTypeStrCollection)
 		{

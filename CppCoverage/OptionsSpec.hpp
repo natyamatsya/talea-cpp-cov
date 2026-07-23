@@ -187,7 +187,8 @@ namespace CppCoverage
 		              std::string_view{
 		                  "Export type: html, cobertura or binary, each "
 		                  "optionally :<output>. Multiple occurrences. Defaults "
-		                  "to html when omitted."}}};
+		                  "to cobertura when omitted (html is an unaggregated "
+		                  "per-module tree, large on multi-module runs)."}}};
 	};
 }
 

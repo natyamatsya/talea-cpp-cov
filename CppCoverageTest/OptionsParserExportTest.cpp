@@ -95,7 +95,7 @@ namespace CppCoverageTest
 	//-------------------------------------------------------------------------
 	TEST(OptionsParserExportTest, ExportTypesDefault)
 	{
-		TestExportTypes({}, MakeOptionExport(cov::OptionsExportType::Html));
+		TestExportTypes({}, MakeOptionExport(cov::OptionsExportType::Cobertura));
 	}
 
 	//-------------------------------------------------------------------------
