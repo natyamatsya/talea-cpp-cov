@@ -23,9 +23,10 @@
 #include <optional>
 
 #include "ToolsExport.hpp"
+#include "Error.hpp"
 
 namespace Tools
-{	
+{
 	TOOLS_DLL std::wstring LocalToWString(const std::string&);
 	TOOLS_DLL std::wstring Utf8ToWString(const std::string&);
 	TOOLS_DLL std::string ToLocalString(const std::wstring&);
@@ -54,13 +55,13 @@ namespace Tools
 		throw Exception(buildErrorMsg(error));
 	}
 
-	TOOLS_DLL std::filesystem::path GetExecutableFolder();
+	TOOLS_DLL Expected<std::filesystem::path> GetExecutableFolder();
 
 
 	TOOLS_DLL void ShowOutputMessage(const std::wstring& message, const std::filesystem::path& path);
 	TOOLS_DLL std::wstring GetSeparatorLine();
 
-	TOOLS_DLL void CreateParentFolderIfNeeded(const std::filesystem::path& path);
+	TOOLS_DLL Expected<void> CreateParentFolderIfNeeded(const std::filesystem::path& path);
 	TOOLS_DLL bool FileExists(const std::filesystem::path& path);
 }
 

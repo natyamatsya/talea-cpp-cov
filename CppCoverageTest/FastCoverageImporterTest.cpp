@@ -132,6 +132,7 @@ namespace CppCoverageTest
 		auto fastCovCoverage =
 		    cov::FastCoverageImporter{filter, {}, {}, {}}
 		        .Import(dumpPath.GetPath())
+		        .value()
 		        .coverageData_;
 
 		// The debugger over the same fixture, restricted to the same module

@@ -102,7 +102,7 @@ namespace
 		{
 			Exporter::CoverageDataSerializer{}.Serialize(coverageData, path);
 			auto restored =
-			    Exporter::CoverageDataDeserializer{}.Deserialize(path, "");
+			    Exporter::CoverageDataDeserializer{}.Deserialize(path, "").value();
 			benchmark::DoNotOptimize(restored);
 		}
 		std::filesystem::remove(path);

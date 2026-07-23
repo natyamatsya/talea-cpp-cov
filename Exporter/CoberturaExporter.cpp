@@ -444,7 +444,7 @@ namespace Exporter
 		const Plugin::CoverageData& coverageData,
 		const std::filesystem::path& output)
 	{
-		Tools::CreateParentFolderIfNeeded(output);
+		Tools::ThrowOnError(Tools::CreateParentFolderIfNeeded(output));
 		std::ofstream ofs{ output.string().c_str() };
 
 		if (!ofs)

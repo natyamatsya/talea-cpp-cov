@@ -30,6 +30,7 @@
 #include <Zydis/Zydis.h>
 
 #include "Tools/Log.hpp"
+#include "Tools/Tool.hpp"
 
 #include "Address.hpp"
 #include "CppCoverageException.hpp"
@@ -621,8 +622,23 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	FastCoverageImporter::Result
+	Tools::Expected<FastCoverageImporter::Result>
 	FastCoverageImporter::Import(const std::filesystem::path& dumpPath)
+	{
+		try
+		{
+			return ImportOrThrow(dumpPath);
+		}
+		catch (const std::exception& e)
+		{
+			return std::unexpected(
+			    Tools::Error{Tools::LocalToWString(e.what())});
+		}
+	}
+
+	//-------------------------------------------------------------------------
+	FastCoverageImporter::Result
+	FastCoverageImporter::ImportOrThrow(const std::filesystem::path& dumpPath)
 	{
 		auto bytes = ReadFile(dumpPath);
 		if (bytes.size() < sizeof(std::uint32_t))

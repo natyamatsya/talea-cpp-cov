@@ -25,6 +25,8 @@
 #include "Plugin/Exporter/CoverageData.hpp"
 #include "SubstitutePdbSourcePath.hpp"
 
+#include "Tools/Error.hpp"
+
 namespace CppCoverage
 {
 	class CoverageFilterSettings;
@@ -78,13 +80,17 @@ namespace CppCoverage
 		    const std::vector<std::wstring>& excludedLineRegexes,
 		    const std::vector<SubstitutePdbSourcePath>&);
 
-		Result Import(const std::filesystem::path& dumpPath);
+		Tools::Expected<Result> Import(const std::filesystem::path& dumpPath);
 
 		// Renders the per-template report as GitHub-flavored Markdown.
 		static std::wstring
 		FormatTemplateReport(const std::vector<TemplateReport>&);
 
 	  private:
+		// The dump parser, which reports format errors by throwing
+		// CppCoverageException; Import() adapts it to the Expected boundary.
+		Result ImportOrThrow(const std::filesystem::path& dumpPath);
+
 		FastCoverageImporter(const FastCoverageImporter&) = delete;
 		FastCoverageImporter& operator=(const FastCoverageImporter&) = delete;
 

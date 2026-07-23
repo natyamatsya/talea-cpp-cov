@@ -18,16 +18,15 @@
 
 #include "CoverageDataDeserializer.hpp"
 
-#include <stdexcept>
-
 #include "Plugin/Exporter/CoverageData.hpp"
 
 #include "ColumnarCoverage.hpp"
+#include "Tools/Tool.hpp"
 
 namespace Exporter
 {
 	//-------------------------------------------------------------------------
-	Plugin::CoverageData CoverageDataDeserializer::Deserialize(
+	Tools::Expected<Plugin::CoverageData> CoverageDataDeserializer::Deserialize(
 		const std::filesystem::path& path,
 		const std::string& errorIfNotCorrectFormat) const
 	{
@@ -35,7 +34,8 @@ namespace Exporter
 		// writes (identified by its magic). The original protobuf ".cov" format
 		// is no longer read.
 		if (!ColumnarBinary::IsColumnarFile(path))
-			throw std::runtime_error(errorIfNotCorrectFormat);
+			return std::unexpected(
+			    Tools::Error{Tools::LocalToWString(errorIfNotCorrectFormat)});
 
 		return ColumnarBinary::Read(path);
 	}

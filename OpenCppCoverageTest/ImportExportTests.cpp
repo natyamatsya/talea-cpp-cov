@@ -76,7 +76,7 @@ namespace OpenCppCoverageTest
 		{
 			Exporter::CoverageDataDeserializer coverageDataDeserializer;
 			
-			return coverageDataDeserializer.Deserialize(temporaryPath.GetPath(), "");
+			return coverageDataDeserializer.Deserialize(temporaryPath.GetPath(), "").value();
 		}
 	}
 

@@ -362,9 +362,12 @@ namespace Exporter
 		}
 
 		//---------------------------------------------------------------------
-		Plugin::CoverageData Read(const std::filesystem::path& path)
+		Tools::Expected<Plugin::CoverageData> Read(const std::filesystem::path& path)
 		{
-			auto buffer = ReadFile(path);
+			auto bufferResult = ReadFile(path);
+			if (!bufferResult)
+				return std::unexpected(std::move(bufferResult.error()));
+			auto& buffer = *bufferResult;
 			Reader reader(buffer.data(), buffer.size());
 
 			std::string name;
@@ -373,10 +376,12 @@ namespace Exporter
 			switch (ReadHeader(reader, name, exitCode, strings))
 			{
 				case HeaderResult::BadMagic:
-					THROW(L"Not a columnar coverage file: " + path.wstring());
+					return std::unexpected(
+					    MAKE_ERROR(L"Not a columnar coverage file: " + path.wstring()));
 				case HeaderResult::BadVersion:
-					THROW(L"Unsupported columnar coverage file version: " +
-					      path.wstring());
+					return std::unexpected(MAKE_ERROR(
+					    L"Unsupported columnar coverage file version: " +
+					    path.wstring()));
 				case HeaderResult::Ok:
 					break;
 			}
@@ -425,16 +430,16 @@ namespace Exporter
 		}
 
 		//---------------------------------------------------------------------
-		std::vector<char> ReadFile(const std::filesystem::path& path)
+		Tools::Expected<std::vector<char>> ReadFile(const std::filesystem::path& path)
 		{
 			std::ifstream ifs(path.string(), std::ios::binary | std::ios::ate);
 			if (!ifs)
-				THROW(L"Cannot open file " + path.wstring());
+				return std::unexpected(MAKE_ERROR(L"Cannot open file " + path.wstring()));
 			auto size = ifs.tellg();
 			ifs.seekg(0);
 			std::vector<char> buffer(static_cast<size_t>(size));
 			if (size > 0 && !ifs.read(buffer.data(), size))
-				THROW(L"Cannot read file " + path.wstring());
+				return std::unexpected(MAKE_ERROR(L"Cannot read file " + path.wstring()));
 			return buffer;
 		}
 	}
@@ -548,7 +553,7 @@ namespace Exporter
 	//-------------------------------------------------------------------------
 	bool ColumnarCoverageMerger::AddColumnarFile(const std::filesystem::path& path)
 	{
-		auto buffer = ColumnarBinary::ReadFile(path);
+		auto buffer = Tools::ValueOrThrow(ColumnarBinary::ReadFile(path));
 		// Too small to hold the magic (missing/unreadable/not columnar): decline
 		// so the caller can try another format, matching the old IsColumnarFile
 		// probe without the extra file open.

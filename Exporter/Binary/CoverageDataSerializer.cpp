@@ -33,7 +33,7 @@ namespace Exporter
 		const Plugin::CoverageData& coverageData,
 		const std::filesystem::path& output) const
 	{
-		Tools::CreateParentFolderIfNeeded(output);
+		Tools::ThrowOnError(Tools::CreateParentFolderIfNeeded(output));
 
 		std::ofstream ofs(output.string(), std::ios::binary);
 		if (!ofs)

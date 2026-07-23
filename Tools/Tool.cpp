@@ -32,13 +32,13 @@ namespace Tools
 	namespace
 	{
 		//-----------------------------------------------------------------------------
-		fs::path GetExecutablePath()
+		Expected<fs::path> GetExecutablePath()
 		{
 			const std::int32_t PathBufferSize = 40 * 1000;
 			std::vector<wchar_t> filename(PathBufferSize);
 
 			if (!GetModuleFileName(nullptr, &filename[0], static_cast<std::int32_t>(filename.size())))
-				THROW("Cannot get current executable path.");
+				return std::unexpected(MAKE_ERROR("Cannot get current executable path."));
 
 			return fs::path{ &filename[0] };
 		}
@@ -83,11 +83,13 @@ namespace Tools
 	}
 
 	//-----------------------------------------------------------------------------
-	fs::path GetExecutableFolder()
+	Expected<fs::path> GetExecutableFolder()
 	{
-		fs::path executablePath = GetExecutablePath();
+		auto executablePath = GetExecutablePath();
+		if (!executablePath)
+			return std::unexpected(std::move(executablePath.error()));
 
-		return executablePath.parent_path();
+		return executablePath->parent_path();
 	}
 
 	//-------------------------------------------------------------------------
@@ -150,7 +152,7 @@ namespace Tools
 	}
 	
 	//---------------------------------------------------------------------
-	void CreateParentFolderIfNeeded(const std::filesystem::path& path)
+	Expected<void> CreateParentFolderIfNeeded(const std::filesystem::path& path)
 	{
 		if (path.has_parent_path())
 		{
@@ -160,10 +162,12 @@ namespace Tools
 			std::filesystem::create_directories(parentPath, er);
 			if (er)
 			{
-				THROW(L"Error when creating folder " << parentPath.wstring()
-					<< L" Error code:" << er.value());
+				return std::unexpected(
+				    MAKE_ERROR(L"Error when creating folder " << parentPath.wstring()
+				               << L" Error code:" << er.value()));
 			}
 		}
+		return {};
 	}
 
 	//---------------------------------------------------------------------

@@ -69,7 +69,7 @@ namespace OpenCppCoverage
 		//-------------------------------------------------------------------------
 		std::filesystem::path GetTemplateFolder()
 		{
-			return Tools::GetExecutableFolder() / "Template";
+			return Tools::ValueOrThrow(Tools::GetExecutableFolder()) / "Template";
 		}
 
 		//-----------------------------------------------------------------------------
@@ -145,8 +145,8 @@ namespace OpenCppCoverage
 				{
 					auto errorMsg =
 					    "Cannot extract coverage data from " + path.string();
-					merger.Add(
-					    coverageDataDeserializer.Deserialize(path, errorMsg));
+					merger.Add(Tools::ValueOrThrow(
+					    coverageDataDeserializer.Deserialize(path, errorMsg)));
 				}
 			}
 		}
@@ -179,7 +179,7 @@ namespace OpenCppCoverage
 			for (const auto& path : fastCovPaths)
 			{
 				LOG_INFO("Import fast coverage dump: {}", path.wstring());
-				auto result = importer.Import(path);
+				auto result = Tools::ValueOrThrow(importer.Import(path));
 				coverageDatas.push_back(std::move(result.coverageData_));
 				for (auto& report : result.templates_)
 					templates.push_back(std::move(report));

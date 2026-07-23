@@ -17,8 +17,10 @@
 #pragma once
 
 #include <filesystem>
+#include <string>
 
 #include "../ExporterExport.hpp"
+#include "Tools/Error.hpp"
 
 namespace Plugin
 {
@@ -26,13 +28,16 @@ namespace Plugin
 }
 
 namespace Exporter
-{	
+{
 	class EXPORTER_DLL CoverageDataDeserializer
 	{
-	public:		
+	public:
 		CoverageDataDeserializer() = default;
 
-		Plugin::CoverageData Deserialize(const std::filesystem::path&, const std::string& errorIfNotCorrectFormat) const;
+		// Returns the deserialized coverage, or a Tools::Error carrying
+		// errorIfNotCorrectFormat when the file is not the columnar format.
+		Tools::Expected<Plugin::CoverageData>
+		Deserialize(const std::filesystem::path&, const std::string& errorIfNotCorrectFormat) const;
 		
 	private:
 		CoverageDataDeserializer(const CoverageDataDeserializer&) = delete;

@@ -103,7 +103,7 @@ namespace ExporterTest
 		serializer.Serialize(randomCoverageData, path.GetPath().string());
 
 		Exporter::CoverageDataDeserializer deserializer;		
-		auto coverageDataRestored = deserializer.Deserialize(path.GetPath().string(), "");
+		auto coverageDataRestored = deserializer.Deserialize(path.GetPath().string(), "").value();
 
 		TestHelper::CoverageDataComparer().AssertEquals(randomCoverageData, coverageDataRestored);
 	}
@@ -121,6 +121,6 @@ namespace ExporterTest
 		for (std::int32_t i = 0; i < 100; ++i)
 			ofs << distribution(generator);
 
-		ASSERT_THROW(deserializer.Deserialize(path.GetPath(), "todo"), std::runtime_error);
+		ASSERT_FALSE(deserializer.Deserialize(path.GetPath(), "todo"));
 	}
 }
