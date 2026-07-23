@@ -51,12 +51,3 @@ namespace namespaceName											\
 		}														\
 	};															\
 }
-
-#define THROW_BASE(namespaceName, className, message)                          \
-	do                                                                         \
-	{                                                                          \
-		std::wostringstream ostr;                                              \
-		ostr << Tools::GetFilename(__FILE__) << ':' << __LINE__ << ' '         \
-		     << message;                                                       \
-		throw namespaceName::className(ostr.str());                            \
-	} while (false)
