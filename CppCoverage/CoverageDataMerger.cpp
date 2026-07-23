@@ -120,22 +120,6 @@ namespace CppCoverage
 			}
 		}
 
-		//-------------------------------------------------------------------------
-		void MergeFileCoverages(const std::vector<Plugin::FileCoverage*>& fileCoverages)
-		{
-			if (fileCoverages.size() > 1)
-			{
-				auto mutableFileCoverages = fileCoverages;
-				auto& fileCoverageSum = mutableFileCoverages.back();
-
-				mutableFileCoverages.pop_back();
-				for (const auto* fileCoverage : mutableFileCoverages)
-					AddFileCoverageTo(fileCoverage, fileCoverageSum);
-
-				for (auto* fileCoverage : mutableFileCoverages)
-					*fileCoverage = *fileCoverageSum;
-			}
-		}
 	}
 
 	//-------------------------------------------------------------------------
@@ -160,21 +144,22 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	void CoverageDataMerger::MergeFileCoverage(Plugin::CoverageData& coverageData) const
+	Plugin::CoverageData CoverageDataMerger::AggregateByFile(
+		const Plugin::CoverageData& source) const
 	{
-		std::map<std::filesystem::path, std::vector<Plugin::FileCoverage*>> fileCoveragesByPath;
+		Plugin::CoverageData result{source.GetName(), source.GetExitCode()};
 
-		for (const auto& module : coverageData.GetModules())
-		{
-			for (const auto& file : module->GetFiles())
-				fileCoveragesByPath[file->GetPath()].push_back(file.get());
-		}
+		std::vector<Plugin::ModuleCoverage*> modules;
+		modules.reserve(source.GetModules().size());
+		for (const auto& module : source.GetModules())
+			modules.push_back(module.get());
 
-		for (const auto& fileCoverageByPath : fileCoveragesByPath)
-		{
-			const auto& fileCoverages = fileCoverageByPath.second;
+		// A single module (empty path: the grouping is by source file now, not
+		// by binary) whose files are the per-path union across every input
+		// module. FillModule already groups files by path and merges them.
+		auto& mergedModule = result.AddModule(std::filesystem::path{});
+		FillModule(mergedModule, modules);
 
-			MergeFileCoverages(fileCoverages);
-		}
+		return result;
 	}
 }

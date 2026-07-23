@@ -447,12 +447,16 @@ namespace CppCoverageTest
 		TestLine(fileFromSecondModule, sharedFunctionLine + 3, true);
 		TestLine(fileFromSecondModule, sharedFunctionLine + 4, false);
 
-		cov::CoverageDataMerger().MergeFileCoverage(coverageData);
-		for (const auto* file : { &fileFromFirstModule, &fileFromSecondModule })
-		{
-			TestLine(*file, sharedFunctionLine + 3, true);
-			TestLine(*file, sharedFunctionLine + 4, true);
-		}
+		// AggregateByFile collapses the shared source file - covered in
+		// complementary halves by the two modules - into one file carrying the
+		// union.
+		auto aggregated =
+			cov::CoverageDataMerger().AggregateByFile(coverageData);
+		ASSERT_EQ(1u, aggregated.GetModules().size());
+		const auto& mergedFile =
+			*aggregated.GetModules().at(0)->GetFiles().at(0);
+		TestLine(mergedFile, sharedFunctionLine + 3, true);
+		TestLine(mergedFile, sharedFunctionLine + 4, true);
 	}
 
 	//-------------------------------------------------------------------------

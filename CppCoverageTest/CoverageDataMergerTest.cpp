@@ -205,14 +205,17 @@ namespace CppCoverageTest
 	}
 
 	//-------------------------------------------------------------------------
-	TEST(CoverageDataMergerTest, MergeFileCoverageEmpty)
+	TEST(CoverageDataMergerTest, AggregateByFileSingleModule)
 	{
 		Plugin::CoverageData coverageData{L"test", 0};
 
 		AddLine(coverageData, modulePath, filePath, { { 0, false }, { 1, false }, { 2, true } });
-		cov::CoverageDataMerger{}.MergeFileCoverage(coverageData);
+		auto aggregated =
+			cov::CoverageDataMerger{}.AggregateByFile(coverageData);
 
-		auto& mergedFile = coverageData.GetModules().at(0)->GetFiles().at(0);
+		// One synthetic module holding the file's coverage unchanged.
+		ASSERT_EQ(1, aggregated.GetModules().size());
+		auto& mergedFile = aggregated.GetModules().at(0)->GetFiles().at(0);
 		ASSERT_EQ(3, mergedFile->GetLines().size());
 		CheckLineHasBeenExecuted(mergedFile, 0, false);
 		CheckLineHasBeenExecuted(mergedFile, 1, false);
@@ -220,7 +223,7 @@ namespace CppCoverageTest
 	}
 
 	//-------------------------------------------------------------------------
-	TEST(CoverageDataMergerTest, MergeFileCoverageMultipleFiles)
+	TEST(CoverageDataMergerTest, AggregateByFileCollapsesModules)
 	{
 		Plugin::CoverageData coverageData{ L"test", 0 };
 
@@ -229,18 +232,35 @@ namespace CppCoverageTest
 
 		AddLinesToFileCoverage(fileCoverage1, { { 0, false }, { 1, false }, { 2, true } });
 		AddLinesToFileCoverage(fileCoverage2, { { 1, true }, { 2, false }, { 3, true } });
-		cov::CoverageDataMerger{}.MergeFileCoverage(coverageData);
+		auto aggregated =
+			cov::CoverageDataMerger{}.AggregateByFile(coverageData);
 
-		const auto& modules = coverageData.GetModules();
-		ASSERT_EQ(2, modules.size());
-		for (const auto& module : modules)
-		{
-			auto& mergedFile = module->GetFiles().at(0);
-			ASSERT_EQ(4, mergedFile->GetLines().size());
-			CheckLineHasBeenExecuted(mergedFile, 0, false);
-			CheckLineHasBeenExecuted(mergedFile, 1, true);
-			CheckLineHasBeenExecuted(mergedFile, 2, true);
-			CheckLineHasBeenExecuted(mergedFile, 3, true);
-		}
+		// The same source file in two modules collapses to ONE module with a
+		// single file carrying the union of both modules' coverage.
+		const auto& modules = aggregated.GetModules();
+		ASSERT_EQ(1, modules.size());
+		ASSERT_EQ(1, modules.at(0)->GetFiles().size());
+		auto& mergedFile = modules.at(0)->GetFiles().at(0);
+		ASSERT_EQ(4, mergedFile->GetLines().size());
+		CheckLineHasBeenExecuted(mergedFile, 0, false);
+		CheckLineHasBeenExecuted(mergedFile, 1, true);
+		CheckLineHasBeenExecuted(mergedFile, 2, true);
+		CheckLineHasBeenExecuted(mergedFile, 3, true);
+	}
+
+	//-------------------------------------------------------------------------
+	TEST(CoverageDataMergerTest, AggregateByFileKeepsDistinctPaths)
+	{
+		Plugin::CoverageData coverageData{ L"test", 0 };
+
+		AddLine(coverageData, modulePath, filePath, { { 0, true } });
+		AddLine(coverageData, L"otherModule", L"other.cpp", { { 0, true } });
+
+		auto aggregated =
+			cov::CoverageDataMerger{}.AggregateByFile(coverageData);
+
+		// Distinct source paths stay distinct files in the single module.
+		ASSERT_EQ(1, aggregated.GetModules().size());
+		ASSERT_EQ(2, aggregated.GetModules().at(0)->GetFiles().size());
 	}
 }

@@ -89,6 +89,18 @@ namespace OpenCppCoverage
 			
 			auto defaultPathPrefix = GetDefaultPathPrefix(options);
 
+			// Collapse per-module duplicates of the same source file (union of
+			// their coverage) for the COBERTURA export only. That report is
+			// the CI-ingested artifact, where statically-linked shared code
+			// compiled into many binaries otherwise appears once per binary -
+			// inflating both the percentages and the file size (on a
+			// test-suite build tree, by the executable count). The HTML report
+			// keeps its per-module structure, which is what makes it navigable
+			// and lets --modules / --excluded_modules stay visible in it.
+			// Built lazily and once, shared across matching exports.
+			bool aggregateByFile = options.IsAggregateByFileModeEnabled();
+			std::optional<Plugin::CoverageData> aggregatedByFile;
+
 			for (const auto& singleExport : exports)
 			{
 				auto exportType = singleExport.GetType();
@@ -100,7 +112,17 @@ namespace OpenCppCoverage
 				        ? fs::path{*parameter}
 				        : exporter->GetDefaultPath(defaultPathPrefix);
 
-				exporter->Export(coverage, output);
+				const Plugin::CoverageData* data = &coverage;
+				if (aggregateByFile &&
+				    exportType == cov::OptionsExportType::Cobertura)
+				{
+					if (!aggregatedByFile)
+						aggregatedByFile =
+						    cov::CoverageDataMerger{}.AggregateByFile(coverage);
+					data = &*aggregatedByFile;
+				}
+
+				exporter->Export(*data, output);
 			}
 		}
 
@@ -258,12 +280,8 @@ namespace OpenCppCoverage
 
 			auto coverageData = merger.ToCoverageData();
 
-			if (options.IsAggregateByFileModeEnabled())
-			{
-				cov::CoverageDataMerger coverageDataMerger;
-				coverageDataMerger.MergeFileCoverage(coverageData);
-			}
-
+			// Aggregation is applied per export type inside Export (Cobertura
+			// only); HTML keeps its per-module structure.
 			Export(options, coverageData);
 			LOG_INFO("The code coverage report is not what you expect? See the FAQ https://github.com/OpenCppCoverage/OpenCppCoverage/wiki/FAQ.");
 

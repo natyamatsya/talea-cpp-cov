@@ -119,7 +119,10 @@ namespace CppCoverage
 		                  "Do not measure code coverage for children processes."}},
 		    std::pair{std::string_view{"no_aggregate_by_file"},
 		              std::string_view{
-		                  "Do not aggregate coverage for same file path."}},
+		                  "Cobertura export: do not collapse the same source "
+		                  "file across modules into one per-file entry; keep "
+		                  "one package per module instead. (HTML is always "
+		                  "per-module.)"}},
 		    std::pair{
 		        std::string_view{"stop_on_assert"},
 		        std::string_view{"Do not continue after DebugBreak() or assert()."}},
