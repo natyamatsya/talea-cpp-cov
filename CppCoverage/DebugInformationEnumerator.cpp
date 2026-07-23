@@ -100,11 +100,12 @@ namespace CppCoverage
 		}
 
 		//----------------------------------------------------------------------
-		CComPtr<IDiaEnumSourceFiles> GetEnumSourceFiles(IDiaSession& session)
+		Tools::Expected<CComPtr<IDiaEnumSourceFiles>>
+		GetEnumSourceFiles(IDiaSession& session)
 		{
 			CComPtr<IDiaEnumTables> tables;
 			if (session.getEnumTables(&tables) != S_OK || !tables)
-				THROW("DIA: Cannot get tables");
+				return std::unexpected(Tools::Error{L"DIA: Cannot get tables"});
 
 			CComPtr<IDiaEnumSourceFiles> sourceFiles;
 
@@ -125,16 +126,18 @@ namespace CppCoverage
 		}
 
 		//----------------------------------------------------------------------
-		std::wstring GetRawSourceFileName(IDiaSourceFile& sourceFile)
+		Tools::Expected<std::wstring>
+		GetRawSourceFileName(IDiaSourceFile& sourceFile)
 		{
 			DiaString fileName;
 			if (sourceFile.get_fileName(&fileName) != S_OK)
-				THROW("DIA: Cannot get filename");
-			return fileName;
+				return std::unexpected(Tools::Error{L"DIA: Cannot get filename"});
+			return std::wstring{fileName};
 		}
 
 		//----------------------------------------------------------------------
-		CComPtr<IDiaEnumLineNumbers> GetAllLineNumbers(IDiaSession& session)
+		Tools::Expected<CComPtr<IDiaEnumLineNumbers>>
+		GetAllLineNumbers(IDiaSession& session)
 		{
 			// A single query over the whole image returns every line record
 			// in one pass. The session load address defaults to 0, so line
@@ -143,7 +146,7 @@ namespace CppCoverage
 			if (session.findLinesByRVA(0, 0xFFFFFFFF, &lineNumbers) != S_OK ||
 			    !lineNumbers)
 			{
-				THROW("DIA: Cannot find lines");
+				return std::unexpected(Tools::Error{L"DIA: Cannot find lines"});
 			}
 
 			return lineNumbers;
@@ -218,7 +221,9 @@ namespace CppCoverage
 		};
 
 		//----------------------------------------------------------------------
-		CComPtr<IDiaDataSource>
+		// A null value means "no DIA data for this module" (treated as no debug
+		// info); an unexpected means DIA itself could not be loaded.
+		Tools::Expected<CComPtr<IDiaDataSource>>
 		LoadDataForExe(const std::filesystem::path& path)
 		{
 			CComPtr<IDiaDataSource> sourcePtr;
@@ -229,8 +234,9 @@ namespace CppCoverage
 			                  _uuidof(IDiaDataSource),
 			                  (void**)&sourcePtr) != S_OK)
 			{
-				THROW(std::wstring(L"DIA: Cannot register dia. Make sure ") +
-				      msDia + L" is in the current directory.");
+				return std::unexpected(Tools::Error{
+				    std::wstring(L"DIA: Cannot register dia. Make sure ") +
+				    msDia + L" is in the current directory."});
 			}
 
 			DiaLoadCallback diaLoadCallback;
@@ -238,7 +244,7 @@ namespace CppCoverage
 			    sourcePtr->loadDataForExe(
 			        path.wstring().c_str(), nullptr, &diaLoadCallback) != S_OK)
 			{
-				return nullptr;
+				return CComPtr<IDiaDataSource>{nullptr};
 			}
 			return sourcePtr;
 		}
@@ -266,12 +272,55 @@ namespace CppCoverage
 	DebugInformationEnumerator::Enumerate(const std::filesystem::path& path,
 	                                      IDebugInformationHandler& handler)
 	{
-		// Catch everything (not just std::exception): CodeCoverageRunner runs
-		// Enumerate under std::execution::par and relies on it never throwing, so
-		// a non-std exception escaping here would call std::terminate.
+		// The DIA parse (ParseModule) reports failure by value. The remaining
+		// throwers reached from here are the handler callbacks (the FileFilter
+		// layer, not yet no-throw); catch everything around them so nothing
+		// escapes the std::execution::par preparse and calls std::terminate.
 		try
 		{
-			return EnumerateOrThrow(path, handler);
+			// The cache is keyed by the PDB's GUID + age (the linker's exact
+			// identity), read from the PE debug directory without loading DIA.
+			std::optional<PdbSignature> signature;
+			std::shared_ptr<const LineTableView> lineTable;
+
+			if (lineTableCache_)
+			{
+				signature = ExtractPdbSignature(path);
+				if (signature)
+					lineTable =
+					    lineTableCache_->TryGet(*signature, needSymbolIndex_);
+			}
+
+			if (!lineTable)
+			{
+				auto parsedTable = ParseModule(path);
+				if (!parsedTable)
+					return std::unexpected(std::move(parsedTable.error()));
+				if (!*parsedTable)
+					return false; // no debug info
+				if (lineTableCache_ && signature)
+					lineTableCache_->Store(*signature, *parsedTable);
+				lineTable = std::make_shared<LineTableView>(
+				    std::move(*parsedTable));
+			}
+
+			handler.OnModuleFunctions(lineTable->Functions());
+
+			// Path substitution and source-file selection run on every replay:
+			// they depend on the run's settings, so a cached table stays valid
+			// whatever filters are active. A mapped view decodes one file's
+			// lines at a time into the scratch vector, so the whole table never
+			// becomes heap-resident (MEMORY_ROADMAP.md, Tier 1).
+			std::vector<IDebugInformationHandler::Line> scratch;
+			for (std::size_t i = 0; i < lineTable->FileCount(); ++i)
+			{
+				auto sourcePath = RemapSourceFileName(lineTable->FileRawName(i));
+				if (handler.IsSourceFileSelected(sourcePath))
+					handler.OnSourceFile(sourcePath,
+					                     lineTable->FileLines(i, scratch));
+			}
+
+			return true;
 		}
 		catch (const std::exception& e)
 		{
@@ -285,54 +334,8 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	bool DebugInformationEnumerator::EnumerateOrThrow(
-	    const std::filesystem::path& path, IDebugInformationHandler& handler)
-	{
-		// The cache is keyed by the PDB's GUID + age (the linker's exact
-		// identity), read from the PE debug directory without loading DIA.
-		std::optional<PdbSignature> signature;
-		std::shared_ptr<const LineTableView> lineTable;
-
-		if (lineTableCache_)
-		{
-			signature = ExtractPdbSignature(path);
-			if (signature)
-				lineTable =
-				    lineTableCache_->TryGet(*signature, needSymbolIndex_);
-		}
-
-		if (!lineTable)
-		{
-			auto parsedTable = ParseModule(path);
-			if (!parsedTable)
-				return false;
-			if (lineTableCache_ && signature)
-				lineTableCache_->Store(*signature, parsedTable);
-			lineTable =
-			    std::make_shared<LineTableView>(std::move(parsedTable));
-		}
-
-		handler.OnModuleFunctions(lineTable->Functions());
-
-		// Path substitution and source-file selection run on every replay:
-		// they depend on the run's settings, so a cached table stays valid
-		// whatever filters are active. A mapped view decodes one file's
-		// lines at a time into the scratch vector, so the whole table never
-		// becomes heap-resident (MEMORY_ROADMAP.md, Tier 1).
-		std::vector<IDebugInformationHandler::Line> scratch;
-		for (std::size_t i = 0; i < lineTable->FileCount(); ++i)
-		{
-			auto sourcePath = RemapSourceFileName(lineTable->FileRawName(i));
-			if (handler.IsSourceFileSelected(sourcePath))
-				handler.OnSourceFile(sourcePath,
-				                     lineTable->FileLines(i, scratch));
-		}
-
-		return true;
-	}
-
-	//-------------------------------------------------------------------------
-	std::shared_ptr<ModuleLineTable> DebugInformationEnumerator::ParseModule(
+	Tools::Expected<std::shared_ptr<ModuleLineTable>>
+	DebugInformationEnumerator::ParseModule(
 	    const std::filesystem::path& path) const
 	{
 		// Fast path: read the line table straight from the PDB with raw_pdb
@@ -350,17 +353,19 @@ namespace CppCoverage
 			// thread, so skip the module rather than fall back; the on-load
 			// parse (serialized in the debug loop) handles it later.
 			if (rawPdbOnly_)
-				return nullptr;
+				return std::shared_ptr<ModuleLineTable>{nullptr};
 		}
 
-		auto sourcePtr = LoadDataForExe(path);
-
+		auto sourceResult = LoadDataForExe(path);
+		if (!sourceResult)
+			return std::unexpected(std::move(sourceResult.error()));
+		auto& sourcePtr = *sourceResult;
 		if (!sourcePtr)
-			return nullptr;
+			return std::shared_ptr<ModuleLineTable>{nullptr};
 
 		CComPtr<IDiaSession> sessionPtr;
 		if (sourcePtr->openSession(&sessionPtr) != S_OK || !sessionPtr)
-			THROW("DIA: Cannot open session.");
+			return std::unexpected(Tools::Error{L"DIA: Cannot open session."});
 
 		auto lineTable = std::make_shared<ModuleLineTable>();
 		lineTable->hasSymbolIndexes_ = needSymbolIndex_;
@@ -377,14 +382,26 @@ namespace CppCoverage
 		// table (pass 1) and through a line record's get_sourceFile
 		// (pass 2); the name is stable across both paths.
 		std::unordered_map<std::wstring, size_t> fileIndexByName;
+		std::optional<Tools::Error> error;
 
-		auto sourceFiles = GetEnumSourceFiles(*sessionPtr);
+		auto sourceFilesResult = GetEnumSourceFiles(*sessionPtr);
+		if (!sourceFilesResult)
+			return std::unexpected(std::move(sourceFilesResult.error()));
+		auto& sourceFiles = *sourceFilesResult;
 		if (!sourceFiles)
-			THROW("DIA: cannot get SourceFiles");
+			return std::unexpected(Tools::Error{L"DIA: cannot get SourceFiles"});
 
 		EnumerateCollection<IDiaSourceFile>(
 		    *sourceFiles, [&](IDiaSourceFile& sourceFile) {
-			    auto name = GetRawSourceFileName(sourceFile);
+			    if (error)
+				    return;
+			    auto nameResult = GetRawSourceFileName(sourceFile);
+			    if (!nameResult)
+			    {
+				    error = std::move(nameResult.error());
+				    return;
+			    }
+			    auto name = std::move(*nameResult);
 			    if (fileIndexByName
 			            .emplace(name, lineTable->files_.size())
 			            .second)
@@ -393,12 +410,17 @@ namespace CppCoverage
 				        ModuleLineTable::File{std::move(name), {}});
 			    }
 		    });
+		if (error)
+			return std::unexpected(std::move(*error));
 
 		// Pass 2: enumerate every line record in the module in one query and
 		// bucket the records by source file. All files are collected — not
 		// only the currently selected ones — so the table can be cached and
 		// replayed under any later selection.
-		auto lineNumbers = GetAllLineNumbers(*sessionPtr);
+		auto lineNumbersResult = GetAllLineNumbers(*sessionPtr);
+		if (!lineNumbersResult)
+			return std::unexpected(std::move(lineNumbersResult.error()));
+		auto& lineNumbers = *lineNumbersResult;
 
 		// Records arrive in RVA order, so consecutive records usually share
 		// a source file: cache the last resolved file to avoid re-reading
@@ -409,14 +431,23 @@ namespace CppCoverage
 
 		EnumerateCollection<IDiaLineNumber>(
 		    *lineNumbers, [&](IDiaLineNumber& lineNumber) {
+			    if (error)
+				    return;
 			    CComPtr<IDiaSourceFile> sourceFile;
 			    if (lineNumber.get_sourceFile(&sourceFile) != S_OK ||
 			        !sourceFile)
 			    {
-				    THROW("DIA: Cannot get line source file");
+				    error = Tools::Error{L"DIA: Cannot get line source file"};
+				    return;
 			    }
 
-			    auto name = GetRawSourceFileName(*sourceFile);
+			    auto nameResult = GetRawSourceFileName(*sourceFile);
+			    if (!nameResult)
+			    {
+				    error = std::move(nameResult.error());
+				    return;
+			    }
+			    auto name = std::move(*nameResult);
 
 			    if (!hasLastFile || name != lastName)
 			    {
@@ -429,8 +460,18 @@ namespace CppCoverage
 			    }
 
 			    if (lastFile)
-				    OnNewLine(*sessionPtr, lineNumber, lastFile->lines_);
+			    {
+				    auto lineResult =
+				        OnNewLine(*sessionPtr, lineNumber, lastFile->lines_);
+				    if (!lineResult)
+				    {
+					    error = std::move(lineResult.error());
+					    return;
+				    }
+			    }
 		    });
+		if (error)
+			return std::unexpected(std::move(*error));
 
 		// Function code ranges bound the straight-line run analysis (a run
 		// must never span two functions: indirect calls and exception
@@ -485,21 +526,22 @@ namespace CppCoverage
 	}
 
 	//----------------------------------------------------------------------
-	void DebugInformationEnumerator::OnNewLine(
+	Tools::Expected<void> DebugInformationEnumerator::OnNewLine(
 	    IDiaSession& session,
 	    IDiaLineNumber& lineNumber,
 	    std::vector<IDebugInformationHandler::Line>& lines) const
 	{
 		DWORD linenum = 0;
 		if (lineNumber.get_lineNumber(&linenum) != S_OK)
-			THROW("DIA: Cannot get line number");
+			return std::unexpected(Tools::Error{L"DIA: Cannot get line number"});
 
 		// Skip invalid lines (0 is clang's "no source" marker)
 		if (linenum != 0x00f00f00 && linenum != 0x00feefee && linenum != 0)
 		{
 			ULONGLONG virtualAddress = 0;
 			if (lineNumber.get_virtualAddress(&virtualAddress) != S_OK)
-				THROW("DIA: Cannot get virtual address");
+				return std::unexpected(
+				    Tools::Error{L"DIA: Cannot get virtual address"});
 
 			// findSymbolByVA is a full symbol-table query per line record and
 			// its result (the symbol index) is only used by the optimized
@@ -515,22 +557,26 @@ namespace CppCoverage
 				                           &symbol) != S_OK ||
 				    !symbol)
 				{
-					THROW("DIA: Cannot find symbol");
+					return std::unexpected(
+					    Tools::Error{L"DIA: Cannot find symbol"});
 				}
 
 				if (symbol->get_symIndexId(&symIndex) != S_OK)
-					THROW("DIA: Cannot get symIndex");
+					return std::unexpected(
+					    Tools::Error{L"DIA: Cannot get symIndex"});
 			}
 
 			DWORD length = 0;
 			if (lineNumber.get_length(&length) != S_OK)
-				THROW("DIA: Cannot get line length");
+				return std::unexpected(
+				    Tools::Error{L"DIA: Cannot get line length"});
 
 			lines.emplace_back(static_cast<std::uint32_t>(linenum),
 			                   static_cast<int64_t>(virtualAddress),
 			                   static_cast<std::uint32_t>(symIndex),
 			                   static_cast<std::uint32_t>(length));
 		}
+		return {};
 	}
 
 	//----------------------------------------------------------------------

@@ -104,22 +104,21 @@ namespace CppCoverage
 		    bool needFunctionNames = false,
 		    bool useRawPdb = true,
 		    bool rawPdbOnly = false);
-		// Returns whether the module had usable debug information, or a
-		// Tools::Error if the DIA/PDB parse failed. The parser reports failures
-		// by throwing internally; Enumerate adapts that to the Expected boundary.
+		// Returns whether the module had usable debug information (a null table
+		// = no debug info), or a Tools::Error if the DIA/PDB parse failed.
 		[[nodiscard]] Tools::Expected<bool> Enumerate(const std::filesystem::path&,
 		                                              IDebugInformationHandler&);
 
 	  private:
-		bool EnumerateOrThrow(const std::filesystem::path&,
-		                      IDebugInformationHandler&);
-
-		std::shared_ptr<ModuleLineTable>
+		// A null value means the module had no usable debug info; an unexpected
+		// means the DIA parse itself failed.
+		Tools::Expected<std::shared_ptr<ModuleLineTable>>
 		ParseModule(const std::filesystem::path&) const;
 
-		void OnNewLine(IDiaSession&,
-		               IDiaLineNumber&,
-		               std::vector<IDebugInformationHandler::Line>&) const;
+		Tools::Expected<void>
+		OnNewLine(IDiaSession&,
+		          IDiaLineNumber&,
+		          std::vector<IDebugInformationHandler::Line>&) const;
 
 		std::filesystem::path
 		RemapSourceFileName(const std::wstring& rawName) const;
