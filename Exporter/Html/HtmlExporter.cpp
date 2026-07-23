@@ -23,9 +23,9 @@
 #include <iomanip>
 #include "CTemplate.hpp"
 
-#include "Plugin/Exporter/CoverageData.hpp"
-#include "Plugin/Exporter/ModuleCoverage.hpp"
-#include "Plugin/Exporter/FileCoverage.hpp"
+#include "Coverage/CoverageData.hpp"
+#include "Coverage/ModuleCoverage.hpp"
+#include "Coverage/FileCoverage.hpp"
 #include "CppCoverage/CoverageRateComputer.hpp"
 #include "CppCoverage/CoverageRate.hpp"
 
@@ -44,7 +44,7 @@ namespace Exporter
 	namespace
 	{
 		//-------------------------------------------------------------------------
-		std::wstring GetMainMessage(const Plugin::CoverageData& coverageData)
+		std::wstring GetMainMessage(const Coverage::CoverageData& coverageData)
 		{
 			auto exitCode = coverageData.GetExitCode();
 
@@ -81,7 +81,7 @@ namespace Exporter
 
 	//-------------------------------------------------------------------------
 	void HtmlExporter::Export(
-		const Plugin::CoverageData& coverageData, 
+		const Coverage::CoverageData& coverageData, 
 		const std::filesystem::path& outputFolderPrefix)
 	{	
 		HtmlFolderStructure htmlFolderStructure{templateFolder_};
@@ -129,7 +129,7 @@ namespace Exporter
 	//---------------------------------------------------------------------
 	void HtmlExporter::ExportFiles(
 		cov::CoverageRateComputer& coverageRateComputer,
-		const Plugin::ModuleCoverage& module,
+		const Coverage::ModuleCoverage& module,
 		const HtmlFolderStructure& htmlFolderStructure,
 		ctemplate::TemplateDictionary& moduleTemplateDictionary)
 	{
@@ -162,7 +162,7 @@ namespace Exporter
 
 	//---------------------------------------------------------------------
 	std::optional<fs::path> HtmlExporter::GenerateFileHtml(
-		const Plugin::FileCoverage& fileCoverage,
+		const Coverage::FileCoverage& fileCoverage,
 		const HtmlFile& htmlFile) const
 	{
 		if (!Tools::FileExists(fileCoverage.GetPath()))

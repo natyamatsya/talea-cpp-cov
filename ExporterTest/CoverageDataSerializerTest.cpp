@@ -21,10 +21,10 @@
 #include <random>
 #include <fstream>
 
-#include "Plugin/Exporter/CoverageData.hpp"
-#include "Plugin/Exporter/ModuleCoverage.hpp"
-#include "Plugin/Exporter/FileCoverage.hpp"
-#include "Plugin/Exporter/LineCoverage.hpp"
+#include "Coverage/CoverageData.hpp"
+#include "Coverage/ModuleCoverage.hpp"
+#include "Coverage/FileCoverage.hpp"
+#include "Coverage/LineCoverage.hpp"
 #include "Exporter/Binary/CoverageDataSerializer.hpp"
 #include "Exporter/Binary/CoverageDataDeserializer.hpp"
 
@@ -39,7 +39,7 @@ namespace ExporterTest
 	{					
 		//---------------------------------------------------------------------
 		void AddRandomFiles(
-			Plugin::ModuleCoverage& module,
+			Coverage::ModuleCoverage& module,
 			std::default_random_engine& generator,
 			std::uniform_int_distribution<std::int32_t>& distribution)
 		{
@@ -60,7 +60,7 @@ namespace ExporterTest
 							{
 								file.AddBranch(
 								    line,
-								    Plugin::BranchCoverage{
+								    Coverage::BranchCoverage{
 								        branchIndex,
 								        distribution(generator) != 0,
 								        distribution(generator) != 0});
@@ -72,9 +72,9 @@ namespace ExporterTest
 		}
 
 		//---------------------------------------------------------------------
-		Plugin::CoverageData CreateRandomCoverageData()
+		Coverage::CoverageData CreateRandomCoverageData()
 		{
-			Plugin::CoverageData coverageData{ L"Test\u00E9", 42 };
+			Coverage::CoverageData coverageData{ L"Test\u00E9", 42 };
 			std::default_random_engine generator;
 			std::uniform_int_distribution<std::int32_t> distribution(0, 1);
 			

@@ -10,7 +10,7 @@ add_library(occ::TestHelper ALIAS TestHelper)
 
 occ_apply_conventions(TestHelper)
 target_link_libraries(TestHelper
-	PUBLIC occ_gtest occ::Plugin occ::Tools)
+	PUBLIC occ_gtest occ::Coverage occ::Tools)
 
 target_precompile_headers(TestHelper PRIVATE stdafx.h)
 

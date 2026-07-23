@@ -91,7 +91,7 @@ add_subdirectory(RawPdb)
 add_subdirectory(Zydis)
 add_subdirectory(SmallVector)
 add_subdirectory(Tools)
-add_subdirectory(Plugin)
+add_subdirectory(Coverage)
 add_subdirectory(VehCoverageHelper)
 
 # Core libraries and the tool
@@ -109,7 +109,7 @@ add_subdirectory(TestFastCovConsole)
 
 # Tests and benchmarks
 add_subdirectory(ToolsTest)
-add_subdirectory(PluginTest)
+add_subdirectory(CoverageTest)
 add_subdirectory(FileFilterTest)
 add_subdirectory(CppCoverageTest)
 add_subdirectory(ExporterTest)

@@ -18,10 +18,10 @@
 #include <cstdint>
 
 #include "CoverageDataComparer.hpp"
-#include "Plugin/Exporter/CoverageData.hpp"
-#include "Plugin/Exporter/ModuleCoverage.hpp"
-#include "Plugin/Exporter/FileCoverage.hpp"
-#include "Plugin/Exporter/LineCoverage.hpp"
+#include "Coverage/CoverageData.hpp"
+#include "Coverage/ModuleCoverage.hpp"
+#include "Coverage/FileCoverage.hpp"
+#include "Coverage/LineCoverage.hpp"
 
 #include "Container.hpp"
 
@@ -40,8 +40,8 @@ namespace TestHelper
 
 		//---------------------------------------------------------------------
 		void AssertBranchesEquals(
-			const Plugin::BranchCoverage& branch1,
-			const Plugin::BranchCoverage& branch2)
+			const Coverage::BranchCoverage& branch1,
+			const Coverage::BranchCoverage& branch2)
 		{
 			AssertEqual(branch1.GetBranchIndex(), branch2.GetBranchIndex());
 			AssertEqual(branch1.HasBeenTaken(), branch2.HasBeenTaken());
@@ -51,8 +51,8 @@ namespace TestHelper
 
 		//---------------------------------------------------------------------
 		void AssertLinesEquals(
-			const Plugin::LineCoverage& line1,
-			const Plugin::LineCoverage& line2)
+			const Coverage::LineCoverage& line1,
+			const Coverage::LineCoverage& line2)
 		{
 			AssertEqual(line1.GetLineNumber(), line2.GetLineNumber());
 			AssertEqual(line1.HasBeenExecuted(), line2.HasBeenExecuted());
@@ -62,8 +62,8 @@ namespace TestHelper
 
 		//---------------------------------------------------------------------
 		void AssertFilesEquals(
-			const Plugin::FileCoverage& file1,
-			const Plugin::FileCoverage& file2)
+			const Coverage::FileCoverage& file1,
+			const Coverage::FileCoverage& file2)
 		{
 			AssertEqual(file1.GetPath(), file2.GetPath());
 			AssertContainerEqual(file1.GetLines(), file2.GetLines(), AssertLinesEquals);
@@ -71,8 +71,8 @@ namespace TestHelper
 
 		//---------------------------------------------------------------------
 		void AssertModulesEquals(
-			const Plugin::ModuleCoverage& module1,
-			const Plugin::ModuleCoverage& module2)
+			const Coverage::ModuleCoverage& module1,
+			const Coverage::ModuleCoverage& module2)
 		{
 			AssertEqual(module1.GetPath(), module2.GetPath());
 			AssertContainerUniquePtrEqual(module1.GetFiles(), module2.GetFiles(), AssertFilesEquals);
@@ -81,8 +81,8 @@ namespace TestHelper
 
 	//-------------------------------------------------------------------------
 	void CoverageDataComparer::AssertEquals(
-		const Plugin::CoverageData& coverageData,
-		const Plugin::CoverageData& coverageDataRestored) const
+		const Coverage::CoverageData& coverageData,
+		const Coverage::CoverageData& coverageDataRestored) const
 	{
 		AssertEqual(coverageData.GetName(), coverageDataRestored.GetName());
 		AssertEqual(coverageData.GetExitCode(), coverageDataRestored.GetExitCode());
@@ -95,15 +95,15 @@ namespace TestHelper
 
 	//---------------------------------------------------------------------
 	void CoverageDataComparer::AssertEquals(
-		const Plugin::ModuleCoverage* module1,
-		const Plugin::ModuleCoverage* module2) const
+		const Coverage::ModuleCoverage* module1,
+		const Coverage::ModuleCoverage* module2) const
 	{
 		if (!module1 || !module2)
 			throw std::runtime_error("Module is null.");
 		AssertModulesEquals(*module1, *module2);
 	}
 
-	using FileCoveragePtr = std::unique_ptr<Plugin::FileCoverage>;
+	using FileCoveragePtr = std::unique_ptr<Coverage::FileCoverage>;
 
 	//---------------------------------------------------------------------
 	bool CoverageDataComparer::IsFirstModuleContainsSecond(
@@ -123,8 +123,8 @@ namespace TestHelper
 
 			return IsFirstContainsSecond<std::uint32_t>(
 				file1->GetLines(), file2->GetLines(),
-				[](const Plugin::LineCoverage& line) { return line.GetLineNumber(); },
-				[](const Plugin::LineCoverage& line1, const Plugin::LineCoverage& line2)
+				[](const Coverage::LineCoverage& line) { return line.GetLineNumber(); },
+				[](const Coverage::LineCoverage& line1, const Coverage::LineCoverage& line2)
 			{
 				return !line2.HasBeenExecuted() || line1.HasBeenExecuted();
 			});

@@ -18,7 +18,7 @@
 
 #include "CppCoverageExport.hpp"
 
-namespace Plugin
+namespace Coverage
 {
 	class CoverageData;
 }
@@ -30,7 +30,7 @@ namespace CppCoverage
 	public:
 		CoverageDataMerger() = default;
 		
-		Plugin::CoverageData Merge(const std::vector<Plugin::CoverageData>&) const;
+		Coverage::CoverageData Merge(const std::vector<Coverage::CoverageData>&) const;
 
 		// Collapse per-module coverage into one entry per source file: the
 		// result has a SINGLE module whose files are the distinct source paths
@@ -43,7 +43,7 @@ namespace CppCoverage
 		// file's lines counted N times) and the size (the same <class> emitted
 		// N times). Collapsing gives the true project figures and shrinks the
 		// Cobertura by ~N.
-		Plugin::CoverageData AggregateByFile(const Plugin::CoverageData&) const;
+		Coverage::CoverageData AggregateByFile(const Coverage::CoverageData&) const;
 
 	private:
 		CoverageDataMerger(const CoverageDataMerger&) = delete;

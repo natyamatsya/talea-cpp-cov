@@ -16,9 +16,9 @@
 
 #include "stdafx.h"
 
-#include "Plugin/Exporter/CoverageData.hpp"
-#include "Plugin/Exporter/ModuleCoverage.hpp"
-#include "Plugin/Exporter/FileCoverage.hpp"
+#include "Coverage/CoverageData.hpp"
+#include "Coverage/ModuleCoverage.hpp"
+#include "Coverage/FileCoverage.hpp"
 #include "TestHelper/TemporaryPath.hpp"
 
 #include <fstream>
@@ -78,7 +78,7 @@ namespace ExporterTest
 	TEST_F(HtmlExporterTest, Export)
 	{	
 		fs::path testFolder = fs::path(PROJECT_DIR) / "Data";
-		Plugin::CoverageData data{ L"Test", 0};
+		Coverage::CoverageData data{ L"Test", 0};
 		std::wstring filename1{ L"TestFile1.cpp"};
 		std::wstring filename2{ L"TestFile2.cpp"};
 
@@ -104,7 +104,7 @@ namespace ExporterTest
 	//-------------------------------------------------------------------------
 	TEST_F(HtmlExporterTest, NoWarning)
 	{
-		Plugin::CoverageData data{ L"Test", 0 };
+		Coverage::CoverageData data{ L"Test", 0 };
 
 		htmlExporter_.Export(data, output_);		
 		CheckWarningInIndex(false);
@@ -113,7 +113,7 @@ namespace ExporterTest
 	//-------------------------------------------------------------------------
 	TEST_F(HtmlExporterTest, Warning)
 	{
-		Plugin::CoverageData data{ L"Test", 42};
+		Coverage::CoverageData data{ L"Test", 42};
 
 		htmlExporter_.Export(data, output_);	
 		CheckWarningInIndex(true);
@@ -122,7 +122,7 @@ namespace ExporterTest
 	//-------------------------------------------------------------------------
 	TEST_F(HtmlExporterTest, SubFolderDoesNotExist)
 	{
-		Plugin::CoverageData data{ L"Test", 42 };
+		Coverage::CoverageData data{ L"Test", 42 };
 		auto outputFolder = output_.GetPath() / "SubFolder1" / "SubFolder2";
 
 		ASSERT_FALSE(Tools::FileExists(outputFolder));
@@ -133,7 +133,7 @@ namespace ExporterTest
 	//-------------------------------------------------------------------------
 	TEST_F(HtmlExporterTest, OutputExists)
 	{
-		Plugin::CoverageData data{ L"Test", 42 };
+		Coverage::CoverageData data{ L"Test", 42 };
 		TestHelper::TemporaryPath outputFolder{ TestHelper::TemporaryPathOption::CreateAsFolder };
 		
 		ASSERT_NO_THROW(htmlExporter_.Export(data, outputFolder));
@@ -142,7 +142,7 @@ namespace ExporterTest
 	//-------------------------------------------------------------------------
 	TEST_F(HtmlExporterTest, SameModuleSameSourceFile)
 	{
-		Plugin::CoverageData data{ L"Test", 0 };
+		Coverage::CoverageData data{ L"Test", 0 };
 		const std::wstring filename = L"TestFile1.cpp";
 		const auto moduleName = L"Module.exe";
 		

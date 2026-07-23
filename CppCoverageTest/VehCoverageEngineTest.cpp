@@ -22,7 +22,7 @@
 #include "TestCoverageOptimizedBuild/TestCoverageOptimizedBuild.hpp"
 #include "TestHelper/CoverageDataComparer.hpp"
 #include "TestHelper/Tools.hpp"
-#include "Plugin/Exporter/CoverageData.hpp"
+#include "Coverage/CoverageData.hpp"
 
 namespace CppCoverageTest
 {

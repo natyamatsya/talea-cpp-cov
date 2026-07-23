@@ -25,11 +25,11 @@
 
 #include "CppCoverage/CodeCoverageRunner.hpp"
 #include "CppCoverage/StartInfo.hpp"
-#include "Plugin/Exporter/CoverageData.hpp"
+#include "Coverage/CoverageData.hpp"
 #include "CppCoverage/CoverageFilterSettings.hpp"
-#include "Plugin/Exporter/ModuleCoverage.hpp"
-#include "Plugin/Exporter/FileCoverage.hpp"
-#include "Plugin/Exporter/LineCoverage.hpp"
+#include "Coverage/ModuleCoverage.hpp"
+#include "Coverage/FileCoverage.hpp"
+#include "Coverage/LineCoverage.hpp"
 #include "CppCoverage/Patterns.hpp"
 #include "CppCoverage/ExceptionHandler.hpp"
 #include "CppCoverage/CoverageDataMerger.hpp"
@@ -87,7 +87,7 @@ namespace CppCoverageTest
 		}
 
 		//---------------------------------------------------------------------
-		void TestLine(const Plugin::FileCoverage& file, std::uint32_t lineNumber, bool hasBeenExecuted)
+		void TestLine(const Coverage::FileCoverage& file, std::uint32_t lineNumber, bool hasBeenExecuted)
 		{
 			const auto* line = file[lineNumber];
 
@@ -96,7 +96,7 @@ namespace CppCoverageTest
 		}
 
 		//---------------------------------------------------------------------
-		Plugin::CoverageData ComputeCoverageDataInBothMode(
+		Coverage::CoverageData ComputeCoverageDataInBothMode(
 			const std::wstring& programArg,
 			std::wstring modulePattern,
 			std::wstring sourcePattern,
@@ -122,7 +122,7 @@ namespace CppCoverageTest
 		}
 
 		//---------------------------------------------------------------------
-		Plugin::CoverageData RunCoverageWithException(
+		Coverage::CoverageData RunCoverageWithException(
 			const std::wstring& programArg,
 			bool continueAfterCppException)
 		{
@@ -134,7 +134,7 @@ namespace CppCoverageTest
 		}
 
 		//---------------------------------------------------------------------
-		Plugin::CoverageData ComputeCoverageData(const std::wstring& programArg, const std::wstring& fileArgument)
+		Coverage::CoverageData ComputeCoverageData(const std::wstring& programArg, const std::wstring& fileArgument)
 		{
 			return ComputeCoverageDataInBothMode(
 				programArg,
@@ -143,7 +143,7 @@ namespace CppCoverageTest
 		}
 
 		//---------------------------------------------------------------------
-		Plugin::FileCoverage& GetFirstFileCoverage(const Plugin::CoverageData& coverageData)
+		Coverage::FileCoverage& GetFirstFileCoverage(const Coverage::CoverageData& coverageData)
 		{
 			const auto& modules = coverageData.GetModules();
 			const auto& module = *modules.at(0);
@@ -159,7 +159,7 @@ namespace CppCoverageTest
 		}
 
 		//-------------------------------------------------------------------------
-		intptr_t CountExecutedLines(const Plugin::FileCoverage& file)
+		intptr_t CountExecutedLines(const Coverage::FileCoverage& file)
 		{
 			auto lines = file.GetLines();
 			return std::count_if(
@@ -176,7 +176,7 @@ namespace CppCoverageTest
 	{		
 		const auto testBasicFilename = TestCoverageConsole::GetTestBasicFilename().wstring();
 		
-		Plugin::CoverageData coverageData = ComputeCoverageData(TestCoverageConsole::TestBasic, testBasicFilename);
+		Coverage::CoverageData coverageData = ComputeCoverageData(TestCoverageConsole::TestBasic, testBasicFilename);
 		auto& file = GetFirstFileCoverage(coverageData);
 
 		std::int32_t line = TestCoverageConsole::GetTestBasicLine() + 1;
@@ -223,7 +223,7 @@ namespace CppCoverageTest
 	//-------------------------------------------------------------------------
 	TEST_F(CodeCoverageRunnerTest, BranchCoverageMergeBothSides)
 	{
-		std::vector<Plugin::CoverageData> coverageDataCollection;
+		std::vector<Coverage::CoverageData> coverageDataCollection;
 
 		for (const auto* conditionValue : {L"1", L"0"})
 		{
@@ -290,7 +290,7 @@ namespace CppCoverageTest
 	{			
 		auto mainSharedLibFile = TestCoverageSharedLib::GetMainCppPath().wstring();
 
-		Plugin::CoverageData coverageData = ComputeCoverageDataInBothMode(TestCoverageConsole::TestSharedLib,
+		Coverage::CoverageData coverageData = ComputeCoverageDataInBothMode(TestCoverageConsole::TestSharedLib,
 			TestCoverageSharedLib::GetOutputBinaryPath().wstring(), mainSharedLibFile);
 		auto& file = GetFirstFileCoverage(coverageData);
 
@@ -307,7 +307,7 @@ namespace CppCoverageTest
 	{
 		const auto filter = TestCoverageConsole::GetTestThreadFilename().wstring();
 
-		Plugin::CoverageData coverageData = ComputeCoverageData(TestCoverageConsole::TestThread, filter);
+		Coverage::CoverageData coverageData = ComputeCoverageData(TestCoverageConsole::TestThread, filter);
 		auto& file = GetFirstFileCoverage(coverageData);
 
 		std::int32_t line = 28;
@@ -324,7 +324,7 @@ namespace CppCoverageTest
 	//-------------------------------------------------------------------------
 	TEST_F(CodeCoverageRunnerTest, HandledException)
 	{
-		Plugin::CoverageData coverageData = RunCoverageWithException(
+		Coverage::CoverageData coverageData = RunCoverageWithException(
 			TestCoverageConsole::TestThrowHandledException, false);
 		ASSERT_EQ(std::string::npos, 
 			GetError().find(cov::ExceptionHandler::UnhandledExceptionErrorMessage));
@@ -334,7 +334,7 @@ namespace CppCoverageTest
 	//-------------------------------------------------------------------------
 	TEST_F(CodeCoverageRunnerTest, UnHandledSEHException)
 	{
-		Plugin::CoverageData coverageData = RunCoverageWithException(
+		Coverage::CoverageData coverageData = RunCoverageWithException(
 			TestCoverageConsole::TestThrowUnHandledSEHException, false);
 		ASSERT_NE(std::string::npos, 
 			GetError().find(cov::ExceptionHandler::UnhandledExceptionErrorMessage));
@@ -412,7 +412,7 @@ namespace CppCoverageTest
 			TestCoverageConsole::GetOutputBinaryPath().wstring(),
 			TestCoverageConsole::GetMainCppFilename().wstring());
 
-		std::vector<Plugin::CoverageData> coverageDataCollection;
+		std::vector<Coverage::CoverageData> coverageDataCollection;
 		coverageDataCollection.push_back(std::move(coverageData));
 		auto mergedCoverageData = cov::CoverageDataMerger().Merge(coverageDataCollection);
 

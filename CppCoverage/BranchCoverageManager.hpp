@@ -24,7 +24,7 @@
 #include <Windows.h>
 #include <optional>
 
-#include "Plugin/Exporter/CoverageData.hpp"
+#include "Coverage/CoverageData.hpp"
 #include "BranchInstruction.hpp"
 #include "Address.hpp"
 #include "CppCoverageExport.hpp"
@@ -64,7 +64,7 @@ namespace CppCoverage
 		void OnExitThread(DWORD threadId);
 		void OnUnloadModule(HANDLE hProcess, void* dllBaseOfImage);
 
-		void DecorateCoverageData(Plugin::CoverageData&) const;
+		void DecorateCoverageData(Coverage::CoverageData&) const;
 
 	private:
 		BranchCoverageManager(const BranchCoverageManager&) = delete;

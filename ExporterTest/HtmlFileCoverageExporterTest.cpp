@@ -20,7 +20,7 @@
 #include <fstream>
 
 #include "Tools/StringUtils.hpp"
-#include "Plugin/Exporter/FileCoverage.hpp"
+#include "Coverage/FileCoverage.hpp"
 #include "Exporter/Html/HtmlFileCoverageExporter.hpp"
 #include "TestHelper/TemporaryPath.hpp"
 
@@ -41,7 +41,7 @@ namespace ExporterTest
 		void FillSources(
 			const SourceLines& sourceLines,
 			const TestHelper::TemporaryPath& sourceFile,
-			Plugin::FileCoverage& fileCoverage)
+			Coverage::FileCoverage& fileCoverage)
 		{
 			std::wofstream ofs(sourceFile.GetPath().wstring());
 
@@ -66,7 +66,7 @@ namespace ExporterTest
 		{
 			std::wostringstream ostr;
 			TestHelper::TemporaryPath sourceFile;
-			Plugin::FileCoverage fileCoverage{ sourceFile };
+			Coverage::FileCoverage fileCoverage{ sourceFile };
 
 			FillSources(sourceLines, sourceFile, fileCoverage);
 

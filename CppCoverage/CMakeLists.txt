@@ -47,7 +47,7 @@ occ_apply_conventions(CppCoverage)
 target_compile_definitions(CppCoverage PRIVATE CPPCOVERAGE_EXPORTS)
 # glaze is PUBLIC: GlazeCli.hpp / OptionsSpec.hpp expose it to consumers.
 target_link_libraries(CppCoverage
-	PUBLIC occ::FileFilter occ::Plugin occ::Tools glaze::glaze
+	PUBLIC occ::FileFilter occ::Coverage occ::Tools glaze::glaze
 	PRIVATE occ::SmallVector occ::RawPdb occ::Zydis mio::mio DiaSDK::DiaSDK Dbghelp)
 
 target_precompile_headers(CppCoverage PRIVATE stdafx.h)

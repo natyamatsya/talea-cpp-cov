@@ -15,7 +15,7 @@ target_compile_definitions(ExporterTest PRIVATE
 	$<$<CONFIG:Debug>:_SCL_SECURE_NO_WARNINGS>)
 target_link_libraries(ExporterTest PRIVATE
 	occ_gtest
-	occ::CppCoverage occ::Exporter occ::Plugin occ::TestHelper occ::Tools)
+	occ::CppCoverage occ::Exporter occ::Coverage occ::TestHelper occ::Tools)
 
 target_precompile_headers(ExporterTest PRIVATE stdafx.h)
 # Writes report directories at fixed paths.

@@ -30,10 +30,10 @@
 #include <fmt/format.h>
 
 #include "CoberturaExporter.hpp"
-#include "Plugin/Exporter/CoverageData.hpp"
-#include "Plugin/Exporter/ModuleCoverage.hpp"
-#include "Plugin/Exporter/FileCoverage.hpp"
-#include "Plugin/Exporter/LineCoverage.hpp"
+#include "Coverage/CoverageData.hpp"
+#include "Coverage/ModuleCoverage.hpp"
+#include "Coverage/FileCoverage.hpp"
+#include "Coverage/LineCoverage.hpp"
 #include "CppCoverage/CoverageRateComputer.hpp"
 #include "InvalidOutputFileException.hpp"
 
@@ -75,7 +75,7 @@ namespace Exporter
 		}
 
 		//---------------------------------------------------------------------
-		std::int32_t GetCoveredOutcomeCount(const Plugin::BranchCoverage& branch)
+		std::int32_t GetCoveredOutcomeCount(const Coverage::BranchCoverage& branch)
 		{
 			return (branch.HasBeenTaken() ? 1 : 0) +
 			       (branch.HasBeenFallenThrough() ? 1 : 0);
@@ -229,7 +229,7 @@ namespace Exporter
 		//---------------------------------------------------------------------
 		void WriteLineBranches(
 		    XmlWriter& writer,
-		    const std::vector<Plugin::BranchCoverage>& branches)
+		    const std::vector<Coverage::BranchCoverage>& branches)
 		{
 			std::int32_t coveredOutcomes = 0;
 			std::int32_t totalOutcomes = 0;
@@ -267,7 +267,7 @@ namespace Exporter
 		//---------------------------------------------------------------------
 		void WriteFile(XmlWriter& writer,
 		               const CppCoverage::CoverageRateComputer& coverageRateComputer,
-		               const Plugin::FileCoverage& file)
+		               const Coverage::FileCoverage& file)
 		{
 			const auto& path = file.GetPath();
 
@@ -314,7 +314,7 @@ namespace Exporter
 
 		//---------------------------------------------------------------------
 		void WriteSources(XmlWriter& writer,
-		                  const Plugin::CoverageData& coverageData)
+		                  const Coverage::CoverageData& coverageData)
 		{
 			std::unordered_set<std::string> rootPaths;
 			for (const auto& module : coverageData.GetModules())
@@ -344,7 +344,7 @@ namespace Exporter
 		}
 
 		//---------------------------------------------------------------------
-		bool HasModuleWithFiles(const Plugin::CoverageData& coverageData)
+		bool HasModuleWithFiles(const Coverage::CoverageData& coverageData)
 		{
 			for (const auto& module : coverageData.GetModules())
 			{
@@ -357,7 +357,7 @@ namespace Exporter
 		//---------------------------------------------------------------------
 		void WritePackages(XmlWriter& writer,
 		                   const CppCoverage::CoverageRateComputer& coverageRateComputer,
-		                   const Plugin::CoverageData& coverageData)
+		                   const Coverage::CoverageData& coverageData)
 		{
 			if (!HasModuleWithFiles(coverageData))
 			{
@@ -396,7 +396,7 @@ namespace Exporter
 
 		//---------------------------------------------------------------------
 		void WriteCoverage(XmlWriter& writer,
-		                   const Plugin::CoverageData& coverageData)
+		                   const Coverage::CoverageData& coverageData)
 		{
 			CppCoverage::CoverageRateComputer coverageRateComputer(coverageData);
 			const auto& coverageRate = coverageRateComputer.GetCoverageRate();
@@ -441,7 +441,7 @@ namespace Exporter
 
 	//-------------------------------------------------------------------------
 	void CoberturaExporter::Export(
-		const Plugin::CoverageData& coverageData,
+		const Coverage::CoverageData& coverageData,
 		const std::filesystem::path& output)
 	{
 		Tools::ThrowOnError(Tools::CreateParentFolderIfNeeded(output));
@@ -455,7 +455,7 @@ namespace Exporter
 
 	//-------------------------------------------------------------------------
 	void CoberturaExporter::Export(
-		const Plugin::CoverageData& coverageData,
+		const Coverage::CoverageData& coverageData,
 		std::ostream& ostream) const
 	{
 		XmlWriter writer{ ostream };

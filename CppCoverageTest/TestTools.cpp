@@ -104,7 +104,7 @@ namespace CppCoverageTest
 		}
 
 		//---------------------------------------------------------------------
-		Plugin::CoverageData ComputeCoverageData(
+		Coverage::CoverageData ComputeCoverageData(
 			const std::vector<std::wstring>& arguments,
 			const std::wstring& modulePattern,
 			const std::wstring& sourcePattern)
@@ -115,7 +115,7 @@ namespace CppCoverageTest
 		}
 
 		//---------------------------------------------------------------------
-		Plugin::CoverageData ComputeCoverageDataPatterns(
+		Coverage::CoverageData ComputeCoverageDataPatterns(
 			const CoverageArgs& args)
 		{
 			cov::CodeCoverageRunner codeCoverageRunner{
@@ -160,7 +160,7 @@ namespace CppCoverageTest
 		}
 
 		//---------------------------------------------------------------------
-		Plugin::CoverageData ComputeCoverageDataVeh(const CoverageArgs& args)
+		Coverage::CoverageData ComputeCoverageDataVeh(const CoverageArgs& args)
 		{
 			cov::VehCoverageEngine vehEngine{
 			    std::make_shared<Tools::WarningManager>()};

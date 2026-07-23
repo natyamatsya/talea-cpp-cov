@@ -22,7 +22,7 @@
 #include <filesystem>
 #include <string_view>
 
-#include "Plugin/Exporter/FileCoverage.hpp"
+#include "Coverage/FileCoverage.hpp"
 
 #include "../ExporterException.hpp"
 
@@ -60,8 +60,8 @@ namespace Exporter
 
 		//---------------------------------------------------------------------
 		bool HaveSameCoverage(
-			const Plugin::LineCoverage* lineCoverage,
-			const Plugin::LineCoverage* otherLineCoverage)
+			const Coverage::LineCoverage* lineCoverage,
+			const Coverage::LineCoverage* otherLineCoverage)
 		{
 			if (!lineCoverage || !otherLineCoverage)
 				return lineCoverage == otherLineCoverage;
@@ -69,7 +69,7 @@ namespace Exporter
 		}
 
 		//---------------------------------------------------------------------
-		std::wstring GetStyle(const Plugin::LineCoverage* lineCoverage)
+		std::wstring GetStyle(const Coverage::LineCoverage* lineCoverage)
 		{
 			if (!lineCoverage)
 				return L"";
@@ -82,7 +82,7 @@ namespace Exporter
 		//---------------------------------------------------------------------
 		void AddEndStyleIfNeeded(
 			std::wostream& output,
-			const Plugin::LineCoverage* previousLineCoverage)
+			const Coverage::LineCoverage* previousLineCoverage)
 		{
 			if (previousLineCoverage)
 				output << HtmlFileCoverageExporter::EndStyle;
@@ -92,8 +92,8 @@ namespace Exporter
 		bool AddLineCoverageColor(
 			std::wostream& output,
 			const std::wstring& line, 
-			const Plugin::LineCoverage* lineCoverage,
-			const Plugin::LineCoverage* previousLineCoverage)
+			const Coverage::LineCoverage* lineCoverage,
+			const Coverage::LineCoverage* previousLineCoverage)
 		{
 			if (HaveSameCoverage(lineCoverage, previousLineCoverage))
 			{
@@ -132,7 +132,7 @@ namespace Exporter
 
 	//-------------------------------------------------------------------------
 	bool HtmlFileCoverageExporter::Export(
-		const Plugin::FileCoverage& fileCoverage,
+		const Coverage::FileCoverage& fileCoverage,
 		std::wostream& output) const
 	{
 		auto filePath = fileCoverage.GetPath();
@@ -142,7 +142,7 @@ namespace Exporter
 			THROW(L"Cannot open file : " + filePath.wstring());
 
 		std::wstring line;
-		const Plugin::LineCoverage* previousLineCoverage = nullptr;
+		const Coverage::LineCoverage* previousLineCoverage = nullptr;
 		std::int32_t styleChangesCount = 0;
 		std::int32_t lineCount = 0;
 		for (std::int32_t i = 1; std::getline(ifs, line); ++i)

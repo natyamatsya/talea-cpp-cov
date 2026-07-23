@@ -26,8 +26,8 @@
 #include "Tools/Log.hpp"
 
 #include "CppCoverageException.hpp"
-#include "Plugin/Exporter/ModuleCoverage.hpp"
-#include "Plugin/Exporter/FileCoverage.hpp"
+#include "Coverage/ModuleCoverage.hpp"
+#include "Coverage/FileCoverage.hpp"
 #include "Address.hpp"
 
 namespace CppCoverage
@@ -188,11 +188,11 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	Plugin::CoverageData ExecutedAddressManager::CreateCoverageData(
+	Coverage::CoverageData ExecutedAddressManager::CreateCoverageData(
 		const std::wstring& name,
 		std::int32_t exitCode) const
 	{
-		Plugin::CoverageData coverageData{ name, exitCode };
+		Coverage::CoverageData coverageData{ name, exitCode };
 
 		// Group the probe columns by module and file, with lines sorted, in a
 		// single pass. This runs once at the end of a coverage run, so the

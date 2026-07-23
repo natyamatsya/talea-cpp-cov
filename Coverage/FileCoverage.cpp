@@ -19,7 +19,7 @@
 #include <string>
 #include "FileCoverage.hpp"
 
-namespace Plugin
+namespace Coverage
 {
 	//-------------------------------------------------------------------------
 	FileCoverage::FileCoverage(const std::filesystem::path& path)

@@ -19,7 +19,7 @@
 #include "CoverageDataSerializer.hpp"
 #include <fstream>
 
-#include "Plugin/Exporter/CoverageData.hpp"
+#include "Coverage/CoverageData.hpp"
 
 #include "Tools/Tool.hpp"
 
@@ -30,7 +30,7 @@ namespace Exporter
 {
 	//-------------------------------------------------------------------------
 	void CoverageDataSerializer::Serialize(
-		const Plugin::CoverageData& coverageData,
+		const Coverage::CoverageData& coverageData,
 		const std::filesystem::path& output) const
 	{
 		Tools::ThrowOnError(Tools::CreateParentFolderIfNeeded(output));

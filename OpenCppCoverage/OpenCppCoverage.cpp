@@ -75,7 +75,7 @@ namespace OpenCppCoverage
 		//-----------------------------------------------------------------------------
 		void
 		Export(const cov::Options& options,
-		       const Plugin::CoverageData& coverage)
+		       const Coverage::CoverageData& coverage)
 		{
 			const auto& exports = options.GetExports();
 			std::map<cov::OptionsExportType, std::unique_ptr<Exporter::IExporter>> exporters;
@@ -99,7 +99,7 @@ namespace OpenCppCoverage
 			// and lets --modules / --excluded_modules stay visible in it.
 			// Built lazily and once, shared across matching exports.
 			bool aggregateByFile = options.IsAggregateByFileModeEnabled();
-			std::optional<Plugin::CoverageData> aggregatedByFile;
+			std::optional<Coverage::CoverageData> aggregatedByFile;
 
 			for (const auto& singleExport : exports)
 			{
@@ -112,7 +112,7 @@ namespace OpenCppCoverage
 				        ? fs::path{*parameter}
 				        : exporter->GetDefaultPath(defaultPathPrefix);
 
-				const Plugin::CoverageData* data = &coverage;
+				const Coverage::CoverageData* data = &coverage;
 				if (aggregateByFile &&
 				    exportType == cov::OptionsExportType::Cobertura)
 				{
@@ -156,7 +156,7 @@ namespace OpenCppCoverage
 		// coverageDatas, and writes the combined per-template report when asked.
 		void LoadFastCovCoverageDatas(
 		    const cov::Options& options,
-		    std::vector<Plugin::CoverageData>& coverageDatas)
+		    std::vector<Coverage::CoverageData>& coverageDatas)
 		{
 			const auto& fastCovPaths = options.GetInputFastCovPaths();
 			if (fastCovPaths.empty())
@@ -224,7 +224,7 @@ namespace OpenCppCoverage
 			Exporter::ColumnarCoverageMerger merger;
 			LoadInputCoverageDatas(options, merger);
 
-			std::vector<Plugin::CoverageData> coveraDatas;
+			std::vector<Coverage::CoverageData> coveraDatas;
 			LoadFastCovCoverageDatas(options, coveraDatas);
 			const auto* startInfo = options.GetStartInfo();
 			
@@ -259,7 +259,7 @@ namespace OpenCppCoverage
 				runCoverageSettings.SetLineMergingEnabled(!options.IsNoLineMergingModeEnabled());
 				runCoverageSettings.SetPreparseImports(options.IsPreparseImportsModeEnabled());
 
-				std::optional<Plugin::CoverageData> coverageData;
+				std::optional<Coverage::CoverageData> coverageData;
 				if (options.IsVehModeEnabled())
 				{
 					cov::VehCoverageEngine vehEngine{warningManager};

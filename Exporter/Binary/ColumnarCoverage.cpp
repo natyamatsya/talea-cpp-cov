@@ -23,10 +23,10 @@
 #include <cstring>
 #include <fstream>
 
-#include "Plugin/Exporter/CoverageData.hpp"
-#include "Plugin/Exporter/ModuleCoverage.hpp"
-#include "Plugin/Exporter/FileCoverage.hpp"
-#include "Plugin/Exporter/LineCoverage.hpp"
+#include "Coverage/CoverageData.hpp"
+#include "Coverage/ModuleCoverage.hpp"
+#include "Coverage/FileCoverage.hpp"
+#include "Coverage/LineCoverage.hpp"
 
 #include "Tools/Tool.hpp"
 
@@ -220,7 +220,7 @@ namespace Exporter
 
 		//---------------------------------------------------------------------
 		// Rebuilds one file's lines and branches from its parsed columns.
-		void EmitFile(Plugin::FileCoverage& file,
+		void EmitFile(Coverage::FileCoverage& file,
 		              const ColumnarBinary::FileData& data)
 		{
 			for (size_t i = 0; i < data.lines.size(); ++i)
@@ -228,7 +228,7 @@ namespace Exporter
 			for (const auto& [lineNumber, branchMap] : data.branches)
 				for (const auto& [index, flags] : branchMap)
 					file.AddBranch(lineNumber,
-					               Plugin::BranchCoverage{index,
+					               Coverage::BranchCoverage{index,
 					                                      (flags & 1) != 0,
 					                                      (flags & 2) != 0});
 		}
@@ -266,7 +266,7 @@ namespace Exporter
 	namespace ColumnarBinary
 	{
 		//---------------------------------------------------------------------
-		void Write(const Plugin::CoverageData& coverageData, std::ostream& ostr)
+		void Write(const Coverage::CoverageData& coverageData, std::ostream& ostr)
 		{
 			// Intern every module and file path into a string table so repeated
 			// paths cost 4 bytes each in the module section.
@@ -362,7 +362,7 @@ namespace Exporter
 		}
 
 		//---------------------------------------------------------------------
-		Tools::Expected<Plugin::CoverageData> Read(const std::filesystem::path& path)
+		Tools::Expected<Coverage::CoverageData> Read(const std::filesystem::path& path)
 		{
 			auto bufferResult = ReadFile(path);
 			if (!bufferResult)
@@ -386,12 +386,12 @@ namespace Exporter
 					break;
 			}
 
-			Plugin::CoverageData coverageData{Tools::Utf8ToWString(name),
+			Coverage::CoverageData coverageData{Tools::Utf8ToWString(name),
 			                                  exitCode};
 
 			// Files of a module are contiguous, so tracking the last module
 			// path rebuilds the stored order without sorting.
-			Plugin::ModuleCoverage* currentModule = nullptr;
+			Coverage::ModuleCoverage* currentModule = nullptr;
 			std::filesystem::path currentModulePath;
 			bool hasModule = false;
 
@@ -517,7 +517,7 @@ namespace Exporter
 	}
 
 	//-------------------------------------------------------------------------
-	void ColumnarCoverageMerger::Add(const Plugin::CoverageData& coverageData)
+	void ColumnarCoverageMerger::Add(const Coverage::CoverageData& coverageData)
 	{
 		name_ = coverageData.GetName();
 		if (coverageData.GetExitCode())
@@ -582,9 +582,9 @@ namespace Exporter
 	}
 
 	//-------------------------------------------------------------------------
-	Plugin::CoverageData ColumnarCoverageMerger::ToCoverageData() const
+	Coverage::CoverageData ColumnarCoverageMerger::ToCoverageData() const
 	{
-		Plugin::CoverageData coverageData{name_, lastNotZeroExitCode_};
+		Coverage::CoverageData coverageData{name_, lastNotZeroExitCode_};
 
 		for (const auto& [modulePath, files] : modules_)
 		{

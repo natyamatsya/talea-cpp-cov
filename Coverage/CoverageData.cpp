@@ -20,7 +20,7 @@
 
 #include "ModuleCoverage.hpp"
 
-namespace Plugin
+namespace Coverage
 {
 	//-------------------------------------------------------------------------
 	CoverageData::CoverageData(const std::wstring& name, std::int32_t exitCode)

@@ -16,12 +16,12 @@
 
 #include "pch.h"
 
-#include "Plugin/Exporter/CoverageData.hpp"
-#include "Plugin/Exporter/ModuleCoverage.hpp"
-#include "Plugin/Exporter/FileCoverage.hpp"
-#include "Plugin/Exporter/LineCoverage.hpp"
+#include "Coverage/CoverageData.hpp"
+#include "Coverage/ModuleCoverage.hpp"
+#include "Coverage/FileCoverage.hpp"
+#include "Coverage/LineCoverage.hpp"
 
-namespace PluginTest
+namespace CoverageTest
 {
 	namespace
 	{
@@ -29,7 +29,7 @@ namespace PluginTest
 		const std::wstring filename = L"filename";
 
 		//---------------------------------------------------------------------
-		void FillCoverageData(Plugin::CoverageData& data)
+		void FillCoverageData(Coverage::CoverageData& data)
 		{
 			auto& createdModule = data.AddModule(moduleName);
 			auto& createdFile = createdModule.AddFile(filename);
@@ -38,7 +38,7 @@ namespace PluginTest
 		}
 
 		//---------------------------------------------------------------------
-		void CheckCoverageData(const Plugin::CoverageData& data)
+		void CheckCoverageData(const Coverage::CoverageData& data)
 		{
 			const auto& modules = data.GetModules();
 			ASSERT_EQ(1, modules.size());
@@ -66,7 +66,7 @@ namespace PluginTest
 	//---------------------------------------------------------------------
 	TEST(CoverageDataTest, CoverageData)
 	{
-		Plugin::CoverageData data{L"", 0};
+		Coverage::CoverageData data{L"", 0};
 		
 		FillCoverageData(data);
 		CheckCoverageData(data);
@@ -75,11 +75,11 @@ namespace PluginTest
 	//---------------------------------------------------------------------
 	TEST(CoverageDataTest, MoveConstructor)
 	{
-		Plugin::CoverageData data{L"", 0};
+		Coverage::CoverageData data{L"", 0};
 
 		FillCoverageData(data);
 
-		Plugin::CoverageData movedCoverageData = { std::move(data) };
+		Coverage::CoverageData movedCoverageData = { std::move(data) };
 		CheckCoverageData(movedCoverageData);
 	}			
 }

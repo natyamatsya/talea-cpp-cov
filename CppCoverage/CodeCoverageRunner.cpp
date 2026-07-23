@@ -25,7 +25,7 @@
 
 #include "Tools/Log.hpp"
 
-#include "Plugin/Exporter/CoverageData.hpp"
+#include "Coverage/CoverageData.hpp"
 #include "Debugger.hpp"
 #include "ImportClosure.hpp"
 #include "ExecutedAddressManager.hpp"
@@ -126,7 +126,7 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	Plugin::CoverageData CodeCoverageRunner::RunCoverage(
+	Coverage::CoverageData CodeCoverageRunner::RunCoverage(
 		const RunCoverageSettings& settings)
 	{
 		Debugger debugger{ settings.GetCoverChildren(), settings.GetContinueAfterCppException(), settings.GetStopOnAssert()};

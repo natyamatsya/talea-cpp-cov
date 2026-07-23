@@ -1,5 +1,5 @@
 // OpenCppCoverage is an open source code coverage for C++.
-// Copyright (C) 2014 OpenCppCoverage
+// Copyright (C) 2026 OpenCppCoverage
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,40 +15,36 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "stdafx.h"
-#include "ModuleCoverage.hpp"
+#include <cstdint>
+#include "BranchCoverage.hpp"
 
-#include "FileCoverage.hpp"
-
-namespace Plugin
+namespace Coverage
 {
 	//-------------------------------------------------------------------------
-	ModuleCoverage::ModuleCoverage(const std::filesystem::path& path)
-		: path_(path)
+	BranchCoverage::BranchCoverage(std::uint32_t branchIndex,
+	                               bool hasBeenTaken,
+	                               bool hasBeenFallenThrough)
+		: branchIndex_(branchIndex)
+		, hasBeenTaken_(hasBeenTaken)
+		, hasBeenFallenThrough_(hasBeenFallenThrough)
 	{
 	}
 
 	//-------------------------------------------------------------------------
-	ModuleCoverage::~ModuleCoverage()
+	std::uint32_t BranchCoverage::GetBranchIndex() const
 	{
+		return branchIndex_;
 	}
 
 	//-------------------------------------------------------------------------
-	FileCoverage& ModuleCoverage::AddFile(const std::filesystem::path& filePath)
+	bool BranchCoverage::HasBeenTaken() const
 	{
-		files_.push_back(std::unique_ptr<FileCoverage>(new FileCoverage(filePath)));
-
-		return *files_.back();
+		return hasBeenTaken_;
 	}
 
 	//-------------------------------------------------------------------------
-	const std::filesystem::path& ModuleCoverage::GetPath() const
+	bool BranchCoverage::HasBeenFallenThrough() const
 	{
-		return path_;
-	}
-
-	//-------------------------------------------------------------------------
-	const ModuleCoverage::T_FileCoverageCollection& ModuleCoverage::GetFiles() const
-	{
-		return files_;
+		return hasBeenFallenThrough_;
 	}
 }

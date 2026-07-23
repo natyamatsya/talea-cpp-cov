@@ -9,7 +9,7 @@ add_executable(OpenCppCoverageTest
 occ_apply_conventions(OpenCppCoverageTest)
 target_link_libraries(OpenCppCoverageTest PRIVATE
 	occ_gtest
-	occ::CppCoverage occ::Exporter occ::Plugin
+	occ::CppCoverage occ::Exporter occ::Coverage
 	occ::TestCoverageSharedLib occ::TestHelper occ::Tools)
 
 # End-to-end: runs the real OpenCppCoverage.exe over the other test binaries.

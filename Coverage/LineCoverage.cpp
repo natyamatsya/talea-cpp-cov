@@ -18,7 +18,7 @@
 #include <cstdint>
 #include "LineCoverage.hpp"
 
-namespace Plugin
+namespace Coverage
 {
 	//-------------------------------------------------------------------------
 	LineCoverage::LineCoverage(std::uint32_t lineNumber, bool hasBeenExecuted)

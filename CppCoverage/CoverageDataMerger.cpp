@@ -21,10 +21,10 @@
 #include <functional>
 #include <map>
 
-#include "Plugin/Exporter/CoverageData.hpp"
-#include "Plugin/Exporter/ModuleCoverage.hpp"
-#include "Plugin/Exporter/FileCoverage.hpp"
-#include "Plugin/Exporter/LineCoverage.hpp"
+#include "Coverage/CoverageData.hpp"
+#include "Coverage/ModuleCoverage.hpp"
+#include "Coverage/FileCoverage.hpp"
+#include "Coverage/LineCoverage.hpp"
 
 namespace fs = std::filesystem;
 
@@ -33,7 +33,7 @@ namespace CppCoverage
 	namespace
 	{
 		//---------------------------------------------------------------------
-		Plugin::CoverageData CreateCoverageData(const std::vector<Plugin::CoverageData>& coverageDataCollection)
+		Coverage::CoverageData CreateCoverageData(const std::vector<Coverage::CoverageData>& coverageDataCollection)
 		{
 			std::wstring name;
 			std::int32_t lastNotZeroExitCode = 0;
@@ -46,7 +46,7 @@ namespace CppCoverage
 					lastNotZeroExitCode = exitCode;
 			}
 
-			return Plugin::CoverageData{ name, lastNotZeroExitCode };
+			return Coverage::CoverageData{ name, lastNotZeroExitCode };
 		}
 		
 		//---------------------------------------------------------------------
@@ -73,8 +73,8 @@ namespace CppCoverage
 		
 		//---------------------------------------------------------------------
 		void AddFileCoverageTo(
-			const Plugin::FileCoverage* sourceFile,
-			Plugin::FileCoverage* destinationFile)
+			const Coverage::FileCoverage* sourceFile,
+			Coverage::FileCoverage* destinationFile)
 		{
 			if (sourceFile && destinationFile)
 			{
@@ -95,8 +95,8 @@ namespace CppCoverage
 
 		//---------------------------------------------------------------------
 		void FillFiles(
-			Plugin::FileCoverage& file,
-			const std::vector<Plugin::FileCoverage*>& files)
+			Coverage::FileCoverage& file,
+			const std::vector<Coverage::FileCoverage*>& files)
 		{
 			for (const auto& f : files)
 				AddFileCoverageTo(f, &file);
@@ -104,14 +104,14 @@ namespace CppCoverage
 
 		//---------------------------------------------------------------------
 		void FillModule(
-			Plugin::ModuleCoverage& module,
-			const std::vector<Plugin::ModuleCoverage*>& modules)
+			Coverage::ModuleCoverage& module,
+			const std::vector<Coverage::ModuleCoverage*>& modules)
 		{
-			std::map<fs::path, std::vector<Plugin::FileCoverage*>> filesByPath =
-				GroupChildrenByKey<Plugin::ModuleCoverage*, fs::path, Plugin::FileCoverage>(
+			std::map<fs::path, std::vector<Coverage::FileCoverage*>> filesByPath =
+				GroupChildrenByKey<Coverage::ModuleCoverage*, fs::path, Coverage::FileCoverage>(
 				modules,
-				[](const Plugin::ModuleCoverage* m) -> const Plugin::ModuleCoverage::T_FileCoverageCollection&{ return m->GetFiles(); },
-				[](const Plugin::FileCoverage& file) -> const fs::path&{ return file.GetPath(); });
+				[](const Coverage::ModuleCoverage* m) -> const Coverage::ModuleCoverage::T_FileCoverageCollection&{ return m->GetFiles(); },
+				[](const Coverage::FileCoverage& file) -> const fs::path&{ return file.GetPath(); });
 
 			for (const auto& pair : filesByPath)
 			{
@@ -123,16 +123,16 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	Plugin::CoverageData CoverageDataMerger::Merge(
-		const std::vector<Plugin::CoverageData>& coverageDataCollection) const
+	Coverage::CoverageData CoverageDataMerger::Merge(
+		const std::vector<Coverage::CoverageData>& coverageDataCollection) const
 	{
 		auto coverageData = CreateCoverageData(coverageDataCollection);
 
-		std::map<fs::path, std::vector<Plugin::ModuleCoverage*>> modulesByPath =
-			GroupChildrenByKey<Plugin::CoverageData, fs::path, Plugin::ModuleCoverage>(
+		std::map<fs::path, std::vector<Coverage::ModuleCoverage*>> modulesByPath =
+			GroupChildrenByKey<Coverage::CoverageData, fs::path, Coverage::ModuleCoverage>(
 				coverageDataCollection,
-				[](const Plugin::CoverageData& data) -> const Plugin::CoverageData::T_ModuleCoverageCollection& { return data.GetModules(); },
-				[](const Plugin::ModuleCoverage& module) -> const fs::path& { return module.GetPath(); });
+				[](const Coverage::CoverageData& data) -> const Coverage::CoverageData::T_ModuleCoverageCollection& { return data.GetModules(); },
+				[](const Coverage::ModuleCoverage& module) -> const fs::path& { return module.GetPath(); });
 		
 		for (const auto& pair : modulesByPath)
 		{
@@ -144,12 +144,12 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	Plugin::CoverageData CoverageDataMerger::AggregateByFile(
-		const Plugin::CoverageData& source) const
+	Coverage::CoverageData CoverageDataMerger::AggregateByFile(
+		const Coverage::CoverageData& source) const
 	{
-		Plugin::CoverageData result{source.GetName(), source.GetExitCode()};
+		Coverage::CoverageData result{source.GetName(), source.GetExitCode()};
 
-		std::vector<Plugin::ModuleCoverage*> modules;
+		std::vector<Coverage::ModuleCoverage*> modules;
 		modules.reserve(source.GetModules().size());
 		for (const auto& module : source.GetModules())
 			modules.push_back(module.get());

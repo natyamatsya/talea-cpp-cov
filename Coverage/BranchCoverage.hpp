@@ -1,5 +1,5 @@
 // OpenCppCoverage is an open source code coverage for C++.
-// Copyright (C) 2014 OpenCppCoverage
+// Copyright (C) 2026 OpenCppCoverage
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,33 +17,28 @@
 #pragma once
 #include <cstdint>
 
-#include <vector>
+#include "CoverageExport.hpp"
 
-#include "../PluginExport.hpp"
-#include "BranchCoverage.hpp"
-
-namespace Plugin
+namespace Coverage
 {
-	class PLUGIN_DLL LineCoverage
+	// Coverage of a single conditional branch (two outcomes:
+	// branch taken and fall through).
+	class COVERAGE_DLL BranchCoverage
 	{
 	public:
-		LineCoverage(std::uint32_t lineNumber, bool hasBeenExecuted);
-		LineCoverage(const LineCoverage&) = default;
-		LineCoverage& operator=(const LineCoverage&) = default;
+		BranchCoverage(std::uint32_t branchIndex,
+		               bool hasBeenTaken,
+		               bool hasBeenFallenThrough);
+		BranchCoverage(const BranchCoverage&) = default;
+		BranchCoverage& operator=(const BranchCoverage&) = default;
 
-		std::uint32_t GetLineNumber() const;
-		bool HasBeenExecuted() const;
-		void SetHasBeenExecuted(bool);
-
-		void AddBranch(const BranchCoverage&);
-		void MergeBranch(const BranchCoverage&);
-		const std::vector<BranchCoverage>& GetBranches() const;
+		std::uint32_t GetBranchIndex() const;
+		bool HasBeenTaken() const;
+		bool HasBeenFallenThrough() const;
 
 	private:
-		std::uint32_t lineNumber_;
-		bool hasBeenExecuted_;
-		std::vector<BranchCoverage> branches_;
+		std::uint32_t branchIndex_;
+		bool hasBeenTaken_;
+		bool hasBeenFallenThrough_;
 	};
 }
-
-

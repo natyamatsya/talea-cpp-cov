@@ -22,11 +22,11 @@
 #include <vector>
 
 #include "LineCoverage.hpp"
-#include "../PluginExport.hpp"
+#include "CoverageExport.hpp"
 
-namespace Plugin
+namespace Coverage
 {
-	class PLUGIN_DLL FileCoverage
+	class COVERAGE_DLL FileCoverage
 	{
 	public:
 		explicit FileCoverage(const std::filesystem::path& path);

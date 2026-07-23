@@ -25,7 +25,7 @@
 #include <unordered_map>
 #include <optional>
 
-#include "Plugin/Exporter/CoverageData.hpp"
+#include "Coverage/CoverageData.hpp"
 #include "Address.hpp"
 #include "CppCoverageExport.hpp"
 
@@ -57,7 +57,7 @@ namespace CppCoverage
 		std::optional<std::uint8_t> MarkAddressAsExecuted(const Address&);
 		std::optional<std::uint8_t> GetOriginalInstruction(const Address&) const;
 
-		Plugin::CoverageData CreateCoverageData(const std::wstring& name, std::int32_t exitCode) const;
+		Coverage::CoverageData CreateCoverageData(const std::wstring& name, std::int32_t exitCode) const;
 		void OnExitProcess(HANDLE hProcess);
 
 	private:

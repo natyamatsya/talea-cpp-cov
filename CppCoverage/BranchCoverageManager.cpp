@@ -24,9 +24,9 @@
 #include "Tools/Log.hpp"
 
 #include "CppCoverageException.hpp"
-#include "Plugin/Exporter/ModuleCoverage.hpp"
-#include "Plugin/Exporter/FileCoverage.hpp"
-#include "Plugin/Exporter/BranchCoverage.hpp"
+#include "Coverage/ModuleCoverage.hpp"
+#include "Coverage/FileCoverage.hpp"
+#include "Coverage/BranchCoverage.hpp"
 #include "Address.hpp"
 #include "BreakPoint.hpp"
 #include "BranchCondition.hpp"
@@ -259,7 +259,7 @@ namespace CppCoverage
 
 	//-------------------------------------------------------------------------
 	void BranchCoverageManager::DecorateCoverageData(
-	    Plugin::CoverageData& coverageData) const
+	    Coverage::CoverageData& coverageData) const
 	{
 		for (const auto& moduleCoverage : coverageData.GetModules())
 		{
@@ -285,7 +285,7 @@ namespace CppCoverage
 						const auto& outcome = branchPair.second;
 						fileCoverage->AddBranch(
 						    lineNumber,
-						    Plugin::BranchCoverage{branchPair.first,
+						    Coverage::BranchCoverage{branchPair.first,
 						                           outcome.taken_,
 						                           outcome.fallThrough_});
 					}

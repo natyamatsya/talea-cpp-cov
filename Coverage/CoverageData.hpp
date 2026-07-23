@@ -22,13 +22,13 @@
 #include <memory>
 #include <filesystem>
 
-#include "../PluginExport.hpp"
+#include "CoverageExport.hpp"
 
-namespace Plugin
+namespace Coverage
 {
 	class ModuleCoverage;
 
-	class PLUGIN_DLL CoverageData
+	class COVERAGE_DLL CoverageData
 	{
 	public:
 		typedef std::vector<std::unique_ptr<ModuleCoverage>> T_ModuleCoverageCollection;

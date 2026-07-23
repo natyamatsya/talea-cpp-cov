@@ -5,7 +5,7 @@ add_executable(OpenCppCoverage
 occ_apply_conventions(OpenCppCoverage)
 target_compile_definitions(OpenCppCoverage PRIVATE OPEN_CPP_COVERAGE_EXPORTS)
 target_link_libraries(OpenCppCoverage PRIVATE
-	occ::CppCoverage occ::Exporter occ::Plugin occ::Tools occ_mimalloc)
+	occ::CppCoverage occ::Exporter occ::Coverage occ::Tools occ_mimalloc)
 
 target_precompile_headers(OpenCppCoverage PRIVATE stdafx.h)
 

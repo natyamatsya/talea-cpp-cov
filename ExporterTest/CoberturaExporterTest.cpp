@@ -21,9 +21,9 @@
 #include <regex>
 
 
-#include "Plugin/Exporter/CoverageData.hpp"
-#include "Plugin/Exporter/ModuleCoverage.hpp"
-#include "Plugin/Exporter/FileCoverage.hpp"
+#include "Coverage/CoverageData.hpp"
+#include "Coverage/ModuleCoverage.hpp"
+#include "Coverage/FileCoverage.hpp"
 
 #include "Exporter/InvalidOutputFileException.hpp"
 #include "Exporter/CoberturaExporter.hpp"
@@ -59,7 +59,7 @@ namespace ExporterTest
 		}
 
 		//-------------------------------------------------------------------------
-		std::string ExportToString(const Plugin::CoverageData& coverageData)
+		std::string ExportToString(const Coverage::CoverageData& coverageData)
 		{
 			std::ostringstream ostr;
 			Exporter::CoberturaExporter().Export(coverageData, ostr);
@@ -72,7 +72,7 @@ namespace ExporterTest
 	//-------------------------------------------------------------------------
 	TEST(CoberturaExporterTest, Export)
 	{
-		Plugin::CoverageData coverageData{L"", 0};
+		Coverage::CoverageData coverageData{L"", 0};
 
 		coverageData.AddModule(L"EmptyModule");
 		auto& module = coverageData.AddModule(L"Module");
@@ -99,17 +99,17 @@ namespace ExporterTest
 	//-------------------------------------------------------------------------
 	TEST(CoberturaExporterTest, ExportWithBranches)
 	{
-		Plugin::CoverageData coverageData{L"", 0};
+		Coverage::CoverageData coverageData{L"", 0};
 
 		auto& module = coverageData.AddModule(L"Module");
 		auto& file = module.AddFile("File");
 
 		file.AddLine(10, true);
-		file.AddBranch(10, Plugin::BranchCoverage{0, true, false});
-		file.AddBranch(10, Plugin::BranchCoverage{1, true, true});
+		file.AddBranch(10, Coverage::BranchCoverage{0, true, false});
+		file.AddBranch(10, Coverage::BranchCoverage{1, true, true});
 
 		file.AddLine(20, false);
-		file.AddBranch(20, Plugin::BranchCoverage{0, false, false});
+		file.AddBranch(20, Coverage::BranchCoverage{0, false, false});
 
 		file.AddLine(30, true);
 		file.AddLine(40, false);
@@ -124,7 +124,7 @@ namespace ExporterTest
 	//-------------------------------------------------------------------------
 	TEST(CoberturaExporterTest, SubFolderDoesNotExist)
 	{
-		Plugin::CoverageData coverageData{ L"", 0 };
+		Coverage::CoverageData coverageData{ L"", 0 };
 		TestHelper::TemporaryPath output;
 		auto outputPath = output.GetPath() / "SubFolder" / "output.xml";
 
@@ -136,7 +136,7 @@ namespace ExporterTest
 	//-------------------------------------------------------------------------
 	TEST(CoberturaExporterTest, SpecialChars)
 	{
-		Plugin::CoverageData coverageData{ L"", 0 };
+		Coverage::CoverageData coverageData{ L"", 0 };
 		coverageData.AddModule(L"\u00E9\u00E0").AddFile(L"\u00E9\u00E0").AddLine(0, true);
 
 		std::ostringstream ostr;
@@ -157,7 +157,7 @@ namespace ExporterTest
 	//-------------------------------------------------------------------------
 	TEST(CoberturaExporterTest, OutputExists)
 	{
-		Plugin::CoverageData coverageData{ L"", 0 };
+		Coverage::CoverageData coverageData{ L"", 0 };
 		TestHelper::TemporaryPath outputPath{ TestHelper::TemporaryPathOption::CreateAsFile };
 		
 		ASSERT_NO_THROW(Exporter::CoberturaExporter().Export(coverageData, outputPath));
@@ -166,7 +166,7 @@ namespace ExporterTest
 	//-------------------------------------------------------------------------
 	TEST(CoberturaExporterTest, InvalidFile)
 	{
-		Plugin::CoverageData coverageData{L"", 0};
+		Coverage::CoverageData coverageData{L"", 0};
 		TestHelper::TemporaryPath outputPath{
 		    TestHelper::TemporaryPathOption::CreateAsFolder};
 

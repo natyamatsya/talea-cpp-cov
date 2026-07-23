@@ -26,7 +26,7 @@
 #include "../ExporterExport.hpp"
 #include "Tools/Error.hpp"
 
-namespace Plugin
+namespace Coverage
 {
 	class CoverageData;
 }
@@ -75,11 +75,11 @@ namespace Exporter
 
 		// Writes coverageData in the columnar v2 format, preserving the module
 		// and file order of the source.
-		EXPORTER_DLL void Write(const Plugin::CoverageData&, std::ostream&);
+		EXPORTER_DLL void Write(const Coverage::CoverageData&, std::ostream&);
 
 		// Reads a columnar v2 file back into a CoverageData, preserving the
 		// stored module/file order (single-file round-trip; the merger sorts).
-		[[nodiscard]] EXPORTER_DLL Tools::Expected<Plugin::CoverageData>
+		[[nodiscard]] EXPORTER_DLL Tools::Expected<Coverage::CoverageData>
 		Read(const std::filesystem::path&);
 
 		// True if the file at path starts with the columnar magic. Cheap: reads
@@ -100,7 +100,7 @@ namespace Exporter
 
 		// Merges an already-deserialized CoverageData (used for the live run,
 		// fastcov imports, and the legacy v1 fallback).
-		void Add(const Plugin::CoverageData&);
+		void Add(const Coverage::CoverageData&);
 
 		// Reads a columnar v2 file directly into the accumulator, skipping the
 		// intermediate CoverageData. Returns false (adding nothing) if the file
@@ -109,7 +109,7 @@ namespace Exporter
 
 		// Produces the merged CoverageData. Modules, files and lines come out
 		// sorted by path/line, matching the legacy CoverageDataMerger.
-		Plugin::CoverageData ToCoverageData() const;
+		Coverage::CoverageData ToCoverageData() const;
 
 	private:
 		ColumnarCoverageMerger(const ColumnarCoverageMerger&) = delete;

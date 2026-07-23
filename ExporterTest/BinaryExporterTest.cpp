@@ -16,7 +16,7 @@
 
 #include "stdafx.h"
 
-#include "Plugin/Exporter/CoverageData.hpp"
+#include "Coverage/CoverageData.hpp"
 #include "Exporter/Binary/BinaryExporter.hpp"
 #include "Exporter/InvalidOutputFileException.hpp"
 #include "TestHelper/TemporaryPath.hpp"
@@ -29,7 +29,7 @@ namespace ExporterTest
 	//-------------------------------------------------------------------------
 	TEST(BinaryExporterTest, SubFolderDoesNotExist)
 	{
-		Plugin::CoverageData coverageData{ L"", 0 };
+		Coverage::CoverageData coverageData{ L"", 0 };
 
 		TestHelper::TemporaryPath output;
 		auto outputPath = output.GetPath() / "SubFolder" / "output.cov";
@@ -42,7 +42,7 @@ namespace ExporterTest
 	//-------------------------------------------------------------------------
 	TEST(BinaryExporterTest, OutputExists)
 	{
-		Plugin::CoverageData coverageData{ L"", 0 };
+		Coverage::CoverageData coverageData{ L"", 0 };
 
 		TestHelper::TemporaryPath outputPath{ TestHelper::TemporaryPathOption::CreateAsFile };
 		
@@ -52,7 +52,7 @@ namespace ExporterTest
 	//-------------------------------------------------------------------------
 	TEST(BinaryExporterTest, InvalidFile)
 	{
-		Plugin::CoverageData coverageData{L"", 0};
+		Coverage::CoverageData coverageData{L"", 0};
 
 		TestHelper::TemporaryPath outputPath{
 		    TestHelper::TemporaryPathOption::CreateAsFolder};

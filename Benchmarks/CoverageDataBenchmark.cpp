@@ -28,10 +28,10 @@
 #include <fmt/format.h>
 #include <fmt/xchar.h>
 
-#include "Plugin/Exporter/CoverageData.hpp"
-#include "Plugin/Exporter/ModuleCoverage.hpp"
-#include "Plugin/Exporter/FileCoverage.hpp"
-#include "Plugin/Exporter/LineCoverage.hpp"
+#include "Coverage/CoverageData.hpp"
+#include "Coverage/ModuleCoverage.hpp"
+#include "Coverage/FileCoverage.hpp"
+#include "Coverage/LineCoverage.hpp"
 #include "CppCoverage/CoverageDataMerger.hpp"
 #include "CppCoverage/RawPdbReader.hpp"
 #include "CppCoverage/PdbLineTableCache.hpp"
@@ -47,9 +47,9 @@ namespace
 	const std::int32_t LineCount = 500;
 
 	//-------------------------------------------------------------------------
-	Plugin::CoverageData CreateCoverageData()
+	Coverage::CoverageData CreateCoverageData()
 	{
-		Plugin::CoverageData coverageData{L"Benchmark", 0};
+		Coverage::CoverageData coverageData{L"Benchmark", 0};
 
 		for (std::int32_t moduleIndex = 0; moduleIndex < ModuleCount; ++moduleIndex)
 		{
@@ -68,7 +68,7 @@ namespace
 					{
 						file.AddBranch(
 						    line,
-						    Plugin::BranchCoverage{0, true, line % 20 == 0});
+						    Coverage::BranchCoverage{0, true, line % 20 == 0});
 					}
 				}
 			}
@@ -79,7 +79,7 @@ namespace
 	//-------------------------------------------------------------------------
 	void MergeCoverageData(benchmark::State& state)
 	{
-		std::vector<Plugin::CoverageData> coverageDataCollection;
+		std::vector<Coverage::CoverageData> coverageDataCollection;
 		coverageDataCollection.push_back(CreateCoverageData());
 		coverageDataCollection.push_back(CreateCoverageData());
 

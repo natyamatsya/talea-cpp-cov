@@ -22,7 +22,7 @@
 #include "../ExporterExport.hpp"
 #include "Tools/Error.hpp"
 
-namespace Plugin
+namespace Coverage
 {
 	class CoverageData;
 }
@@ -36,7 +36,7 @@ namespace Exporter
 
 		// Returns the deserialized coverage, or a Tools::Error carrying
 		// errorIfNotCorrectFormat when the file is not the columnar format.
-		[[nodiscard]] Tools::Expected<Plugin::CoverageData>
+		[[nodiscard]] Tools::Expected<Coverage::CoverageData>
 		Deserialize(const std::filesystem::path&, const std::string& errorIfNotCorrectFormat) const;
 		
 	private:

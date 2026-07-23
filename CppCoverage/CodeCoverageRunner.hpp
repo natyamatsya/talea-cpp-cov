@@ -19,7 +19,7 @@
 #include <memory>
 #include <sstream>
 
-#include "Plugin/Exporter/CoverageData.hpp"
+#include "Coverage/CoverageData.hpp"
 #include "IDebugEventsHandler.hpp"
 #include "CppCoverageExport.hpp"
 
@@ -48,7 +48,7 @@ namespace CppCoverage
 		explicit CodeCoverageRunner(std::shared_ptr<Tools::WarningManager>);
 		~CodeCoverageRunner();
 
-		Plugin::CoverageData RunCoverage(const RunCoverageSettings&);
+		Coverage::CoverageData RunCoverage(const RunCoverageSettings&);
 
 	private:
 		virtual void OnCreateProcess(const CREATE_PROCESS_DEBUG_INFO&) override;

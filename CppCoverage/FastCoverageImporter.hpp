@@ -22,7 +22,7 @@
 #include <vector>
 
 #include "CppCoverageExport.hpp"
-#include "Plugin/Exporter/CoverageData.hpp"
+#include "Coverage/CoverageData.hpp"
 #include "SubstitutePdbSourcePath.hpp"
 
 #include "Tools/Error.hpp"
@@ -70,7 +70,7 @@ namespace CppCoverage
 
 		struct Result
 		{
-			Plugin::CoverageData coverageData_;
+			Coverage::CoverageData coverageData_;
 			std::vector<TemplateReport> templates_;
 		};
 

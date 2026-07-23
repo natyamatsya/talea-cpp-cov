@@ -58,10 +58,10 @@
 #include "FileFilter/FileInfo.hpp"
 #include "FileFilter/LineInfo.hpp"
 
-#include "Plugin/Exporter/CoverageData.hpp"
-#include "Plugin/Exporter/ModuleCoverage.hpp"
-#include "Plugin/Exporter/FileCoverage.hpp"
-#include "Plugin/Exporter/LineCoverage.hpp"
+#include "Coverage/CoverageData.hpp"
+#include "Coverage/ModuleCoverage.hpp"
+#include "Coverage/FileCoverage.hpp"
+#include "Coverage/LineCoverage.hpp"
 
 #include "VehCoverageHelper/VehProtocol.hpp"
 #include "VehCoverageHelper/VehBranchEval.hpp"
@@ -1143,7 +1143,7 @@ namespace CppCoverage
 		//---------------------------------------------------------------------
 		// Attaches the recorded branch outcomes to the built coverage data,
 		// matching the debugger's BranchCoverageManager::DecorateCoverageData.
-		void DecorateBranches(Plugin::CoverageData& coverageData,
+		void DecorateBranches(Coverage::CoverageData& coverageData,
 		                      const std::vector<BranchResult>& results)
 		{
 			if (results.empty())
@@ -1151,7 +1151,7 @@ namespace CppCoverage
 
 			std::unordered_map<
 			    std::wstring,
-			    std::unordered_map<std::wstring, Plugin::FileCoverage*>>
+			    std::unordered_map<std::wstring, Coverage::FileCoverage*>>
 			    filesByModule;
 			for (const auto& module : coverageData.GetModules())
 			{
@@ -1175,7 +1175,7 @@ namespace CppCoverage
 
 				file->AddBranch(
 				    result.lineNumber_,
-				    Plugin::BranchCoverage{
+				    Coverage::BranchCoverage{
 				        result.branchIndex_,
 				        (result.outcome_ & VehCoverage::BranchTaken) != 0,
 				        (result.outcome_ & VehCoverage::BranchFallThrough) !=
@@ -1520,7 +1520,7 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	Plugin::CoverageData
+	Coverage::CoverageData
 	VehCoverageEngine::RunCoverage(const RunCoverageSettings& settings)
 	{
 		const auto& startInfo = settings.GetStartInfo();

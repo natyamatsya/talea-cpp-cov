@@ -26,7 +26,7 @@
 #include "CppCoverage/Options.hpp"
 #include "CppCoverage/SubstitutePdbSourcePath.hpp"
 
-namespace Plugin
+namespace Coverage
 {
 	class CoverageData;
 }
@@ -72,18 +72,18 @@ namespace CppCoverageTest
 		};
 
 		//---------------------------------------------------------------------
-		Plugin::CoverageData ComputeCoverageData(
+		Coverage::CoverageData ComputeCoverageData(
 			const std::vector<std::wstring>& arguments,
 			const std::wstring& modulePattern,
 			const std::wstring& sourcePattern);
 
 		//---------------------------------------------------------------------
-		Plugin::CoverageData ComputeCoverageDataPatterns(const CoverageArgs& args);
+		Coverage::CoverageData ComputeCoverageDataPatterns(const CoverageArgs& args);
 
 		//---------------------------------------------------------------------
 		// Same settings as ComputeCoverageDataPatterns, run through the
 		// experimental in-process VEH engine instead of the debugger.
-		Plugin::CoverageData ComputeCoverageDataVeh(const CoverageArgs& args);
+		Coverage::CoverageData ComputeCoverageDataVeh(const CoverageArgs& args);
 	}
 }
 

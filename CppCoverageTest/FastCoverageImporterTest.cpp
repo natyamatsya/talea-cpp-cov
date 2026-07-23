@@ -24,7 +24,7 @@
 #include "CppCoverage/CoverageFilterSettings.hpp"
 #include "CppCoverage/Patterns.hpp"
 #include "CoverageRuntime/FastCovFormat.hpp"
-#include "Plugin/Exporter/CoverageData.hpp"
+#include "Coverage/CoverageData.hpp"
 #include "TestHelper/CoverageDataComparer.hpp"
 #include "TestHelper/TemporaryPath.hpp"
 #include "TestHelper/Tools.hpp"

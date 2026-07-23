@@ -20,7 +20,7 @@ target_compile_options(Exporter PRIVATE /wd4251)
 # ctemplate is PUBLIC: Html/TemplateHtmlExporter.hpp exposes it to consumers
 # (ExporterTest instantiates ctemplate symbols directly).
 target_link_libraries(Exporter
-	PUBLIC occ::CppCoverage occ::Plugin occ::Tools ctemplate::ctemplate
+	PUBLIC occ::CppCoverage occ::Coverage occ::Tools ctemplate::ctemplate
 	PRIVATE fmt::fmt)
 
 target_precompile_headers(Exporter PRIVATE stdafx.h)

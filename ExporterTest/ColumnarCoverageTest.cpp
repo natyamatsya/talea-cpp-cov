@@ -19,10 +19,10 @@
 
 #include <fstream>
 
-#include "Plugin/Exporter/CoverageData.hpp"
-#include "Plugin/Exporter/ModuleCoverage.hpp"
-#include "Plugin/Exporter/FileCoverage.hpp"
-#include "Plugin/Exporter/LineCoverage.hpp"
+#include "Coverage/CoverageData.hpp"
+#include "Coverage/ModuleCoverage.hpp"
+#include "Coverage/FileCoverage.hpp"
+#include "Coverage/LineCoverage.hpp"
 
 #include "Exporter/Binary/ColumnarCoverage.hpp"
 
@@ -35,8 +35,8 @@ namespace ExporterTest
 	namespace
 	{
 		//---------------------------------------------------------------------
-		const Plugin::FileCoverage& GetOnlyFile(
-		    const Plugin::CoverageData& coverageData)
+		const Coverage::FileCoverage& GetOnlyFile(
+		    const Coverage::CoverageData& coverageData)
 		{
 			const auto& modules = coverageData.GetModules();
 			EXPECT_EQ(1u, modules.size());
@@ -48,12 +48,12 @@ namespace ExporterTest
 		//---------------------------------------------------------------------
 		// One-module/one-file CoverageData whose lines come from the (line,
 		// executed) pairs given.
-		Plugin::CoverageData MakeCoverage(
+		Coverage::CoverageData MakeCoverage(
 		    const std::wstring& name,
 		    std::int32_t exitCode,
 		    const std::vector<std::pair<std::uint32_t, bool>>& lines)
 		{
-			Plugin::CoverageData coverageData{name, exitCode};
+			Coverage::CoverageData coverageData{name, exitCode};
 			auto& file = coverageData.AddModule(L"module.dll").AddFile(L"file.cpp");
 			for (const auto& [line, executed] : lines)
 				file.AddLine(line, executed);
@@ -114,15 +114,15 @@ namespace ExporterTest
 	// Branch outcomes OR by (line, branchIndex) across shards.
 	TEST(ColumnarCoverageTest, MergeOrsBranchOutcomes)
 	{
-		Plugin::CoverageData a{L"a", 0};
+		Coverage::CoverageData a{L"a", 0};
 		auto& fileA = a.AddModule(L"m.dll").AddFile(L"f.cpp");
 		fileA.AddLine(5, true);
-		fileA.AddBranch(5, Plugin::BranchCoverage{0, true, false});
+		fileA.AddBranch(5, Coverage::BranchCoverage{0, true, false});
 
-		Plugin::CoverageData b{L"b", 0};
+		Coverage::CoverageData b{L"b", 0};
 		auto& fileB = b.AddModule(L"m.dll").AddFile(L"f.cpp");
 		fileB.AddLine(5, true);
-		fileB.AddBranch(5, Plugin::BranchCoverage{0, false, true});
+		fileB.AddBranch(5, Coverage::BranchCoverage{0, false, true});
 
 		Exporter::ColumnarCoverageMerger merger;
 		merger.Add(a);

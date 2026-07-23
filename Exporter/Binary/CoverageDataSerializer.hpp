@@ -19,7 +19,7 @@
 #include <filesystem>
 #include "../ExporterExport.hpp"
 
-namespace Plugin
+namespace Coverage
 {
 	class CoverageData;
 }
@@ -31,7 +31,7 @@ namespace Exporter
 	public:
 		CoverageDataSerializer() = default;
 
-		void Serialize(const Plugin::CoverageData&, const std::filesystem::path&) const;
+		void Serialize(const Coverage::CoverageData&, const std::filesystem::path&) const;
 
 	private:
 		CoverageDataSerializer(const CoverageDataSerializer&) = delete;

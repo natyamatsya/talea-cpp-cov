@@ -1,5 +1,5 @@
 // OpenCppCoverage is an open source code coverage for C++.
-// Copyright (C) 2026 OpenCppCoverage
+// Copyright (C) 2019 OpenCppCoverage
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,30 +15,10 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
-#include <cstdint>
 
-#include "../PluginExport.hpp"
+// Built as a static library linked into OpenCppCoverage.exe (and the test
+// executables); there is no DLL boundary, so the macro expands to nothing.
+#define COVERAGE_DLL
 
-namespace Plugin
-{
-	// Coverage of a single conditional branch (two outcomes:
-	// branch taken and fall through).
-	class PLUGIN_DLL BranchCoverage
-	{
-	public:
-		BranchCoverage(std::uint32_t branchIndex,
-		               bool hasBeenTaken,
-		               bool hasBeenFallenThrough);
-		BranchCoverage(const BranchCoverage&) = default;
-		BranchCoverage& operator=(const BranchCoverage&) = default;
 
-		std::uint32_t GetBranchIndex() const;
-		bool HasBeenTaken() const;
-		bool HasBeenFallenThrough() const;
 
-	private:
-		std::uint32_t branchIndex_;
-		bool hasBeenTaken_;
-		bool hasBeenFallenThrough_;
-	};
-}

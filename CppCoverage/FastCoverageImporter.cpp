@@ -44,10 +44,10 @@
 #include "FileFilter/FileInfo.hpp"
 #include "FileFilter/LineInfo.hpp"
 
-#include "Plugin/Exporter/CoverageData.hpp"
-#include "Plugin/Exporter/ModuleCoverage.hpp"
-#include "Plugin/Exporter/FileCoverage.hpp"
-#include "Plugin/Exporter/BranchCoverage.hpp"
+#include "Coverage/CoverageData.hpp"
+#include "Coverage/ModuleCoverage.hpp"
+#include "Coverage/FileCoverage.hpp"
+#include "Coverage/BranchCoverage.hpp"
 
 #include "CoverageRuntime/FastCovFormat.hpp"
 
@@ -922,7 +922,7 @@ namespace CppCoverage
 		{
 			std::unordered_map<
 			    std::wstring,
-			    std::unordered_map<std::wstring, Plugin::FileCoverage*>>
+			    std::unordered_map<std::wstring, Coverage::FileCoverage*>>
 			    filesByModule;
 			for (const auto& module : result.coverageData_.GetModules())
 			{
@@ -942,7 +942,7 @@ namespace CppCoverage
 				if (!(*file)[branch.lineNumber_])
 					continue; // the line was filtered out; skip its branch
 				file->AddBranch(branch.lineNumber_,
-				                Plugin::BranchCoverage{branch.branchIndex_,
+				                Coverage::BranchCoverage{branch.branchIndex_,
 				                                       branch.taken_,
 				                                       branch.fallThrough_});
 			}

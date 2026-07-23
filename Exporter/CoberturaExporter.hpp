@@ -22,7 +22,7 @@
 #include "ExporterExport.hpp"
 #include "IExporter.hpp"
 
-namespace Plugin
+namespace Coverage
 {
 	class CoverageData;
 }
@@ -35,8 +35,8 @@ namespace Exporter
 		CoberturaExporter() ;
 
 		std::filesystem::path GetDefaultPath(const std::wstring& runningCommandFilename) const override;
-		void Export(const Plugin::CoverageData&, const std::filesystem::path& output) override;
-		void Export(const Plugin::CoverageData&, std::ostream&) const;
+		void Export(const Coverage::CoverageData&, const std::filesystem::path& output) override;
+		void Export(const Coverage::CoverageData&, std::ostream&) const;
 
 	private:
 		CoberturaExporter(const CoberturaExporter&) = delete;

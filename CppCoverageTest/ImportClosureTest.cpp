@@ -20,7 +20,7 @@
 #include "TestCoverageConsole/TestCoverageConsole.hpp"
 #include "TestCoverageSharedLib/TestCoverageSharedLib.hpp"
 
-#include "Plugin/Exporter/CoverageData.hpp"
+#include "Coverage/CoverageData.hpp"
 #include "TestHelper/CoverageDataComparer.hpp"
 #include "TestTools.hpp"
 

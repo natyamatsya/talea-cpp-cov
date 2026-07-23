@@ -18,7 +18,7 @@
 
 #include "CoverageDataDeserializer.hpp"
 
-#include "Plugin/Exporter/CoverageData.hpp"
+#include "Coverage/CoverageData.hpp"
 
 #include "ColumnarCoverage.hpp"
 #include "Tools/Tool.hpp"
@@ -26,7 +26,7 @@
 namespace Exporter
 {
 	//-------------------------------------------------------------------------
-	Tools::Expected<Plugin::CoverageData> CoverageDataDeserializer::Deserialize(
+	Tools::Expected<Coverage::CoverageData> CoverageDataDeserializer::Deserialize(
 		const std::filesystem::path& path,
 		const std::string& errorIfNotCorrectFormat) const
 	{

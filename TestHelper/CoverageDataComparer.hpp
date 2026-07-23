@@ -19,7 +19,7 @@
 #include "TestHelperExport.hpp"
 #include <memory>
 
-namespace Plugin
+namespace Coverage
 {
 	class CoverageData;
 	class ModuleCoverage;
@@ -32,10 +32,10 @@ namespace TestHelper
 	public:
 		CoverageDataComparer() = default;
 
-		void AssertEquals(const Plugin::CoverageData&, const Plugin::CoverageData&) const;
-		void AssertEquals(const Plugin::ModuleCoverage*, const Plugin::ModuleCoverage*) const;
+		void AssertEquals(const Coverage::CoverageData&, const Coverage::CoverageData&) const;
+		void AssertEquals(const Coverage::ModuleCoverage*, const Coverage::ModuleCoverage*) const;
 
-		using ModuleCoveragePtr = std::unique_ptr<Plugin::ModuleCoverage>;
+		using ModuleCoveragePtr = std::unique_ptr<Coverage::ModuleCoverage>;
 		using ModuleCoverageCollection = std::vector<ModuleCoveragePtr>;
 
 		bool IsFirstModuleContainsSecond(

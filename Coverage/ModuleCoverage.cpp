@@ -14,52 +14,41 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "pch.h"
+#include "stdafx.h"
+#include "ModuleCoverage.hpp"
 
-#include <cstdint>
+#include "FileCoverage.hpp"
 
-#include "Plugin/Exporter/FileCoverage.hpp"
-#include "CppCoverage/CppCoverageException.hpp"
-
-namespace cov = CppCoverage;
-
-namespace PluginTest
+namespace Coverage
 {
 	//-------------------------------------------------------------------------
-	TEST(FileCoverageTest, Basic)
+	ModuleCoverage::ModuleCoverage(const std::filesystem::path& path)
+		: path_(path)
 	{
-		Plugin::FileCoverage file{ L"" };
-		std::uint32_t lineNumber = 0;
-
-		file.AddLine(lineNumber, true);
-
-		auto line = file[lineNumber];
-		ASSERT_NE(nullptr, line);
-		ASSERT_TRUE(line->HasBeenExecuted());
-		ASSERT_EQ(nullptr, file[lineNumber + 1]);	
-
-		const auto& lines = file.GetLines();
-		ASSERT_EQ(1, lines.size());
-		ASSERT_EQ(line->GetLineNumber(), lines[0].GetLineNumber());
-	}	
-
-	//-------------------------------------------------------------------------
-	TEST(FileCoverageTest, UpdateLine)
-	{
-		Plugin::FileCoverage file{ L"" };
-		std::uint32_t lineNumber = 0;
-
-		file.AddLine(lineNumber, true);
-		file.UpdateLine(lineNumber, false);
-
-		ASSERT_FALSE(file.GetLines().at(0).HasBeenExecuted());		
 	}
 
 	//-------------------------------------------------------------------------
-	TEST(FileCoverageTest, UpdateLineNotExists)
+	ModuleCoverage::~ModuleCoverage()
 	{
-		Plugin::FileCoverage file{ L"" };
-		
-		ASSERT_THROW(file.UpdateLine(0, false), std::runtime_error);
+	}
+
+	//-------------------------------------------------------------------------
+	FileCoverage& ModuleCoverage::AddFile(const std::filesystem::path& filePath)
+	{
+		files_.push_back(std::unique_ptr<FileCoverage>(new FileCoverage(filePath)));
+
+		return *files_.back();
+	}
+
+	//-------------------------------------------------------------------------
+	const std::filesystem::path& ModuleCoverage::GetPath() const
+	{
+		return path_;
+	}
+
+	//-------------------------------------------------------------------------
+	const ModuleCoverage::T_FileCoverageCollection& ModuleCoverage::GetFiles() const
+	{
+		return files_;
 	}
 }

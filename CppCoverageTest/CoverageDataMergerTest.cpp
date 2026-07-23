@@ -21,10 +21,10 @@
 #include <filesystem>
 
 #include "CppCoverage/CoverageDataMerger.hpp"
-#include "Plugin/Exporter/CoverageData.hpp" 
-#include "Plugin/Exporter/ModuleCoverage.hpp" 
-#include "Plugin/Exporter/FileCoverage.hpp" 
-#include "Plugin/Exporter/LineCoverage.hpp" 
+#include "Coverage/CoverageData.hpp" 
+#include "Coverage/ModuleCoverage.hpp" 
+#include "Coverage/FileCoverage.hpp" 
+#include "Coverage/LineCoverage.hpp" 
 
 namespace cov = CppCoverage;
 namespace fs = std::filesystem;
@@ -38,31 +38,31 @@ namespace CppCoverageTest
 		const fs::path filePath = L"filePath";
 
 		//---------------------------------------------------------------------
-		std::vector<Plugin::CoverageData> CreateCoverageDataCollection(
+		std::vector<Coverage::CoverageData> CreateCoverageDataCollection(
 			const std::initializer_list<std::pair<std::wstring, std::int32_t>>& coverageDataArguments)
 		{
-			std::vector<Plugin::CoverageData> coverageDataCollection;
+			std::vector<Coverage::CoverageData> coverageDataCollection;
 
 			for (const auto& args : coverageDataArguments)
-				coverageDataCollection.emplace_back(Plugin::CoverageData{ args.first, args.second });
+				coverageDataCollection.emplace_back(Coverage::CoverageData{ args.first, args.second });
 			
 			return coverageDataCollection;
 		}
 
 		//---------------------------------------------------------------------
-		std::vector<Plugin::CoverageData> CreateCoverageDataCollection(size_t count)
+		std::vector<Coverage::CoverageData> CreateCoverageDataCollection(size_t count)
 		{
-			std::vector<Plugin::CoverageData> coverageDataCollection;
+			std::vector<Coverage::CoverageData> coverageDataCollection;
 
 			for (size_t i = 0; i < count; ++i)
-				coverageDataCollection.emplace_back(Plugin::CoverageData{ L"", 0 });
+				coverageDataCollection.emplace_back(Coverage::CoverageData{ L"", 0 });
 
 			return coverageDataCollection;
 		}
 
 		//-------------------------------------------------------------------------
 		void AddLinesToFileCoverage(
-			Plugin::FileCoverage& fileCoverage,
+			Coverage::FileCoverage& fileCoverage,
 			const std::initializer_list<std::pair<std::int32_t, bool>>& lineArgCollection)
 		{
 			for (const auto& lineArg : lineArgCollection)
@@ -71,7 +71,7 @@ namespace CppCoverageTest
 
 		//-------------------------------------------------------------------------
 		void AddLine(
-			Plugin::CoverageData& coverageData,
+			Coverage::CoverageData& coverageData,
 			const fs::path& modulePath,
 			const fs::path& filePath,
 			const std::initializer_list<std::pair<std::int32_t, bool>>& lineArgCollection)
@@ -83,7 +83,7 @@ namespace CppCoverageTest
 
 		//-------------------------------------------------------------------------
 		void CheckLineHasBeenExecuted(
-			const std::unique_ptr<Plugin::FileCoverage>& file,
+			const std::unique_ptr<Coverage::FileCoverage>& file,
 			std::int32_t lineNumber,
 			bool exectedValue)
 		{
@@ -104,14 +104,14 @@ namespace CppCoverageTest
 		auto& file1 =
 		    coverageDatas[0].AddModule(modulePath).AddFile(filePath);
 		file1.AddLine(lineNumber, true);
-		file1.AddBranch(lineNumber, Plugin::BranchCoverage{0, true, false});
-		file1.AddBranch(lineNumber, Plugin::BranchCoverage{1, false, false});
+		file1.AddBranch(lineNumber, Coverage::BranchCoverage{0, true, false});
+		file1.AddBranch(lineNumber, Coverage::BranchCoverage{1, false, false});
 
 		auto& file2 =
 		    coverageDatas[1].AddModule(modulePath).AddFile(filePath);
 		file2.AddLine(lineNumber, true);
-		file2.AddBranch(lineNumber, Plugin::BranchCoverage{0, false, true});
-		file2.AddBranch(lineNumber, Plugin::BranchCoverage{2, true, true});
+		file2.AddBranch(lineNumber, Coverage::BranchCoverage{0, false, true});
+		file2.AddBranch(lineNumber, Coverage::BranchCoverage{2, true, true});
 
 		auto coverageDataMerged =
 		    cov::CoverageDataMerger{}.Merge(coverageDatas);
@@ -207,7 +207,7 @@ namespace CppCoverageTest
 	//-------------------------------------------------------------------------
 	TEST(CoverageDataMergerTest, AggregateByFileSingleModule)
 	{
-		Plugin::CoverageData coverageData{L"test", 0};
+		Coverage::CoverageData coverageData{L"test", 0};
 
 		AddLine(coverageData, modulePath, filePath, { { 0, false }, { 1, false }, { 2, true } });
 		auto aggregated =
@@ -225,7 +225,7 @@ namespace CppCoverageTest
 	//-------------------------------------------------------------------------
 	TEST(CoverageDataMergerTest, AggregateByFileCollapsesModules)
 	{
-		Plugin::CoverageData coverageData{ L"test", 0 };
+		Coverage::CoverageData coverageData{ L"test", 0 };
 
 		auto& fileCoverage1 = coverageData.AddModule(modulePath).AddFile(filePath);
 		auto& fileCoverage2 = coverageData.AddModule(L"otherModule").AddFile(filePath);
@@ -251,7 +251,7 @@ namespace CppCoverageTest
 	//-------------------------------------------------------------------------
 	TEST(CoverageDataMergerTest, AggregateByFileKeepsDistinctPaths)
 	{
-		Plugin::CoverageData coverageData{ L"test", 0 };
+		Coverage::CoverageData coverageData{ L"test", 0 };
 
 		AddLine(coverageData, modulePath, filePath, { { 0, true } });
 		AddLine(coverageData, L"otherModule", L"other.cpp", { { 0, true } });

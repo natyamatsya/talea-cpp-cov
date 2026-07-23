@@ -23,7 +23,7 @@
 #include "HtmlFileCoverageExporter.hpp"
 #include "../IExporter.hpp"
 
-namespace Plugin
+namespace Coverage
 {
 	class CoverageData;
 	class FileCoverage;
@@ -49,7 +49,7 @@ namespace Exporter
 		explicit HtmlExporter(const std::filesystem::path& templateFolder);
 
 		std::filesystem::path GetDefaultPath(const std::wstring& prefix) const override;
-		void Export(const Plugin::CoverageData&, const std::filesystem::path& outputFolder) override;
+		void Export(const Coverage::CoverageData&, const std::filesystem::path& outputFolder) override;
 
 	private:
 		HtmlExporter(const HtmlExporter&) = delete;
@@ -60,12 +60,12 @@ namespace Exporter
 		// state and a distinct output file, so it is safe to parallelize;
 		// generation is currently run serially (see ExportFiles).
 		std::optional<std::filesystem::path> GenerateFileHtml(
-			const Plugin::FileCoverage& fileCoverage,
+			const Coverage::FileCoverage& fileCoverage,
 			const HtmlFile& htmlFile) const;
 
 		void ExportFiles(
 			CppCoverage::CoverageRateComputer&,
-			const Plugin::ModuleCoverage& module,
+			const Coverage::ModuleCoverage& module,
 			const HtmlFolderStructure& htmlFolderStructure,
 			ctemplate::TemplateDictionary& moduleTemplateDictionary);
 
