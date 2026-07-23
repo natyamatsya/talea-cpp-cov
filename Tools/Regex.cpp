@@ -42,7 +42,10 @@ namespace Tools
 		}
 
 		//-------------------------------------------------------------------------
-		pcre2_code* Compile(std::string_view pattern, const Regex::Options& options)
+		// Returns the compiled pcre2_code* (as void*) or a Tools::Error; never
+		// throws, so both Regex::Compile and the throwing ctor build on it.
+		Expected<void*> CompileCode(std::string_view pattern,
+		                            const Regex::Options& options)
 		{
 			std::uint32_t compileOptions = 0;
 			if (options.caseInsensitive)
@@ -69,11 +72,33 @@ namespace Tools
 				    errorCode, buffer, sizeof(buffer) / sizeof(buffer[0]));
 				auto message = Tools::Utf8ToWString(
 				    reinterpret_cast<const char*>(buffer));
-				THROW(L"Invalid regular expression at offset "
-				      << errorOffset << L": " << message);
+				return std::unexpected(
+				    MAKE_ERROR(L"Invalid regular expression at offset "
+				               << errorOffset << L": " << message));
 			}
-			return code;
+			return static_cast<void*>(code);
 		}
+	}
+
+	//-------------------------------------------------------------------------
+	Expected<Regex> Regex::Compile(std::string_view pattern)
+	{
+		return Compile(pattern, Options{});
+	}
+
+	//-------------------------------------------------------------------------
+	Expected<Regex> Regex::Compile(std::string_view pattern,
+	                               const Options& options)
+	{
+		auto code = CompileCode(pattern, options);
+		if (!code)
+			return std::unexpected(std::move(code.error()));
+		return Regex{*code};
+	}
+
+	//-------------------------------------------------------------------------
+	Regex::Regex(void* code) noexcept : code_{code}
+	{
 	}
 
 	//-------------------------------------------------------------------------
@@ -83,7 +108,7 @@ namespace Tools
 
 	//-------------------------------------------------------------------------
 	Regex::Regex(std::string_view pattern, const Options& options)
-		: code_{Compile(pattern, options)}
+		: code_{Tools::ValueOrThrow(CompileCode(pattern, options))}
 	{
 	}
 

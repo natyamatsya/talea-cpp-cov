@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "ToolsExport.hpp"
+#include "Error.hpp"
 
 namespace Tools
 {
@@ -53,10 +54,18 @@ namespace Tools
 			bool fullMatch = false;
 		};
 
-		// Throws Tools::ToolsException if the pattern fails to compile.
+		// Compiles the pattern, returning the compiled Regex or a Tools::Error
+		// describing the pcre2 failure. The preferred, non-throwing entry point.
 		// Two overloads instead of a defaulted Options argument: clang rejects
 		// using Options' default member initializers inside the enclosing
 		// class definition.
+		static Expected<Regex> Compile(std::string_view pattern);
+		static Expected<Regex> Compile(std::string_view pattern,
+		                               const Options& options);
+
+		// Throwing convenience wrappers over Compile (the expected->throw bridge
+		// for callers not yet migrated): throw Tools::ToolsException if the
+		// pattern fails to compile.
 		explicit Regex(std::string_view pattern);
 		explicit Regex(std::string_view pattern, const Options& options);
 		~Regex();
@@ -77,6 +86,10 @@ namespace Tools
 		std::vector<std::optional<std::string>> Capture(std::string_view subject) const;
 
 	private:
+		// Takes ownership of an already-compiled pcre2_code* (as void*); used by
+		// Compile to build the object once the pattern is known to be valid.
+		explicit Regex(void* code) noexcept;
+
 		void Reset() noexcept;
 
 		void* code_ = nullptr; // pcre2_code_8*
