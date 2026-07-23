@@ -157,13 +157,42 @@ namespace CppCoverage
 		{
 			for (const auto& path : spec.input_fastcov)
 			{
-				if (!Tools::FileExists(path))
+				std::error_code ec;
+				if (fs::is_directory(path, ec))
+				{
+					// A directory argument is expanded recursively to every
+					// *.fastcov dump beneath it - the whole output of a parallel
+					// test suite, without spelling out (or blowing the command
+					// line on) thousands of paths.
+					std::uint32_t added = 0;
+					for (const auto& entry :
+					     fs::recursive_directory_iterator(path, ec))
+					{
+						if (entry.is_regular_file(ec) &&
+						    entry.path().extension() == L".fastcov")
+						{
+							options.AddInputFastCovPath(entry.path());
+							++added;
+						}
+					}
+					if (added == 0)
+					{
+						return std::unexpected(OptionError(
+						    "No .fastcov files found under directory of " +
+						    ProgramOptions::InputFastCovValue + " <" + path +
+						    ">."));
+					}
+				}
+				else if (Tools::FileExists(path))
+				{
+					options.AddInputFastCovPath(path);
+				}
+				else
 				{
 					return std::unexpected(OptionError(
 					    "Argument of " + ProgramOptions::InputFastCovValue +
 					    " <" + path + "> does not exist."));
 				}
-				options.AddInputFastCovPath(path);
 			}
 
 			if (spec.fastcov_template_report)

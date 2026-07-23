@@ -168,8 +168,9 @@ namespace CppCoverage
 		    std::pair{std::string_view{"input_fastcov"},
 		              std::string_view{
 		                  "Import a compiler-instrumentation (SanitizerCoverage) "
-		                  "dump; selects the instrumentation engine. Multiple "
-		                  "occurrences."}},
+		                  "dump; selects the instrumentation engine. A directory "
+		                  "argument is expanded recursively to every *.fastcov "
+		                  "beneath it. Multiple occurrences."}},
 		    std::pair{std::string_view{"fastcov_template_report"},
 		              std::string_view{
 		                  "Write the per-template instantiation coverage report "
