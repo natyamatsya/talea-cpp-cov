@@ -87,9 +87,9 @@ namespace CppCoverage
 		FormatTemplateReport(const std::vector<TemplateReport>&);
 
 	  private:
-		// The dump parser, which reports format errors by throwing
-		// CppCoverageException; Import() adapts it to the Expected boundary.
-		Result ImportOrThrow(const std::filesystem::path& dumpPath);
+		// The dump parser: format errors come back by value; the per-module
+		// work can still throw and is caught by Import().
+		Tools::Expected<Result> ImportOrThrow(const std::filesystem::path& dumpPath);
 
 		FastCoverageImporter(const FastCoverageImporter&) = delete;
 		FastCoverageImporter& operator=(const FastCoverageImporter&) = delete;

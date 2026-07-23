@@ -581,13 +581,13 @@ namespace CppCoverage
 		// Resolved dump (clang): the runtime already resolved each basic block
 		// to (module, rva, count). Group by module and hand the blocks over.
 		template <typename ProcessFn>
-		void ImportResolvedDump(const std::vector<char>& bytes,
+		Tools::Expected<void> ImportResolvedDump(const std::vector<char>& bytes,
 		                        const std::filesystem::path& dumpPath,
 		                        ProcessFn&& processModule)
 		{
 			if (bytes.size() < sizeof(FastCov::DumpHeader))
-				THROW(L"Fast coverage dump is truncated: " +
-				      dumpPath.wstring());
+				return std::unexpected(MAKE_ERROR(
+				    L"Fast coverage dump is truncated: " + dumpPath.wstring()));
 			const auto* header =
 			    reinterpret_cast<const FastCov::DumpHeader*>(bytes.data());
 			auto expected =
@@ -598,8 +598,8 @@ namespace CppCoverage
 			        sizeof(FastCov::BasicBlockRecord);
 			if (header->version_ != FastCov::DumpVersion ||
 			    bytes.size() < expected)
-				THROW(L"Fast coverage dump is truncated: " +
-				      dumpPath.wstring());
+				return std::unexpected(MAKE_ERROR(
+				    L"Fast coverage dump is truncated: " + dumpPath.wstring()));
 
 			const auto* modules =
 			    reinterpret_cast<const FastCov::ModuleEntry*>(
@@ -635,39 +635,41 @@ namespace CppCoverage
 				              std::uint32_t{0},
 				              nullptr);
 			}
+			return {};
 		}
 
 		//---------------------------------------------------------------------
 		// Raw dump (MSVC): a copy of each module's .sancov counter region. The
 		// block addresses are recovered by disassembly in processModule.
 		template <typename ProcessFn>
-		void ImportRawDump(const std::vector<char>& bytes,
+		Tools::Expected<void> ImportRawDump(const std::vector<char>& bytes,
 		                   const std::filesystem::path& dumpPath,
 		                   ProcessFn&& processModule)
 		{
 			if (bytes.size() < sizeof(FastCov::RawDumpHeader))
-				THROW(L"Fast coverage dump is truncated: " +
-				      dumpPath.wstring());
+				return std::unexpected(MAKE_ERROR(
+				    L"Fast coverage dump is truncated: " + dumpPath.wstring()));
 			const auto* header =
 			    reinterpret_cast<const FastCov::RawDumpHeader*>(bytes.data());
 			if (header->version_ != FastCov::DumpVersion)
-				THROW(L"Unsupported fast coverage dump version: " +
-				      dumpPath.wstring());
+				return std::unexpected(MAKE_ERROR(
+				    L"Unsupported fast coverage dump version: " +
+				    dumpPath.wstring()));
 
 			std::size_t offset = sizeof(FastCov::RawDumpHeader);
 			for (std::uint32_t m = 0; m < header->moduleCount_; ++m)
 			{
 				if (offset + sizeof(FastCov::RawModuleHeader) > bytes.size())
-					THROW(L"Fast coverage dump is truncated: " +
-					      dumpPath.wstring());
+					return std::unexpected(MAKE_ERROR(
+					    L"Fast coverage dump is truncated: " + dumpPath.wstring()));
 				const auto* moduleHeader =
 				    reinterpret_cast<const FastCov::RawModuleHeader*>(
 				        bytes.data() + offset);
 				offset += sizeof(FastCov::RawModuleHeader);
 
 				if (offset + moduleHeader->regionSize_ > bytes.size())
-					THROW(L"Fast coverage dump is truncated: " +
-					      dumpPath.wstring());
+					return std::unexpected(MAKE_ERROR(
+					    L"Fast coverage dump is truncated: " + dumpPath.wstring()));
 				const auto* regionBytes =
 				    reinterpret_cast<const std::uint8_t*>(bytes.data() +
 				                                          offset);
@@ -680,6 +682,7 @@ namespace CppCoverage
 				              moduleHeader->regionRva_,
 				              &region);
 			}
+			return {};
 		}
 	}
 
@@ -711,16 +714,21 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	FastCoverageImporter::Result
+	// Format errors are returned by value; the per-module work (Enumerate, the
+	// ExecutedAddressManager) can still throw and is caught by Import() until
+	// those leaves are no-throw too.
+	Tools::Expected<FastCoverageImporter::Result>
 	FastCoverageImporter::ImportOrThrow(const std::filesystem::path& dumpPath)
 	{
 		auto bytes = ReadFile(dumpPath);
 		if (bytes.size() < sizeof(std::uint32_t))
-			THROW(L"Fast coverage dump is truncated: " + dumpPath.wstring());
+			return std::unexpected(MAKE_ERROR(
+			    L"Fast coverage dump is truncated: " + dumpPath.wstring()));
 
 		auto magic = *reinterpret_cast<const std::uint32_t*>(bytes.data());
 		if (magic != FastCov::DumpMagic && magic != FastCov::RawDumpMagic)
-			THROW(L"Not a fast coverage dump: " + dumpPath.wstring());
+			return std::unexpected(
+			    MAKE_ERROR(L"Not a fast coverage dump: " + dumpPath.wstring()));
 
 		CoverageFilterManager filterManager{coverageFilterSettings_,
 		                                     unifiedDiffSettings_,
@@ -909,9 +917,15 @@ namespace CppCoverage
 		    };
 
 		if (magic == FastCov::DumpMagic)
-			ImportResolvedDump(bytes, dumpPath, processModule);
+		{
+			if (auto r = ImportResolvedDump(bytes, dumpPath, processModule); !r)
+				return std::unexpected(std::move(r.error()));
+		}
 		else
-			ImportRawDump(bytes, dumpPath, processModule);
+		{
+			if (auto r = ImportRawDump(bytes, dumpPath, processModule); !r)
+				return std::unexpected(std::move(r.error()));
+		}
 
 		Result result{manager.CreateCoverageData(coverageName, 0), {}};
 
