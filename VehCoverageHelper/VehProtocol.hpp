@@ -177,6 +177,12 @@ namespace VehCoverage
 		       BranchArraysSize(branchCount);
 	}
 
+	// How long a parent's CreateProcess hook waits for the host to set up a
+	// freshly spawned (suspended) child before resuming it regardless. Shared
+	// so the host can measure its own setup time against the SAME deadline
+	// and report loudly when a child must have resumed uninstrumented.
+	constexpr std::uint32_t ChildReadyWaitTimeoutMs = 60000;
+
 	// The file-mapping name is this prefix followed by the target's decimal
 	// process id, in the session-local namespace (host and target share a
 	// session). Both sides derive the same name from the pid, so no other

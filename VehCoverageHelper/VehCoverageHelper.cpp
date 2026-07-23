@@ -559,7 +559,8 @@ namespace
 			Sleep(0);
 		g_header->childPid = childPid;
 		SetEvent(g_childPending);
-		WaitForSingleObject(g_childReady, 30000);
+		WaitForSingleObject(g_childReady,
+		                    VehCoverage::ChildReadyWaitTimeoutMs);
 		InterlockedExchange(lock, 0);
 
 		if (forcedSuspend)

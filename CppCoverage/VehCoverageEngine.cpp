@@ -36,6 +36,7 @@
 #include <vector>
 
 #include "Tools/Log.hpp"
+#include "Tools/Tool.hpp"
 #include "Tools/WarningManager.hpp"
 
 #include "Address.hpp"
@@ -623,6 +624,95 @@ namespace CppCoverage
 		}
 
 		//---------------------------------------------------------------------
+		// Host-wide caches for the process tree. A ctest-style run spawns
+		// hundreds of children that all load the same modules, and probe
+		// computation (PDB parse + full-function disassembly) is by far the
+		// dominant per-child setup cost - recomputing it per child blew the
+		// helper hook's ChildReadyWaitTimeoutMs, silently resuming children
+		// UNINSTRUMENTED. A module's probes depend only on the module file,
+		// so compute once and share; ditto the exe-directory/working-dir
+		// discovery scans. Keyed by lowercased paths. Mutex-guarded: the root
+		// populates on the main thread, children on the registration thread.
+		using SharedModuleProbes = std::shared_ptr<const ModuleProbes>;
+		struct ProbeCache
+		{
+			std::mutex mutex_;
+			// null value = computed, module has no probes (not retried).
+			std::map<std::wstring, SharedModuleProbes> probesByModule_;
+			std::map<std::wstring, std::vector<std::filesystem::path>>
+			    scansByRoots_;
+		};
+
+		//---------------------------------------------------------------------
+		// Keyed by (exe directory, working directory), not the exe path: any
+		// exe under a scanned root is itself rediscovered by the scan, so two
+		// roots spawned from the same directories yield the same module set.
+		std::vector<std::filesystem::path>
+		DiscoverModulePathsCached(ProbeCache& cache,
+		                          const std::filesystem::path& exePath,
+		                          ICoverageFilterManager& filterManager,
+		                          FilterAssistant* filterAssistant,
+		                          const std::filesystem::path* workingDirectory)
+		{
+			auto key =
+			    ToLowerAscii(exePath.parent_path().wstring()) + L"|" +
+			    (workingDirectory ? ToLowerAscii(workingDirectory->wstring())
+			                      : L"");
+			{
+				std::lock_guard<std::mutex> lock{cache.mutex_};
+				auto found = cache.scansByRoots_.find(key);
+				if (found != cache.scansByRoots_.end())
+					return found->second;
+			}
+			auto paths = DiscoverModulePaths(
+			    exePath, filterManager, filterAssistant, workingDirectory);
+			std::lock_guard<std::mutex> lock{cache.mutex_};
+			return cache.scansByRoots_.emplace(std::move(key), std::move(paths))
+			    .first->second;
+		}
+
+		//---------------------------------------------------------------------
+		SharedModuleProbes
+		ComputeModuleProbesCached(ProbeCache& cache,
+		                          const std::filesystem::path& modulePath,
+		                          ICoverageFilterManager& filterManager,
+		                          const RunCoverageSettings& settings,
+		                          std::shared_ptr<PdbLineTableCache> pdbLineTableCache,
+		                          FilterAssistant* filterAssistant)
+		{
+			auto key = ToLowerAscii(modulePath.wstring());
+			{
+				std::lock_guard<std::mutex> lock{cache.mutex_};
+				auto found = cache.probesByModule_.find(key);
+				if (found != cache.probesByModule_.end())
+					return found->second;
+			}
+			SharedModuleProbes shared;
+			try
+			{
+				auto probes = ComputeModuleProbes(modulePath,
+				                                  filterManager,
+				                                  settings,
+				                                  pdbLineTableCache,
+				                                  filterAssistant);
+				if (probes)
+					shared = std::make_shared<const ModuleProbes>(
+					    std::move(*probes));
+			}
+			catch (const std::exception& exception)
+			{
+				// Keep the host alive and the failure attributed: one broken
+				// PDB must cost that module's coverage, not the whole run.
+				LOG_ERROR("VEH: probe computation failed for {}: {}",
+				          Tools::ToLocalString(modulePath.wstring()),
+				          exception.what());
+			}
+			std::lock_guard<std::mutex> lock{cache.mutex_};
+			return cache.probesByModule_.emplace(std::move(key), std::move(shared))
+			    .first->second;
+		}
+
+		//---------------------------------------------------------------------
 		std::vector<wchar_t>
 		BuildCommandLine(const std::vector<std::wstring>& arguments)
 		{
@@ -738,7 +828,7 @@ namespace CppCoverage
 		// Lays out the shared section: header, one descriptor per module, then
 		// the rva and hit arrays. Returns the mapping handle and mapped view.
 		bool CreateSharedSection(DWORD processId,
-		                         const std::vector<ModuleProbes>& modules,
+		                         const std::vector<SharedModuleProbes>& modules,
 		                         bool coverChildren,
 		                         HANDLE& mappingOut,
 		                         void*& viewOut)
@@ -750,8 +840,8 @@ namespace CppCoverage
 			for (const auto& module : modules)
 			{
 				totalSize += VehCoverage::ModuleRegionSize(
-				    static_cast<std::uint32_t>(module.probeRvas_.size()),
-				    static_cast<std::uint32_t>(module.branches_.size()));
+				    static_cast<std::uint32_t>(module->probeRvas_.size()),
+				    static_cast<std::uint32_t>(module->branches_.size()));
 			}
 
 			auto mappingName = std::format(
@@ -797,7 +887,7 @@ namespace CppCoverage
 
 			for (std::size_t i = 0; i < modules.size(); ++i)
 			{
-				const auto& module = modules[i];
+				const auto& module = *modules[i];
 				auto& descriptor = descriptors[i];
 				auto probeCount =
 				    static_cast<std::uint32_t>(module.probeRvas_.size());
@@ -996,7 +1086,7 @@ namespace CppCoverage
 			UniqueHandle process;
 			UniqueHandle mapping;
 			UniqueView view;
-			std::vector<ModuleProbes> modules;
+			std::vector<SharedModuleProbes> modules;
 			UniqueHandle pending;
 			UniqueHandle ready;
 		};
@@ -1020,8 +1110,15 @@ namespace CppCoverage
 		                       std::shared_ptr<PdbLineTableCache> pdbLineTableCache,
 		                       const std::filesystem::path& helperDllPath,
 		                       bool coverChildren,
+		                       ProbeCache& probeCache,
 		                       ChildCoverage& out)
 		{
+			// The parent's hook resumes the child after ChildReadyWaitTimeoutMs
+			// no matter what, so setup slower than that means an uninstrumented
+			// child. Measure and report it - a silent gap here cost a whole
+			// run's coverage once.
+			auto setupStart = GetTickCount64();
+
 			out.process.reset(OpenProcess(PROCESS_ALL_ACCESS, FALSE, childPid));
 			if (!out.process)
 				return;
@@ -1033,20 +1130,35 @@ namespace CppCoverage
 			if (!QueryFullProcessImageNameW(out.process.get(), 0, exePath, &size))
 				return;
 
-			for (const auto& modulePath : DiscoverModulePaths(
+			for (const auto& modulePath : DiscoverModulePathsCached(
+			         probeCache,
 			         exePath,
 			         filterManager,
 			         nullptr,
 			         settings.GetStartInfo().GetWorkingDirectory()))
 			{
-				auto probes = ComputeModuleProbes(modulePath,
-				                                  filterManager,
-				                                  settings,
-				                                  pdbLineTableCache,
-				                                  nullptr);
+				auto probes = ComputeModuleProbesCached(probeCache,
+				                                        modulePath,
+				                                        filterManager,
+				                                        settings,
+				                                        pdbLineTableCache,
+				                                        nullptr);
 				if (probes)
-					out.modules.push_back(std::move(*probes));
+					out.modules.push_back(std::move(probes));
 			}
+
+			auto setupElapsed = GetTickCount64() - setupStart;
+			if (setupElapsed > VehCoverage::ChildReadyWaitTimeoutMs)
+			{
+				LOG_ERROR(
+				    "VEH: child process {} setup took {} ms, beyond the {} ms "
+				    "its parent's hook waits - the child has resumed "
+				    "UNINSTRUMENTED and its coverage is lost.",
+				    childPid,
+				    setupElapsed,
+				    VehCoverage::ChildReadyWaitTimeoutMs);
+			}
+
 			if (out.modules.empty())
 				return;
 
@@ -1096,6 +1208,7 @@ namespace CppCoverage
 		    const RunCoverageSettings& settings,
 		    std::shared_ptr<PdbLineTableCache> pdbLineTableCache,
 		    const std::filesystem::path& helperDllPath,
+		    ProbeCache& probeCache,
 		    std::vector<ChildCoverage>& children)
 		{
 			std::vector<RegSlot> slots;
@@ -1131,6 +1244,7 @@ namespace CppCoverage
 				                  pdbLineTableCache,
 				                  helperDllPath,
 				                  /*coverChildren*/ true,
+				                  probeCache,
 				                  child);
 
 				if (child.pending && child.ready && child.view)
@@ -1210,20 +1324,26 @@ namespace CppCoverage
 			    PdbLineTableCache::GetDefaultDiskCacheDirectory());
 		}
 
-		std::vector<ModuleProbes> modules;
+		// The cache outlives the registration thread: the root populates it
+		// here, every child then reuses the probe sets (see ProbeCache).
+		ProbeCache probeCache;
+
+		std::vector<SharedModuleProbes> modules;
 		for (const auto& modulePath :
-		     DiscoverModulePaths(exePath,
-		                         filterManager,
-		                         filterAssistant_.get(),
-		                         startInfo.GetWorkingDirectory()))
+		     DiscoverModulePathsCached(probeCache,
+		                               exePath,
+		                               filterManager,
+		                               filterAssistant_.get(),
+		                               startInfo.GetWorkingDirectory()))
 		{
-			auto probes = ComputeModuleProbes(modulePath,
-			                                  filterManager,
-			                                  settings,
-			                                  pdbLineTableCache,
-			                                  filterAssistant_.get());
+			auto probes = ComputeModuleProbesCached(probeCache,
+			                                        modulePath,
+			                                        filterManager,
+			                                        settings,
+			                                        pdbLineTableCache,
+			                                        filterAssistant_.get());
 			if (probes)
-				modules.push_back(std::move(*probes));
+				modules.push_back(std::move(probes));
 		}
 
 		auto commandLine = BuildCommandLine(startInfo.GetArguments());
@@ -1308,6 +1428,7 @@ namespace CppCoverage
 							                    settings,
 							                    pdbLineTableCache,
 							                    helperDllPath,
+							                    probeCache,
 							                    children);
 						});
 					}
@@ -1355,7 +1476,8 @@ namespace CppCoverage
 		// different modules - and the same module in different processes -
 		// separate keys in the manager.
 		std::uintptr_t addressTag = 1;
-		auto readback = [&](const std::vector<ModuleProbes>& mods, void* v) {
+		auto readback = [&](const std::vector<SharedModuleProbes>& mods,
+		                    void* v) {
 			auto* header = static_cast<VehCoverage::SharedHeader*>(v);
 			auto* descriptors = VehCoverage::GetModuleDescriptors(header);
 			auto* base = static_cast<std::uint8_t*>(v);
@@ -1366,13 +1488,13 @@ namespace CppCoverage
 				if (!descriptors[i].loaded_)
 					continue;
 				auto* hits = base + descriptors[i].hitOffset_;
-				RegisterLoadedModule(mods[i],
+				RegisterLoadedModule(*mods[i],
 				                     descriptors[i].loadedPath_,
 				                     addressTag++,
 				                     hits,
 				                     manager);
 				CollectBranchResults(
-				    mods[i], descriptors[i], base, branchResults);
+				    *mods[i], descriptors[i], base, branchResults);
 			}
 		};
 
