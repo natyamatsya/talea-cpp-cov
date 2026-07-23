@@ -23,6 +23,7 @@
 #include <cstring>
 #include <format>
 #include <fstream>
+#include <type_traits>
 
 #include <mio/mmap.hpp>
 
@@ -30,22 +31,32 @@ namespace CppCoverage
 {
 	namespace
 	{
-		// Cache file layout (little-endian, no alignment):
-		//   u32 magic, u32 version, u8 hasSymbolIndexes, u32 fileCount,
-		//   then per file: u32 nameChars, wchar_t[nameChars],
-		//                  u32 lineCount,
-		//                  then per line: u32 lineNumber, u32 symbolIndex,
-		//                                 i64 virtualAddress, u32 length,
-		//   then u32 functionCount,
-		//   then per function: i64 virtualAddress, u32 length.
+		// Cache file layout, version 3 (little-endian). Metadata first, then
+		// one 8-aligned blob of raw Line records, so the blob can be consumed
+		// IN PLACE from a file mapping (see LineTableView):
+		//   u32 magic, u32 version, u32 flags (bit 0: hasSymbolIndexes),
+		//   u32 fileCount, u64 totalLineCount, u32 functionCount, u32 pad,
+		//   then per function: i64 virtualAddress, u32 length, u32 pad,
+		//   then per file: u32 nameChars, u32 lineCount, u64 firstLine,
+		//                  wchar_t[nameChars],
+		//   then zero-padding up to the next 8-byte boundary,
+		//   then Line[totalLineCount] - the in-memory representation, copied
+		//   verbatim (the static_asserts below pin that contract).
 		constexpr uint32_t CacheMagic = 0x4350434F; // "OCPC"
-		constexpr uint32_t CacheVersion = 2;
+		constexpr uint32_t CacheVersion = 3;
 		constexpr auto CacheFileExtension = L".lines";
 		constexpr auto TempFileExtension = L".tmp";
-		constexpr size_t SerializedLineSize =
-		    3 * sizeof(uint32_t) + sizeof(int64_t);
+		using Line = IDebugInformationHandler::Line;
+		static_assert(std::is_trivially_copyable_v<Line>,
+		              "Line is memcpy'd to and reinterpreted from the cache "
+		              "file blob.");
+		static_assert(sizeof(Line) == 24 && alignof(Line) == 8,
+		              "The v3 cache layout fixes Line's size and alignment; "
+		              "bump CacheVersion when the struct changes.");
 		constexpr size_t SerializedFunctionSize =
-		    sizeof(int64_t) + sizeof(uint32_t);
+		    sizeof(int64_t) + 2 * sizeof(uint32_t);
+		constexpr size_t SerializedFileHeaderSize =
+		    2 * sizeof(uint32_t) + sizeof(uint64_t);
 
 		// The identity key makes stale entries harmless but they still take
 		// disk space: cap the directory and drop the oldest entries.
@@ -103,6 +114,53 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
+	LineTableView::LineTableView(std::shared_ptr<const ModuleLineTable> table)
+	    : table_{std::move(table)}
+	{
+	}
+
+	//-------------------------------------------------------------------------
+	bool LineTableView::HasSymbolIndexes() const
+	{
+		return table_ ? table_->hasSymbolIndexes_ : mappedHasSymbolIndexes_;
+	}
+
+	//-------------------------------------------------------------------------
+	const std::vector<LineTableView::FunctionRange>&
+	LineTableView::Functions() const
+	{
+		return table_ ? table_->functions_ : mappedFunctions_;
+	}
+
+	//-------------------------------------------------------------------------
+	std::size_t LineTableView::FileCount() const
+	{
+		return table_ ? table_->files_.size() : mappedFiles_.size();
+	}
+
+	//-------------------------------------------------------------------------
+	const std::wstring&
+	LineTableView::FileRawName(std::size_t fileIndex) const
+	{
+		return table_ ? table_->files_[fileIndex].rawName_
+		              : mappedFiles_[fileIndex].rawName_;
+	}
+
+	//-------------------------------------------------------------------------
+	const std::vector<LineTableView::Line>&
+	LineTableView::FileLines(std::size_t fileIndex,
+	                         std::vector<Line>& scratch) const
+	{
+		if (table_)
+			return table_->files_[fileIndex].lines_;
+
+		const auto& file = mappedFiles_[fileIndex];
+		scratch.assign(mappedLines_ + file.firstLine_,
+		               mappedLines_ + file.firstLine_ + file.lineCount_);
+		return scratch;
+	}
+
+	//-------------------------------------------------------------------------
 	PdbLineTableCache::PdbLineTableCache(
 	    std::filesystem::path diskCacheDirectory)
 	    : diskCacheDirectory_{std::move(diskCacheDirectory)}
@@ -124,15 +182,15 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	std::shared_ptr<const ModuleLineTable>
+	std::shared_ptr<const LineTableView>
 	PdbLineTableCache::TryGet(const PdbSignature& signature,
 	                          bool needSymbolIndexes)
 	{
 		std::lock_guard<std::mutex> lock(mutex_);
 		auto key = signature.ToString();
-		auto it = tables_.find(key);
-		if (it != tables_.end() &&
-		    (it->second->hasSymbolIndexes_ || !needSymbolIndexes))
+		auto it = views_.find(key);
+		if (it != views_.end() &&
+		    (it->second->HasSymbolIndexes() || !needSymbolIndexes))
 		{
 			++memoryHitCount_;
 			return it->second;
@@ -140,15 +198,14 @@ namespace CppCoverage
 
 		if (!diskCacheDirectory_.empty())
 		{
-			auto table = TryLoadFromDisk(GetCacheFilePath(signature, true));
-			if (!table && !needSymbolIndexes)
-				table =
-				    TryLoadFromDisk(GetCacheFilePath(signature, false));
-			if (table && (table->hasSymbolIndexes_ || !needSymbolIndexes))
+			auto view = TryLoadFromDisk(GetCacheFilePath(signature, true));
+			if (!view && !needSymbolIndexes)
+				view = TryLoadFromDisk(GetCacheFilePath(signature, false));
+			if (view && (view->HasSymbolIndexes() || !needSymbolIndexes))
 			{
 				++diskHitCount_;
-				tables_[key] = table;
-				return table;
+				views_[key] = view;
+				return view;
 			}
 		}
 
@@ -166,15 +223,23 @@ namespace CppCoverage
 
 		std::lock_guard<std::mutex> lock(mutex_);
 		auto key = signature.ToString();
-		auto it = tables_.find(key);
+		auto it = views_.find(key);
 
-		// Never replace a table carrying symbol indexes with one without.
-		if (it == tables_.end() || !it->second->hasSymbolIndexes_ ||
-		    table->hasSymbolIndexes_)
-			tables_[key] = table;
+		// Never replace an entry carrying symbol indexes with one without.
+		if (it != views_.end() && it->second->HasSymbolIndexes() &&
+		    !table->hasSymbolIndexes_)
+			return;
 
-		if (!diskCacheDirectory_.empty())
-			SaveToDisk(signature, *table);
+		// Prefer a mapping of the just-written cache file over the heap
+		// table: the heavy line blob then lives in file-backed pages from
+		// the first run on, not just on replays (MEMORY_ROADMAP.md, Tier 1).
+		std::shared_ptr<const LineTableView> view;
+		if (!diskCacheDirectory_.empty() && SaveToDisk(signature, *table))
+			view = TryLoadFromDisk(
+			    GetCacheFilePath(signature, table->hasSymbolIndexes_));
+		if (!view)
+			view = std::make_shared<LineTableView>(std::move(table));
+		views_[key] = std::move(view);
 	}
 
 	//-------------------------------------------------------------------------
@@ -212,133 +277,141 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	std::shared_ptr<const ModuleLineTable> PdbLineTableCache::TryLoadFromDisk(
+	std::shared_ptr<const LineTableView> PdbLineTableCache::TryLoadFromDisk(
 	    const std::filesystem::path& path) const
 	{
 		std::error_code error;
-		auto mappedFile = mio::make_mmap_source(path.wstring(), error);
-		if (error || mappedFile.empty())
+		auto mappedFile = std::make_shared<mio::mmap_source>(
+		    mio::make_mmap_source(path.wstring(), error));
+		if (error || mappedFile->empty())
 			return nullptr;
 
-		Reader reader{mappedFile.data(),
-		              mappedFile.data() + mappedFile.size()};
+		const char* base = mappedFile->data();
+		Reader reader{base, base + mappedFile->size()};
 		if (reader.Read<uint32_t>() != CacheMagic ||
 		    reader.Read<uint32_t>() != CacheVersion)
 			return nullptr;
 
-		auto table = std::make_shared<ModuleLineTable>();
-		table->hasSymbolIndexes_ = reader.Read<uint8_t>() != 0;
+		auto view = std::shared_ptr<LineTableView>(new LineTableView());
+		view->mappedHasSymbolIndexes_ =
+		    (reader.Read<uint32_t>() & 1u) != 0;
 
 		// Counts are validated against the remaining bytes before any
 		// reserve, so a corrupt file cannot request absurd allocations.
 		auto fileCount = reader.Read<uint32_t>();
+		auto totalLineCount = reader.Read<uint64_t>();
+		auto functionCount = reader.Read<uint32_t>();
+		reader.Read<uint32_t>(); // pad
 		if (reader.failed_ ||
-		    fileCount > reader.Remaining() / (2 * sizeof(uint32_t)))
+		    functionCount > reader.Remaining() / SerializedFunctionSize)
 			return nullptr;
-		table->files_.reserve(fileCount);
 
+		view->mappedFunctions_.reserve(functionCount);
+		for (uint32_t functionIndex = 0; functionIndex < functionCount;
+		     ++functionIndex)
+		{
+			auto virtualAddress = reader.Read<int64_t>();
+			auto length = reader.Read<uint32_t>();
+			reader.Read<uint32_t>(); // pad
+			view->mappedFunctions_.push_back(
+			    {virtualAddress, static_cast<std::uint32_t>(length)});
+		}
+
+		if (fileCount > reader.Remaining() / SerializedFileHeaderSize)
+			return nullptr;
+		view->mappedFiles_.reserve(fileCount);
+		uint64_t expectedLines = 0;
 		for (uint32_t fileIndex = 0; fileIndex < fileCount; ++fileIndex)
 		{
-			ModuleLineTable::File file;
-
+			LineTableView::MappedFile file;
 			auto nameChars = reader.Read<uint32_t>();
+			file.lineCount_ = reader.Read<uint32_t>();
+			file.firstLine_ = reader.Read<uint64_t>();
 			if (reader.failed_ ||
 			    nameChars > reader.Remaining() / sizeof(wchar_t))
 				return nullptr;
 			file.rawName_.resize(nameChars);
 			reader.ReadInto(file.rawName_.data(),
 			                nameChars * sizeof(wchar_t));
-
-			auto lineCount = reader.Read<uint32_t>();
-			if (reader.failed_ ||
-			    lineCount > reader.Remaining() / SerializedLineSize)
+			if (file.firstLine_ > totalLineCount ||
+			    file.lineCount_ > totalLineCount - file.firstLine_)
 				return nullptr;
-			file.lines_.reserve(lineCount);
-
-			for (uint32_t lineIndex = 0; lineIndex < lineCount;
-			     ++lineIndex)
-			{
-				auto lineNumber = reader.Read<uint32_t>();
-				auto symbolIndex = reader.Read<uint32_t>();
-				auto virtualAddress = reader.Read<int64_t>();
-				auto length = reader.Read<uint32_t>();
-				file.lines_.emplace_back(
-				    lineNumber, virtualAddress, symbolIndex, length);
-			}
-
-			table->files_.push_back(std::move(file));
+			expectedLines += file.lineCount_;
+			view->mappedFiles_.push_back(std::move(file));
 		}
 
-		auto functionCount = reader.Read<uint32_t>();
-		if (reader.failed_ ||
-		    functionCount > reader.Remaining() / SerializedFunctionSize)
-			return nullptr;
-		table->functions_.reserve(functionCount);
-		for (uint32_t functionIndex = 0; functionIndex < functionCount;
-		     ++functionIndex)
-		{
-			auto virtualAddress = reader.Read<int64_t>();
-			auto length = reader.Read<uint32_t>();
-			table->functions_.push_back(
-			    {virtualAddress, static_cast<std::uint32_t>(length)});
-		}
-
-		if (reader.failed_ || reader.Remaining() != 0)
+		// The line blob starts at the next 8-byte boundary and must fill the
+		// file exactly. It is consumed in place: mappedLines_ points into the
+		// mapping, which the view keeps alive.
+		auto metadataSize =
+		    static_cast<size_t>(reader.position_ - base);
+		auto blobOffset = (metadataSize + 7) & ~size_t{7};
+		if (reader.failed_ || expectedLines != totalLineCount ||
+		    blobOffset > mappedFile->size() ||
+		    mappedFile->size() - blobOffset !=
+		        totalLineCount * sizeof(Line))
 			return nullptr;
 
-		return table;
+		view->mappedLines_ = reinterpret_cast<const Line*>(base + blobOffset);
+		view->mapping_ = std::move(mappedFile);
+		return view;
 	}
 
 	//-------------------------------------------------------------------------
-	void PdbLineTableCache::SaveToDisk(const PdbSignature& signature,
+	bool PdbLineTableCache::SaveToDisk(const PdbSignature& signature,
 	                                   const ModuleLineTable& table) const
 	{
 		std::error_code error;
 		std::filesystem::create_directories(diskCacheDirectory_, error);
 		if (error)
-			return;
+			return false;
 
-		size_t totalSize = 4 * sizeof(uint32_t) + sizeof(uint8_t) +
-		                   table.functions_.size() * SerializedFunctionSize;
+		uint64_t totalLineCount = 0;
+		size_t metadataSize =
+		    6 * sizeof(uint32_t) + sizeof(uint64_t) +
+		    table.functions_.size() * SerializedFunctionSize;
 		for (const auto& file : table.files_)
 		{
-			totalSize += 2 * sizeof(uint32_t) +
-			             file.rawName_.size() * sizeof(wchar_t) +
-			             file.lines_.size() * SerializedLineSize;
+			totalLineCount += file.lines_.size();
+			metadataSize += SerializedFileHeaderSize +
+			                file.rawName_.size() * sizeof(wchar_t);
 		}
+		auto blobOffset = (metadataSize + 7) & ~size_t{7};
 
 		std::vector<char> buffer;
-		buffer.reserve(totalSize);
+		buffer.reserve(blobOffset + totalLineCount * sizeof(Line));
 		AppendValue(buffer, CacheMagic);
 		AppendValue(buffer, CacheVersion);
 		AppendValue(buffer,
-		            static_cast<uint8_t>(table.hasSymbolIndexes_ ? 1 : 0));
+		            static_cast<uint32_t>(table.hasSymbolIndexes_ ? 1 : 0));
 		AppendValue(buffer, static_cast<uint32_t>(table.files_.size()));
+		AppendValue(buffer, totalLineCount);
+		AppendValue(buffer, static_cast<uint32_t>(table.functions_.size()));
+		AppendValue(buffer, uint32_t{0}); // pad
+		for (const auto& function : table.functions_)
+		{
+			AppendValue(buffer, function.virtualAddress_);
+			AppendValue(buffer, static_cast<uint32_t>(function.length_));
+			AppendValue(buffer, uint32_t{0}); // pad
+		}
+		uint64_t firstLine = 0;
 		for (const auto& file : table.files_)
 		{
 			AppendValue(buffer,
 			            static_cast<uint32_t>(file.rawName_.size()));
+			AppendValue(buffer, static_cast<uint32_t>(file.lines_.size()));
+			AppendValue(buffer, firstLine);
 			Append(buffer,
 			       file.rawName_.data(),
 			       file.rawName_.size() * sizeof(wchar_t));
-			AppendValue(buffer, static_cast<uint32_t>(file.lines_.size()));
-			for (const auto& line : file.lines_)
-			{
-				AppendValue(buffer,
-				            static_cast<uint32_t>(line.lineNumber_));
-				AppendValue(buffer,
-				            static_cast<uint32_t>(line.symbolIndex_));
-				AppendValue(buffer,
-				            static_cast<int64_t>(line.virtualAddress_));
-				AppendValue(buffer, static_cast<uint32_t>(line.length_));
-			}
+			firstLine += file.lines_.size();
 		}
-		AppendValue(buffer, static_cast<uint32_t>(table.functions_.size()));
-		for (const auto& function : table.functions_)
+		buffer.resize(blobOffset, 0); // zero-pad to the aligned blob start
+		for (const auto& file : table.files_)
 		{
-			AppendValue(buffer, function.virtualAddress_);
-			AppendValue(buffer,
-			            static_cast<uint32_t>(function.length_));
+			Append(buffer,
+			       file.lines_.data(),
+			       file.lines_.size() * sizeof(Line));
 		}
 
 		// Write to a process-unique temporary and publish with a rename, so
@@ -352,13 +425,13 @@ namespace CppCoverage
 			std::ofstream ofs{tempPath,
 			                  std::ios::binary | std::ios::trunc};
 			if (!ofs)
-				return;
+				return false;
 			ofs.write(buffer.data(), buffer.size());
 			if (!ofs)
 			{
 				ofs.close();
 				std::filesystem::remove(tempPath, error);
-				return;
+				return false;
 			}
 		}
 
@@ -366,10 +439,11 @@ namespace CppCoverage
 		if (error)
 		{
 			std::filesystem::remove(tempPath, error);
-			return;
+			return false;
 		}
 
 		PruneDiskCache();
+		return true;
 	}
 
 	//-------------------------------------------------------------------------

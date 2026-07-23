@@ -37,21 +37,26 @@ Corollaries:
 - Probe computation failures (including `bad_alloc`) cost one module, not
   the run.
 
-## Tier 1 — mapped line-table cache (impact: high, effort: medium)
+## Tier 1 — mapped line-table cache — DONE
 
-`PdbLineTableCache` already persists parsed line tables to disk in a columnar
-format, but loads them back into heap vectors — private commit, and the
-random-access pattern makes it thrash when it does swap. Consume the on-disk
-format **in place** through `MapViewOfFile`:
+`PdbLineTableCache` persisted parsed line tables to disk but loaded them back
+into heap vectors — private commit, thrashy under pressure. The disk format is
+now consumed **in place** through a memory mapping:
 
-- a `ModuleLineTable` view type over the mapped columns (the format is already
-  columnar; offsets + counts replace vectors);
-- zero commit for cached tables, transparent eviction/re-fetch under pressure,
-  and cross-process sharing between concurrent runs for free;
-- when RAM is plentiful the pages sit in the page cache — no slowdown.
-
-Requires a cache-format version bump and read-path indirection; the write path
-is unchanged.
+- cache format v3 lays the metadata first, then one 8-aligned blob of raw
+  `Line` records (the bulk of a table), so the blob is used directly from the
+  mapping — `static_assert`s pin `Line`'s size/alignment as the on-disk
+  contract;
+- `LineTableView` presents one read interface over two backings — a
+  parser-built heap table, or a mapped cache file whose lines are decoded one
+  file at a time into a small scratch buffer, so a mapped table never becomes
+  heap-resident;
+- `Store` re-maps the file it just wrote and caches *that*, so even the first
+  run that parses a module keeps only file-backed, commit-free pages;
+- cached line tables are then evictable/re-fetchable under pressure and shared
+  between concurrent runs; when RAM is plentiful the pages sit in the page
+  cache, so there is no slowdown (verified: identical coverage numbers before
+  and after on a real module).
 
 ## Tier 2 — persistent, mapped probe cache (impact: high, effort: high)
 

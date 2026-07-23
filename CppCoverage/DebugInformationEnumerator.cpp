@@ -269,7 +269,7 @@ namespace CppCoverage
 		// The cache is keyed by the PDB's GUID + age (the linker's exact
 		// identity), read from the PE debug directory without loading DIA.
 		std::optional<PdbSignature> signature;
-		std::shared_ptr<const ModuleLineTable> lineTable;
+		std::shared_ptr<const LineTableView> lineTable;
 
 		if (lineTableCache_)
 		{
@@ -286,19 +286,24 @@ namespace CppCoverage
 				return false;
 			if (lineTableCache_ && signature)
 				lineTableCache_->Store(*signature, parsedTable);
-			lineTable = std::move(parsedTable);
+			lineTable =
+			    std::make_shared<LineTableView>(std::move(parsedTable));
 		}
 
-		handler.OnModuleFunctions(lineTable->functions_);
+		handler.OnModuleFunctions(lineTable->Functions());
 
 		// Path substitution and source-file selection run on every replay:
 		// they depend on the run's settings, so a cached table stays valid
-		// whatever filters are active.
-		for (const auto& file : lineTable->files_)
+		// whatever filters are active. A mapped view decodes one file's
+		// lines at a time into the scratch vector, so the whole table never
+		// becomes heap-resident (MEMORY_ROADMAP.md, Tier 1).
+		std::vector<IDebugInformationHandler::Line> scratch;
+		for (std::size_t i = 0; i < lineTable->FileCount(); ++i)
 		{
-			auto sourcePath = RemapSourceFileName(file.rawName_);
+			auto sourcePath = RemapSourceFileName(lineTable->FileRawName(i));
 			if (handler.IsSourceFileSelected(sourcePath))
-				handler.OnSourceFile(sourcePath, file.lines_);
+				handler.OnSourceFile(sourcePath,
+				                     lineTable->FileLines(i, scratch));
 		}
 
 		return true;
