@@ -22,6 +22,8 @@
 #include "CppCoverageExport.hpp"
 #include "StartInfo.hpp"
 
+#include "Tools/Error.hpp"
+
 namespace CppCoverage
 {
 	class CPPCOVERAGE_DLL Process
@@ -32,8 +34,8 @@ namespace CppCoverage
 
 		Process(const StartInfo& startInfo);
 		~Process();
-		
-		void Start(DWORD creationFlags);
+
+		[[nodiscard]] Tools::Expected<void> Start(DWORD creationFlags);
 
 	private:
 		Process(const Process&) = delete;

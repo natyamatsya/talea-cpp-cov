@@ -19,6 +19,7 @@
 #include <Windows.h>
 
 #include "CppCoverageExport.hpp"
+#include "Tools/Error.hpp"
 
 namespace CppCoverage
 {
@@ -26,7 +27,7 @@ namespace CppCoverage
 	{
 	public:
 		HandleInformation();
-		std::wstring ComputeFilename(HANDLE hfile) const;
+		[[nodiscard]] Tools::Expected<std::wstring> ComputeFilename(HANDLE hfile) const;
 
 	private:
 		HandleInformation(const HandleInformation&) = delete;

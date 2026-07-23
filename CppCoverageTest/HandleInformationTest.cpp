@@ -39,7 +39,7 @@ namespace CppCoverageTest
 		{
 			cov::HandleInformation handleInformation;
 
-			path = handleInformation.ComputeFilename(hFile);
+			path = Tools::ValueOrThrow(handleInformation.ComputeFilename(hFile));
 		});
 
 		ASSERT_EQ(outputBinaryPath, path);

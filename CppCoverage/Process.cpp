@@ -24,7 +24,8 @@
 #include "Tools/Tool.hpp"
 
 #include "StartInfo.hpp"
-#include "CppCoverageException.hpp"
+#include "CppCoverageException.hpp" // CppCoverage::GetErrorMessage
+#include "Tools/Error.hpp"
 
 namespace CppCoverage
 {
@@ -111,10 +112,10 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	void Process::Start(DWORD creationFlags)
+	Tools::Expected<void> Process::Start(DWORD creationFlags)
 	{
 		if (processInformation_)
-			THROW(L"Process already started");
+			return std::unexpected(MAKE_ERROR(L"Process already started"));
 
 		STARTUPINFO lpStartupInfo;
 
@@ -151,7 +152,8 @@ namespace CppCoverage
 				ostr << startInfo_
 				     << CppCoverage::GetErrorMessage(GetLastError());
 			}
-			throw std::runtime_error(Tools::ToLocalString(ostr.str()));
-		}		
+			return std::unexpected(Tools::Error{ostr.str()});
+		}
+		return {};
 	}
 }

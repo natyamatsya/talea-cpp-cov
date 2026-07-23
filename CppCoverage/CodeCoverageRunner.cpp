@@ -345,7 +345,8 @@ namespace CppCoverage
 	{
 		HandleInformation handleInformation;
 
-		std::wstring filename = handleInformation.ComputeFilename(hFile);
+		std::wstring filename =
+		    Tools::ValueOrThrow(handleInformation.ComputeFilename(hFile));
 
 		auto isSelected = coverageFilterManager_->IsModuleSelected(filename);
 		if (isSelected)

@@ -38,7 +38,7 @@ namespace CppCoverageTest
 		startInfo.AddArgument(TestCoverageConsole::TestThrowHandledException);
 		
 		cov::Process process{ startInfo };
-		ASSERT_NO_THROW(process.Start(0));
+		ASSERT_TRUE(process.Start(0));
 	}
 
 	//-------------------------------------------------------------------------
@@ -47,13 +47,11 @@ namespace CppCoverageTest
 		cov::StartInfo startInfo{TestCoverageSharedLib::GetOutputBinaryPath()};
 
 		cov::Process process{startInfo};
-		TestHelper::AssertThrow<std::runtime_error>(
-		    [&]() { process.Start(0); },
-		    [](const auto& e) {
-			    ASSERT_TRUE(std::string_view{e.what()}.contains(
-			        Tools::ToLocalString(
-			            cov::Process::CheckIfValidExecutableMessage)));
-		    });
+		auto result = process.Start(0);
+		ASSERT_FALSE(result);
+		ASSERT_NE(std::wstring::npos,
+		          result.error().message.find(
+		              cov::Process::CheckIfValidExecutableMessage));
 	}
 
 	//-------------------------------------------------------------------------
@@ -62,21 +60,20 @@ namespace CppCoverageTest
 		cov::StartInfo startInfo{"Does not exist."};
 
 		cov::Process process{startInfo};
-		TestHelper::AssertThrow<std::runtime_error>(
-		    [&]() { process.Start(0); },
-		    [](const auto& e) {
-			    return std::string_view{e.what()}.contains(
-			        Tools::ToLocalString(cov::Process::CannotFindPathMessage));
-		    });
+		auto result = process.Start(0);
+		ASSERT_FALSE(result);
+		ASSERT_NE(std::wstring::npos,
+		          result.error().message.find(
+		              cov::Process::CannotFindPathMessage));
 	}
 
 	//-------------------------------------------------------------------------
 	TEST(Process, ProgramInPath)
 	{
 		cov::StartInfo startInfo{ L"cmd.exe" };
-		startInfo.AddArgument(L"/C");	
+		startInfo.AddArgument(L"/C");
 
 		cov::Process process{ startInfo };
-		ASSERT_NO_THROW(process.Start(0));
+		ASSERT_TRUE(process.Start(0));
 	}
 }

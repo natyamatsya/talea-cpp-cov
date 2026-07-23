@@ -73,7 +73,10 @@ namespace CppCoverage
 		IDebugEventsHandler& debugEventsHandler)
 	{
 		Process process(startInfo);
-		process.Start((coverChildren_) ? DEBUG_PROCESS: DEBUG_ONLY_THIS_PROCESS);
+		if (auto result = process.Start(
+		        (coverChildren_) ? DEBUG_PROCESS : DEBUG_ONLY_THIS_PROCESS);
+		    !result)
+			return std::unexpected(result.error());
 
 		DEBUG_EVENT debugEvent;
 		std::optional<std::int32_t> exitCode;

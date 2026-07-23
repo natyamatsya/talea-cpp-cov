@@ -20,7 +20,7 @@
 
 #include <Psapi.h>
 #include "Tools/StringUtils.hpp"
-#include "CppCoverageException.hpp"
+#include "Tools/Error.hpp"
 #include "Handle.hpp"
 
 namespace CppCoverage
@@ -28,17 +28,17 @@ namespace CppCoverage
 	namespace
 	{
 		//-------------------------------------------------------------------------
-		std::vector<std::wstring> GetLogicalDrives()
+		Tools::Expected<std::vector<std::wstring>> GetLogicalDrives()
 		{
 			std::vector<wchar_t> logicalDriveStrings(PathBufferSize);
 			std::vector<std::wstring> logicalDrives;
 
 			auto size = GetLogicalDriveStrings(
-				static_cast<std::int32_t>(logicalDriveStrings.size()), 
+				static_cast<std::int32_t>(logicalDriveStrings.size()),
 				&logicalDriveStrings[0]);
 
 			if (!size)
-				THROW(L"Cannot GetLogicalDriveStrings");
+				return std::unexpected(MAKE_ERROR(L"Cannot GetLogicalDriveStrings"));
 
 			size_t startIndex = 0;
 
@@ -56,12 +56,17 @@ namespace CppCoverage
 		}
 
 		//-------------------------------------------------------------------------
-		std::vector<std::pair<std::wstring, std::wstring>> GetQueryDosDevicesMapping()
+		Tools::Expected<std::vector<std::pair<std::wstring, std::wstring>>>
+		GetQueryDosDevicesMapping()
 		{
 			std::vector<wchar_t> dosDevice(PathBufferSize);
 			std::vector<std::pair<std::wstring, std::wstring>> queryDosDevicesMapping;
 
-			for (const auto& logicalDrive : GetLogicalDrives())
+			auto logicalDrives = GetLogicalDrives();
+			if (!logicalDrives)
+				return std::unexpected(logicalDrives.error());
+
+			for (const auto& logicalDrive : *logicalDrives)
 			{
 				auto pos = logicalDrive.find('\\');
 				std::wstring drive = (pos != std::string::npos) ? logicalDrive.substr(0, pos) : logicalDrive;
@@ -79,42 +84,47 @@ namespace CppCoverage
 		}
 
 		//-------------------------------------------------------------------------
-		std::wstring GetMappedFileNameStr(HANDLE hfile)
+		Tools::Expected<std::wstring> GetMappedFileNameStr(HANDLE hfile)
 		{
 			DWORD dwFileSizeHi = 0;
 			DWORD dwFileSizeLo = GetFileSize(hfile, &dwFileSizeHi);
 
 			if (dwFileSizeLo == 0 && dwFileSizeHi == 0)
-				THROW(L"Cannot map a file with a length of zero.");
+				return std::unexpected(
+				    MAKE_ERROR(L"Cannot map a file with a length of zero."));
 
 			auto fileMappingHandle = CreateHandle(
 				CreateFileMapping(hfile, NULL, PAGE_READONLY, 0, 1, NULL),
 				CloseHandle);
+			if (!fileMappingHandle)
+				return std::unexpected(fileMappingHandle.error());
 
 			auto mapViewOfFile = CreateHandle(
-				MapViewOfFile(fileMappingHandle.GetValue(), FILE_MAP_READ, 0, 0, 1),
+				MapViewOfFile(fileMappingHandle->GetValue(), FILE_MAP_READ, 0, 0, 1),
 				UnmapViewOfFile);
+			if (!mapViewOfFile)
+				return std::unexpected(mapViewOfFile.error());
 
 			TCHAR pszFilename[MAX_PATH + 1];
 
 			if (!GetMappedFileName(GetCurrentProcess(),
-				mapViewOfFile.GetValue(),
+				mapViewOfFile->GetValue(),
 				pszFilename,
 				MAX_PATH))
 			{
-				THROW(L"Cannot GetMappedFileName");
+				return std::unexpected(MAKE_ERROR(L"Cannot GetMappedFileName"));
 			}
 
 			return pszFilename;
 		}
 
 		//-------------------------------------------------------------------------
-		std::wstring GetFinalPathName(HANDLE hfile)
+		Tools::Expected<std::wstring> GetFinalPathName(HANDLE hfile)
 		{
 			std::vector<wchar_t> buffer(PathBufferSize);
 
 			if (GetFinalPathNameByHandle(hfile, &buffer[0], static_cast<std::int32_t>(buffer.size()) - 1, VOLUME_NAME_NT))
-				return &buffer[0];
+				return std::wstring{&buffer[0]};
 
 			return GetMappedFileNameStr(hfile);
 		}
@@ -124,35 +134,43 @@ namespace CppCoverage
 	HandleInformation::HandleInformation() = default;
 
 	//-------------------------------------------------------------------------
-	std::wstring HandleInformation::ComputeFilename(HANDLE hfile) const
+	Tools::Expected<std::wstring>
+	HandleInformation::ComputeFilename(HANDLE hfile) const
 	{
 		if (hfile == nullptr)
 		{
-			THROW(L"OpenCppCoverage cannot find the name of the module.\n"
-			      L"See "
-			      L"https://github.com/OpenCppCoverage/OpenCppCoverage/wiki/"
-			      L"FAQ#error-opencppcoverage-cannot-find-the-name-of-the-"
-			      L"module for more information.");
+			return std::unexpected(MAKE_ERROR(
+			    L"OpenCppCoverage cannot find the name of the module.\n"
+			    L"See "
+			    L"https://github.com/OpenCppCoverage/OpenCppCoverage/wiki/"
+			    L"FAQ#error-opencppcoverage-cannot-find-the-name-of-the-"
+			    L"module for more information."));
 		}
 
 		auto mappedFileName = GetFinalPathName(hfile);
-		auto queryDosDevicesMapping = GetQueryDosDevicesMapping();
+		if (!mappedFileName)
+			return std::unexpected(mappedFileName.error());
 
-		for (const auto& queryDosDeviceMapping : queryDosDevicesMapping)
+		auto queryDosDevicesMapping = GetQueryDosDevicesMapping();
+		if (!queryDosDevicesMapping)
+			return std::unexpected(queryDosDevicesMapping.error());
+
+		for (const auto& queryDosDeviceMapping : *queryDosDevicesMapping)
 		{
 			const auto& deviceName = queryDosDeviceMapping.first;
 			const auto& logicalDrive = queryDosDeviceMapping.second;
 
-			if (Tools::IStartsWith(mappedFileName,
+			if (Tools::IStartsWith(*mappedFileName,
 			                       std::wstring_view{deviceName}))
 			{
-				Tools::IReplaceFirst(mappedFileName,
+				Tools::IReplaceFirst(*mappedFileName,
 				                     std::wstring_view{deviceName},
 				                     std::wstring_view{logicalDrive});
-				return mappedFileName;
+				return *mappedFileName;
 			}
 		}
 
-		THROW(L"Cannot find path for the handle: " << mappedFileName);
+		return std::unexpected(MAKE_ERROR(
+		    L"Cannot find path for the handle: " << *mappedFileName));
 	}
 }

@@ -19,7 +19,7 @@
 #include "Tools/Log.hpp"
 #include "Tools/Tool.hpp"
 
-#include "CppCoverageException.hpp"
+#include "Tools/Error.hpp"
 #include <optional>
 
 namespace CppCoverage
@@ -29,13 +29,17 @@ namespace CppCoverage
 	{
 	  public:
 		//---------------------------------------------------------------------
-		Handle(T_Handle handle, T_Releaser releaser)
-		    : handle_(handle), releaser_(releaser)
+		// A valid handle and releaser are an invariant of the type, so it is
+		// built through a factory that reports the violation as an error rather
+		// than a throwing constructor.
+		static Tools::Expected<Handle> Create(T_Handle handle,
+		                                       T_Releaser releaser)
 		{
-			if (!handle_)
-				THROW(L"Handle is not valid");
-			if (!releaser_)
-				THROW(L"Releaser is not valid");
+			if (!handle)
+				return std::unexpected(MAKE_ERROR(L"Handle is not valid"));
+			if (!releaser)
+				return std::unexpected(MAKE_ERROR(L"Releaser is not valid"));
+			return Handle{handle, releaser};
 		}
 
 		//---------------------------------------------------------------------
@@ -59,6 +63,12 @@ namespace CppCoverage
 		}
 
 	  private:
+		//---------------------------------------------------------------------
+		Handle(T_Handle handle, T_Releaser releaser)
+		    : handle_(handle), releaser_(releaser)
+		{
+		}
+
 		Handle(const Handle&) = delete;
 		Handle& operator=(const Handle&) = delete;
 		Handle& operator=(Handle&&) = delete;
@@ -70,9 +80,9 @@ namespace CppCoverage
 
 	//-------------------------------------------------------------------------
 	template <typename T_Handle, typename T_Releaser>
-	Handle<T_Handle, T_Releaser> CreateHandle(T_Handle handle,
-	                                          T_Releaser releaser)
+	Tools::Expected<Handle<T_Handle, T_Releaser>>
+	CreateHandle(T_Handle handle, T_Releaser releaser)
 	{
-		return Handle<T_Handle, T_Releaser>(handle, releaser);
+		return Handle<T_Handle, T_Releaser>::Create(handle, releaser);
 	}
 }
