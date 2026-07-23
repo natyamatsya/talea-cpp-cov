@@ -5,8 +5,7 @@ add_library(FileFilter STATIC
 	ReleaseCoverageFilter.cpp
 	RelocationsExtractor.cpp
 	UnifiedDiffCoverageFilter.cpp
-	UnifiedDiffParser.cpp
-	UnifiedDiffParserException.cpp)
+	UnifiedDiffParser.cpp)
 add_library(occ::FileFilter ALIAS FileFilter)
 
 occ_apply_conventions(FileFilter)

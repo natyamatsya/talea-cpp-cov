@@ -19,7 +19,6 @@
 
 #include "FileFilter/UnifiedDiffParser.hpp"
 #include "FileFilter/File.hpp"
-#include "FileFilter/UnifiedDiffParserException.hpp"
 
 #include <fstream>
 #include <filesystem>
@@ -140,35 +139,35 @@ namespace FileFilterTest
 	//-------------------------------------------------------------------------
 	TEST_F(UnifiedDiffParserTest, ErrorNoFilenameBeforeHunks)
 	{
-		ASSERT_EQ(UnifiedDiffParserException::ErrorNoFilenameBeforeHunks,
+		ASSERT_EQ(UnifiedDiffParser::ErrorNoFilenameBeforeHunks,
 			GetError(L"@@"));
 	}
 	
 	//-------------------------------------------------------------------------
 	TEST_F(UnifiedDiffParserTest, ErrorCannotReadLine)
 	{
-		ASSERT_EQ(UnifiedDiffParserException::ErrorCannotReadLine,
+		ASSERT_EQ(UnifiedDiffParser::ErrorCannotReadLine,
 			GetError(UnifiedDiffParser::FromFilePrefix));
 	}
 	
 	//-------------------------------------------------------------------------
 	TEST_F(UnifiedDiffParserTest, ErrorExpectFromFilePrefix)
 	{
-		ASSERT_EQ(UnifiedDiffParserException::ErrorExpectFromFilePrefix,
+		ASSERT_EQ(UnifiedDiffParser::ErrorExpectFromFilePrefix,
 			GetError(UnifiedDiffParser::FromFilePrefix + L"\nXXX"));
 	}
 	
 	//-------------------------------------------------------------------------
 	TEST_F(UnifiedDiffParserTest, ErrorInvalidHunks)
 	{
-		ASSERT_EQ(UnifiedDiffParserException::ErrorInvalidHunks,
+		ASSERT_EQ(UnifiedDiffParser::ErrorInvalidHunks,
 			GetError(UnifiedDiffParser::FromFilePrefix + L"\n+++ \n@@ -1,2 +3,X"));
 	}
 
 	//-------------------------------------------------------------------------
 	TEST_F(UnifiedDiffParserTest, ErrorContextHunks)
 	{
-		ASSERT_EQ(UnifiedDiffParserException::ErrorContextHunks,
+		ASSERT_EQ(UnifiedDiffParser::ErrorContextHunks,
 			GetError(UnifiedDiffParser::FromFilePrefix + L"\n+++ \n@@ -1,2 +3,4 @@\n"));
 	}
 

@@ -25,7 +25,6 @@
 #include "Tools/Tool.hpp"
 
 #include "File.hpp"
-#include "UnifiedDiffParserException.hpp"
 #include "Tools/Log.hpp"
 
 namespace FileFilter
@@ -143,6 +142,20 @@ namespace FileFilter
 	const std::wstring UnifiedDiffParser::ToFilePrefix = L"+++ ";
 
 	//-------------------------------------------------------------------------
+	const std::wstring UnifiedDiffParser::ErrorContextHunks =
+	    L"Context line count is not consistent with hunks differences.";
+	const std::wstring UnifiedDiffParser::ErrorNoFilenameBeforeHunks =
+	    L"No filename previously found.";
+	const std::wstring UnifiedDiffParser::ErrorCannotReadLine =
+	    L"Cannot read a new line. Expect a line starting with " +
+	    UnifiedDiffParser::ToFilePrefix + L'.';
+	const std::wstring UnifiedDiffParser::ErrorExpectFromFilePrefix =
+	    L"Invalid line. Expect a line starting with " +
+	    UnifiedDiffParser::ToFilePrefix + L'.';
+	const std::wstring UnifiedDiffParser::ErrorInvalidHunks =
+	    L"Invalid hunks differences.";
+
+	//-------------------------------------------------------------------------
 	Tools::Expected<std::vector<File>>
 	UnifiedDiffParser::Parse(std::wistream& istr) const
 	{
@@ -187,7 +200,7 @@ namespace FileFilter
 	{
 		if (files.empty())
 			return std::unexpected(MakeError(
-			    stream, UnifiedDiffParserException::ErrorNoFilenameBeforeHunks));
+			    stream, ErrorNoFilenameBeforeHunks));
 		auto updatedLines = ExtractUpdatedLines(stream, line);
 		if (!updatedLines)
 			return std::unexpected(std::move(updatedLines.error()));
@@ -202,11 +215,11 @@ namespace FileFilter
 		std::wstring line;
 		if (!stream.GetLine(line))
 			return std::unexpected(MakeError(
-			    stream, UnifiedDiffParserException::ErrorCannotReadLine));
+			    stream, ErrorCannotReadLine));
 
 		if (!line.starts_with(ToFilePrefix))
 			return std::unexpected(MakeError(
-			    stream, UnifiedDiffParserException::ErrorExpectFromFilePrefix));
+			    stream, ErrorExpectFromFilePrefix));
 
 		const auto startIndex = ToFilePrefix.size();
 		const auto endIndex = line.find('\t');
@@ -242,7 +255,7 @@ namespace FileFilter
 		}
 
 		return std::unexpected(
-		    MakeError(stream, UnifiedDiffParserException::ErrorInvalidHunks));
+		    MakeError(stream, ErrorInvalidHunks));
 	}
 
 	//-------------------------------------------------------------------------
@@ -273,7 +286,7 @@ namespace FileFilter
 
 		if (currentLine != endLine)
 			return std::unexpected(
-			    MakeError(stream, UnifiedDiffParserException::ErrorContextHunks));
+			    MakeError(stream, ErrorContextHunks));
 		return updatedLines;
 	}
 

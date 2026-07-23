@@ -31,6 +31,14 @@ namespace FileFilter
 		const static std::wstring FromFilePrefix;
 		const static std::wstring ToFilePrefix;
 
+		// The error messages reported (by value, as a Tools::Error) for a
+		// malformed diff. Public because the parser's tests assert on them.
+		const static std::wstring ErrorContextHunks;
+		const static std::wstring ErrorNoFilenameBeforeHunks;
+		const static std::wstring ErrorCannotReadLine;
+		const static std::wstring ErrorExpectFromFilePrefix;
+		const static std::wstring ErrorInvalidHunks;
+
 		UnifiedDiffParser() = default;
 
 		[[nodiscard]] Tools::Expected<std::vector<File>> Parse(std::wistream&) const;
