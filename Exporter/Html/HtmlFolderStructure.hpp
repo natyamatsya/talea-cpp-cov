@@ -21,9 +21,10 @@
 
 #include "HtmlFile.hpp"
 #include "../ExporterExport.hpp"
+#include "Tools/Error.hpp"
 
 namespace Exporter
-{	
+{
 	class EXPORTER_DLL HtmlFolderStructure
 	{
 	public:
@@ -35,8 +36,8 @@ namespace Exporter
 		~HtmlFolderStructure();
 
 		std::filesystem::path CreateCurrentRoot(const std::filesystem::path& outputFolder);
-		HtmlFile CreateCurrentModule(const std::filesystem::path&);		
-		HtmlFile GetHtmlFilePath(const std::filesystem::path& filePath) const;
+		[[nodiscard]] Tools::Expected<HtmlFile> CreateCurrentModule(const std::filesystem::path&);
+		[[nodiscard]] Tools::Expected<HtmlFile> GetHtmlFilePath(const std::filesystem::path& filePath) const;
 
 	private:
 		HtmlFolderStructure(const HtmlFolderStructure&) = delete;

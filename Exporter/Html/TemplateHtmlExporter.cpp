@@ -29,7 +29,7 @@
 
 #include "CppCoverage/CoverageRate.hpp"
 
-#include "../ExporterException.hpp"
+#include "Tools/Error.hpp"
 
 namespace cov = CppCoverage;
 namespace fs = std::filesystem;
@@ -53,18 +53,19 @@ namespace Exporter
 		}
 
 		//-------------------------------------------------------------------------
-		void WriteContentTo(const std::string& content, const fs::path& path)
+		Tools::Expected<void> WriteContentTo(const std::string& content, const fs::path& path)
 		{
 			std::ofstream ofs(path.string(), std::ios::binary);
 
 			if (!ofs)
-				THROW(L"Cannot open file" << path);
+				return std::unexpected(MAKE_ERROR(L"Cannot open file" << path));
 			ofs << content;
 			ofs.flush();
+			return {};
 		}
 
 		//-------------------------------------------------------------------------
-		std::string GenerateTemplate(
+		Tools::Expected<std::string> GenerateTemplate(
 			const ctemplate::TemplateDictionary& templateDictionary,
 			const fs::path& templatePath)
 		{
@@ -83,24 +84,28 @@ namespace Exporter
 				cached = ctemplate::Template::GetTemplate(
 					key, ctemplate::DO_NOT_STRIP);
 				if (!cached)
-					THROW(L"Cannot load template " + templatePath.wstring());
+					return std::unexpected(MAKE_ERROR(
+					    L"Cannot load template " << templatePath.wstring()));
 			}
 
 			std::string output;
 			if (!cached->Expand(&output, &templateDictionary))
-				THROW(L"Cannot generate output for " + templatePath.wstring());
+				return std::unexpected(MAKE_ERROR(
+				    L"Cannot generate output for " << templatePath.wstring()));
 
 			return output;
 		}
 		
 		//-------------------------------------------------------------------------
-		void WriteTemplate(
+		Tools::Expected<void> WriteTemplate(
 			const ctemplate::TemplateDictionary& templateDictionary,
 			const fs::path& templatePath,
 			const fs::path& output)
-		{			
-			std::string content = GenerateTemplate(templateDictionary, templatePath);
-			WriteContentTo(content, output);
+		{
+			auto content = GenerateTemplate(templateDictionary, templatePath);
+			if (!content)
+				return std::unexpected(content.error());
+			return WriteContentTo(*content, output);
 		}
 	}
 	
@@ -191,7 +196,8 @@ namespace Exporter
 		const ctemplate::TemplateDictionary& templateDictionary,
 		const fs::path& output) const
 	{
-		WriteTemplate(templateDictionary, mainTemplatePath_, output);
+		Tools::ThrowOnError(
+		    WriteTemplate(templateDictionary, mainTemplatePath_, output));
 	}
 
 	//-------------------------------------------------------------------------
@@ -199,7 +205,8 @@ namespace Exporter
 		const ctemplate::TemplateDictionary& templateDictionary,
 		const fs::path& output) const
 	{
-		WriteTemplate(templateDictionary, mainTemplatePath_, output);
+		Tools::ThrowOnError(
+		    WriteTemplate(templateDictionary, mainTemplatePath_, output));
 	}
 
 	//-------------------------------------------------------------------------
@@ -226,7 +233,7 @@ namespace Exporter
 		dictionary.SetValue(SourceWarningMessageTemplate, warning);
 		dictionary.SetValue(OCCProjectLink, ActualProjectLink);
 		dictionary.SetValue(OCCVersion, OPENCPPCOVERAGE_VERSION);
-		WriteTemplate(dictionary, fileTemplatePath_, output);
+		Tools::ThrowOnError(WriteTemplate(dictionary, fileTemplatePath_, output));
 	}
 	//-------------------------------------------------------------------------
 	std::string TemplateHtmlExporter::GetUuid()

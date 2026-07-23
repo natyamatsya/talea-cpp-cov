@@ -75,7 +75,8 @@ namespace Exporter
 
 		// Writes coverageData in the columnar v2 format, preserving the module
 		// and file order of the source.
-		EXPORTER_DLL void Write(const Coverage::CoverageData&, std::ostream&);
+		[[nodiscard]] EXPORTER_DLL Tools::Expected<void>
+		Write(const Coverage::CoverageData&, std::ostream&);
 
 		// Reads a columnar v2 file back into a CoverageData, preserving the
 		// stored module/file order (single-file round-trip; the merger sorts).

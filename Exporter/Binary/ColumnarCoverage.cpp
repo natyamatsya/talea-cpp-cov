@@ -31,8 +31,6 @@
 
 #include "Tools/Tool.hpp"
 
-#include "../ExporterException.hpp"
-
 namespace Exporter
 {
 	namespace
@@ -302,7 +300,7 @@ namespace Exporter
 	namespace ColumnarBinary
 	{
 		//---------------------------------------------------------------------
-		void Write(const Coverage::CoverageData& coverageData, std::ostream& ostr)
+		Tools::Expected<void> Write(const Coverage::CoverageData& coverageData, std::ostream& ostr)
 		{
 			// Intern every module and file path into a string table so repeated
 			// paths cost 4 bytes each in the module section.
@@ -394,7 +392,9 @@ namespace Exporter
 
 			ostr.write(buffer.data(), static_cast<std::streamsize>(buffer.size()));
 			if (!ostr)
-				THROW(L"Cannot write columnar coverage file.");
+				return std::unexpected(
+				    MAKE_ERROR(L"Cannot write columnar coverage file."));
+			return {};
 		}
 
 		//---------------------------------------------------------------------

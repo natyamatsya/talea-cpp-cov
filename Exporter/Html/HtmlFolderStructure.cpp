@@ -19,7 +19,7 @@
 
 #include "Tools/StringUtils.hpp"
 
-#include "Exporter/ExporterException.hpp"
+#include "Tools/Error.hpp"
 
 #include "Tools/Tool.hpp"
 #include "Tools/UniquePath.hpp"
@@ -94,10 +94,10 @@ namespace Exporter
 	}
 
 	//-------------------------------------------------------------------------
-	HtmlFile HtmlFolderStructure::CreateCurrentModule(const std::filesystem::path& modulePath)
+	Tools::Expected<HtmlFile> HtmlFolderStructure::CreateCurrentModule(const std::filesystem::path& modulePath)
 	{
 		if (!optionalCurrentRoot_)
-			THROW(L"No root is selected");
+			return std::unexpected(MAKE_ERROR(L"No root is selected"));
 
 		auto moduleFilename = modulePath.filename();
 		auto moduleName = moduleFilename.replace_extension(""); // remove extension
@@ -114,10 +114,10 @@ namespace Exporter
 	}	
 	
 	//---------------------------------------------------------------------
-	HtmlFile HtmlFolderStructure::GetHtmlFilePath(const std::filesystem::path& filePath) const
+	Tools::Expected<HtmlFile> HtmlFolderStructure::GetHtmlFilePath(const std::filesystem::path& filePath) const
 	{
 		if (!optionalCurrentModule_)
-			THROW(L"No root module selected");
+			return std::unexpected(MAKE_ERROR(L"No root module selected"));
 		
 		auto filename = filePath.filename();
 		auto output = filename.wstring() + L".html";

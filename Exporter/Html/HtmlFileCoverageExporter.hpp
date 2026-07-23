@@ -17,9 +17,10 @@
 #pragma once
 #include <cstdint>
 
-#include <iosfwd> 
+#include <iosfwd>
 
 #include "../ExporterExport.hpp"
+#include "Tools/Error.hpp"
 
 namespace Coverage
 {
@@ -41,7 +42,7 @@ namespace Exporter
 			std::int32_t maxSourceLineStyleChangesCount = 1000,
 			std::int32_t maxStyleChangesCount = 2000);
 
-		bool Export(
+		[[nodiscard]] Tools::Expected<bool> Export(
 			const Coverage::FileCoverage&,
 			std::wostream& output) const;
 		

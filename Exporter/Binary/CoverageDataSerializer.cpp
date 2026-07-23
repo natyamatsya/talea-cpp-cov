@@ -39,6 +39,6 @@ namespace Exporter
 		if (!ofs)
 			throw InvalidOutputFileException(output, "binary");
 
-		ColumnarBinary::Write(coverageData, ofs);
+		Tools::ThrowOnError(ColumnarBinary::Write(coverageData, ofs));
 	}
 }

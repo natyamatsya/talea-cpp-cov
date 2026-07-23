@@ -146,7 +146,7 @@ namespace ExporterTest
 		{
 			auto onDisk = MakeCoverage(L"disk", 0, {{1, true}, {2, false}});
 			std::ofstream ofs{path.GetPath().string(), std::ios::binary};
-			Exporter::ColumnarBinary::Write(onDisk, ofs);
+			Tools::ThrowOnError(Exporter::ColumnarBinary::Write(onDisk, ofs));
 		}
 
 		Exporter::ColumnarCoverageMerger merger;

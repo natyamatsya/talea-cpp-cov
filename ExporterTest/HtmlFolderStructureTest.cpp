@@ -66,7 +66,8 @@ namespace ExporterTest
 	TEST_F(HtmlFolderStructureTest, CreateCurrentModule)
 	{		
 		htmlFolderStructure_->CreateCurrentRoot(outputFolder_);
-		auto htmlPath = htmlFolderStructure_->CreateCurrentModule(Module + ".exe");
+		auto htmlPath = Tools::ValueOrThrow(
+		    htmlFolderStructure_->CreateCurrentModule(Module + ".exe"));
 		auto modulesFolder = outputFolder_.GetPath() / Exporter::HtmlFolderStructure::FolderModules;
 		auto expectedOutputFolder = modulesFolder / Module;
 		ASSERT_TRUE(Tools::FileExists(expectedOutputFolder));
@@ -78,8 +79,9 @@ namespace ExporterTest
 	TEST_F(HtmlFolderStructureTest, GetHtmlFilePath)
 	{		
 		htmlFolderStructure_->CreateCurrentRoot(outputFolder_);
-		htmlFolderStructure_->CreateCurrentModule(Module);
-		auto htmlFilePath = htmlFolderStructure_->GetHtmlFilePath(File);
+		Tools::ValueOrThrow(htmlFolderStructure_->CreateCurrentModule(Module));
+		auto htmlFilePath =
+		    Tools::ValueOrThrow(htmlFolderStructure_->GetHtmlFilePath(File));
 
 		auto expectedPath = outputFolder_.GetPath();
 		
@@ -94,11 +96,13 @@ namespace ExporterTest
 	{
 		htmlFolderStructure_->CreateCurrentRoot(outputFolder_);		
 
-		auto module = htmlFolderStructure_->CreateCurrentModule(Module);
+		auto module =
+		    Tools::ValueOrThrow(htmlFolderStructure_->CreateCurrentModule(Module));
 		auto modulePath = module.GetAbsolutePath();
 
 		TestHelper::CreateEmptyFile(modulePath);
-		auto otherModule = htmlFolderStructure_->CreateCurrentModule(Module);
+		auto otherModule =
+		    Tools::ValueOrThrow(htmlFolderStructure_->CreateCurrentModule(Module));
 
 		ASSERT_NE(modulePath, otherModule.GetAbsolutePath());
 	} 
@@ -107,13 +111,15 @@ namespace ExporterTest
 	TEST_F(HtmlFolderStructureTest, TestConflictFile)
 	{
 		htmlFolderStructure_->CreateCurrentRoot(outputFolder_);
-		htmlFolderStructure_->CreateCurrentModule(Module);
+		Tools::ValueOrThrow(htmlFolderStructure_->CreateCurrentModule(Module));
 
-		auto file = htmlFolderStructure_->GetHtmlFilePath(File);
+		auto file =
+		    Tools::ValueOrThrow(htmlFolderStructure_->GetHtmlFilePath(File));
 		auto filePath = file.GetAbsolutePath();
 
 		TestHelper::CreateEmptyFile(filePath);
-		auto otherFile = htmlFolderStructure_->GetHtmlFilePath(File);
+		auto otherFile =
+		    Tools::ValueOrThrow(htmlFolderStructure_->GetHtmlFilePath(File));
 
 		ASSERT_NE(filePath, otherFile.GetAbsolutePath());
 	}

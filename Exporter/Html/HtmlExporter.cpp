@@ -109,7 +109,8 @@ namespace Exporter
 				auto moduleFilename = module->GetPath().filename();
 				auto moduleTemplateDictionary = exporter_.CreateTemplateDictionary(moduleFilename.wstring(), L"");
 
-				auto htmlModulePath = htmlFolderStructure.CreateCurrentModule(modulePath);
+				auto htmlModulePath = Tools::ValueOrThrow(
+				    htmlFolderStructure.CreateCurrentModule(modulePath));
 				ExportFiles(coverageRateComputer, *module, htmlFolderStructure, *moduleTemplateDictionary);
 
 				exporter_.GenerateModuleTemplate(*moduleTemplateDictionary, htmlModulePath.GetAbsolutePath());
@@ -149,7 +150,8 @@ namespace Exporter
 		// every file.
 		for (const auto* file : coverageRateComputer.SortFilesByCoverageRate(module))
 		{
-			auto htmlFile = htmlFolderStructure.GetHtmlFilePath(file->GetPath());
+			auto htmlFile = Tools::ValueOrThrow(
+			    htmlFolderStructure.GetHtmlFilePath(file->GetPath()));
 			auto link = GenerateFileHtml(*file, htmlFile);
 			exporter_.AddFileSectionToDictionary(
 				file->GetPath(),
@@ -169,7 +171,8 @@ namespace Exporter
 			return std::optional<fs::path>();
 
 		std::wostringstream ostr;
-		auto enableCodePrettify = fileCoverageExporter_.Export(fileCoverage, ostr);
+		auto enableCodePrettify =
+		    Tools::ValueOrThrow(fileCoverageExporter_.Export(fileCoverage, ostr));
 
 		auto title = fileCoverage.GetPath().filename().wstring();
 		exporter_.GenerateSourceTemplate(

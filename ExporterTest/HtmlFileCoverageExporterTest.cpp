@@ -70,7 +70,8 @@ namespace ExporterTest
 
 			FillSources(sourceLines, sourceFile, fileCoverage);
 
-			if (!Exporter::HtmlFileCoverageExporter{}.Export(fileCoverage, ostr))
+			if (!Tools::ValueOrThrow(
+			        Exporter::HtmlFileCoverageExporter{}.Export(fileCoverage, ostr)))
 				throw std::runtime_error("Error in HtmlFileCoverageExporter::Export");
 
 			std::wstring exportedString = ostr.str();

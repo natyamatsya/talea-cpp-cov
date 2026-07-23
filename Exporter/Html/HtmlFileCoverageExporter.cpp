@@ -24,7 +24,7 @@
 
 #include "Coverage/FileCoverage.hpp"
 
-#include "../ExporterException.hpp"
+#include "Tools/Error.hpp"
 
 namespace fs = std::filesystem;
 
@@ -131,7 +131,7 @@ namespace Exporter
 	}
 
 	//-------------------------------------------------------------------------
-	bool HtmlFileCoverageExporter::Export(
+	Tools::Expected<bool> HtmlFileCoverageExporter::Export(
 		const Coverage::FileCoverage& fileCoverage,
 		std::wostream& output) const
 	{
@@ -139,7 +139,8 @@ namespace Exporter
 
 		std::wifstream ifs{filePath.string()};
 		if (!ifs)
-			THROW(L"Cannot open file : " + filePath.wstring());
+			return std::unexpected(
+			    MAKE_ERROR(L"Cannot open file : " << filePath.wstring()));
 
 		std::wstring line;
 		const Coverage::LineCoverage* previousLineCoverage = nullptr;
