@@ -174,7 +174,8 @@ namespace CppCoverage
 		functionRanges_.clear();
 		functionBranchCache_.clear();
 
-		if (!debugInformationEnumerator_->Enumerate(modulePath, *this))
+		if (!Tools::ValueOrThrow(
+		        debugInformationEnumerator_->Enumerate(modulePath, *this)))
 			return false;
 
 		if (enableLineMerging_)

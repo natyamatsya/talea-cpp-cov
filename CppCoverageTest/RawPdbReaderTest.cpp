@@ -92,7 +92,7 @@ namespace CppCoverageTest
 
 		cov::DebugInformationEnumerator enumerator{{}};
 		DiaCollector dia;
-		ASSERT_TRUE(enumerator.Enumerate(binary, dia));
+		ASSERT_TRUE(enumerator.Enumerate(binary, dia).value());
 
 		EXPECT_EQ(dia.lines_, rawLines);
 	}
@@ -109,7 +109,7 @@ namespace CppCoverageTest
 
 		cov::DebugInformationEnumerator enumerator{{}};
 		DiaCollector dia;
-		ASSERT_TRUE(enumerator.Enumerate(binary, dia));
+		ASSERT_TRUE(enumerator.Enumerate(binary, dia).value());
 
 		std::set<std::pair<int64_t, unsigned long>> rawRanges;
 		for (const auto& f : rawTable.functions_)

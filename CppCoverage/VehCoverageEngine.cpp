@@ -517,7 +517,7 @@ namespace CppCoverage
 			    /*needFunctionNames*/ false,
 			    settings.IsRawPdbEnabled()};
 			ProbeCollector collector{filterManager, modulePath, filterAssistant};
-			if (!enumerator.Enumerate(modulePath, collector))
+			if (!Tools::ValueOrThrow(enumerator.Enumerate(modulePath, collector)))
 				return std::nullopt;
 
 			ModuleProbes probes;

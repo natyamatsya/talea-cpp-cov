@@ -99,7 +99,7 @@ namespace CppCoverageTest
 
 		auto binary = TestCoverageConsole::GetOutputBinaryPath();
 		ASSERT_TRUE(debugInformationEnumerator.Enumerate(
-		    binary, debugInformationHandler));
+		    binary, debugInformationHandler).value());
 
 		auto lineWithDebugInfo = GetLineNumbersWithTag(
 		    debugInformationHandler.selectedFullPath_, L"@DebugInfoExpected");
@@ -153,7 +153,7 @@ namespace CppCoverageTest
 			    {}, needSymbolIndex, cache};
 			RecordingHandler handler;
 			EXPECT_TRUE(enumerator.Enumerate(
-			    TestCoverageConsole::GetOutputBinaryPath(), handler));
+			    TestCoverageConsole::GetOutputBinaryPath(), handler).value());
 			EXPECT_FALSE(handler.files_.empty());
 			return handler;
 		}

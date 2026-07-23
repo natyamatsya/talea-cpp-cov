@@ -262,9 +262,23 @@ namespace CppCoverage
 	}
 
 	//-------------------------------------------------------------------------
-	bool
+	Tools::Expected<bool>
 	DebugInformationEnumerator::Enumerate(const std::filesystem::path& path,
 	                                      IDebugInformationHandler& handler)
+	{
+		try
+		{
+			return EnumerateOrThrow(path, handler);
+		}
+		catch (const std::exception& e)
+		{
+			return std::unexpected(Tools::Error{Tools::LocalToWString(e.what())});
+		}
+	}
+
+	//-------------------------------------------------------------------------
+	bool DebugInformationEnumerator::EnumerateOrThrow(
+	    const std::filesystem::path& path, IDebugInformationHandler& handler)
 	{
 		// The cache is keyed by the PDB's GUID + age (the linker's exact
 		// identity), read from the PE debug directory without loading DIA.

@@ -90,22 +90,20 @@ namespace CppCoverage
 			    modules.begin(),
 			    modules.end(),
 			    [&](const std::filesystem::path& modulePath) {
-				    try
-				    {
-					    DebugInformationEnumerator enumerator{
-					        substitutePaths,
-					        /*needSymbolIndex*/ false,
-					        cache,
-					        /*needFunctionNames*/ false,
-					        /*useRawPdb*/ true,
-					        /*rawPdbOnly*/ true};
-					    PreparseHandler handler;
-					    enumerator.Enumerate(modulePath, handler);
-				    }
-				    catch (...)
-				    {
-					    // Best-effort: the on-load parse handles this module.
-				    }
+				    DebugInformationEnumerator enumerator{
+				        substitutePaths,
+				        /*needSymbolIndex*/ false,
+				        cache,
+				        /*needFunctionNames*/ false,
+				        /*useRawPdb*/ true,
+				        /*rawPdbOnly*/ true};
+				    PreparseHandler handler;
+				    // Best-effort: Enumerate reports a parse failure by value now,
+				    // so a module we cannot pre-parse is simply skipped (the
+				    // on-load parse handles it) without an exception escaping the
+				    // parallel lambda.
+				    [[maybe_unused]] auto parsed =
+				        enumerator.Enumerate(modulePath, handler);
 			    });
 		}
 	}

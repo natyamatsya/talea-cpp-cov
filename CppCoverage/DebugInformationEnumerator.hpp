@@ -24,6 +24,7 @@
 
 #include "CppCoverageExport.hpp"
 #include "SubstitutePdbSourcePath.hpp"
+#include "Tools/Error.hpp"
 
 struct IDiaSession;
 struct IDiaLineNumber;
@@ -103,10 +104,16 @@ namespace CppCoverage
 		    bool needFunctionNames = false,
 		    bool useRawPdb = true,
 		    bool rawPdbOnly = false);
-		bool Enumerate(const std::filesystem::path&,
-		               IDebugInformationHandler&);
+		// Returns whether the module had usable debug information, or a
+		// Tools::Error if the DIA/PDB parse failed. The parser reports failures
+		// by throwing internally; Enumerate adapts that to the Expected boundary.
+		Tools::Expected<bool> Enumerate(const std::filesystem::path&,
+		                                IDebugInformationHandler&);
 
 	  private:
+		bool EnumerateOrThrow(const std::filesystem::path&,
+		                      IDebugInformationHandler&);
+
 		std::shared_ptr<ModuleLineTable>
 		ParseModule(const std::filesystem::path&) const;
 

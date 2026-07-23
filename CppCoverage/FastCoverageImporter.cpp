@@ -762,7 +762,8 @@ namespace CppCoverage
 			        /*lineTableCache*/ nullptr,
 			        /*needFunctionNames*/ true};
 			    ModuleCollector collector{filterManager, modulePath};
-			    if (!enumerator.Enumerate(modulePath, collector))
+			    if (!Tools::ValueOrThrow(
+			            enumerator.Enumerate(modulePath, collector)))
 			    {
 				    LOG_WARNING("Fast coverage: no debug information for {}", modulePath.wstring());
 				    return;
