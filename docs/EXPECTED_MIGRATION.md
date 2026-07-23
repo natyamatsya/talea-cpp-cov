@@ -33,6 +33,28 @@ throw-free; every other caller is bridged, preserving behavior (274/274 tests
 green). `Tools::Regex::Compile`, the leaf conversions, and their callers are the
 model for the remaining phases.
 
+**Phase 2 partially landed** (the two clean `catch` seams from §3, which carry
+the real value):
+
+- **`PathMatcher::Match` → `std::expected<File*, AmbiguousPath>`.** The former
+  `AmbiguousPathException` — the only custom exception carrying structured data
+  (§5 #4) — is deleted; its three paths now travel as the `FileFilter::AmbiguousPath`
+  error value, which `UnifiedDiffCoverageFilter::SearchFile` reads directly (no
+  catch), still surfacing the same ambiguity `std::runtime_error` to its callers.
+- **The OptionsParser path is now throw-free end-to-end.** Internal `Parse` and
+  every validation helper, plus `IOptionParser::ParseOption`/`ExportOptionParser`,
+  return `Tools::Expected`; internal `Parse` returns `Expected<optional<Options>>`
+  (`nullopt` = `--help`) and the public overload consumes it without a catch. The
+  glaze value→`throw`→catch round-trip at the old `:408` is gone — glaze's
+  by-value error becomes `std::unexpected` directly.
+
+Deliberately **not** converted (assessed as low value — `catch→expected` façades
+whose callers only propagate to the top-level handler, so they would relocate
+throws without removing a control-flow-throw or a structured error):
+`UnifiedDiffParser::Parse` and `DebugInformationEnumerator::Enumerate`. They
+remain exception-based; convert them only if a future caller needs to branch on
+their errors.
+
 ## Critical distinction
 
 Two unrelated things are both called "exception" here:
@@ -176,6 +198,6 @@ the old locale-imbue swallow in `Log.cpp` are gone — see below).
 
 **Interaction with in-flight work**
 - **spdlog:** the logging migration is complete — `Tools/Log.cpp` now routes through a process-wide `spdlog::logger` (no boost::log, no locale-imbue swallow). The log-and-continue handler at `OpenCppCoverage.cpp:302` is the only exception site touching logging; independent of the swap.
-- **glaze CLI:** already value-based; Phase 2 removes the single `throw` at `OptionsParser.cpp:408`, making the options path throw-free end-to-end.
+- **glaze CLI:** already value-based; Phase 2 **removed** the single `throw` that used to sit at `OptionsParser.cpp:408`, so the options path is now throw-free end-to-end (see *Implementation status*).
 
 **Totals:** ~104 production throw sites (≈65 recoverable / ≈30 invariant / ≈12 exceptional), ~18 catch clauses (2 top-level, ~3 convert-to-message, ~4 swallow-by-design), across 6 modules; ~25 `*_DLL`-exported throwers, of which the Tools leaf functions, the Exporter binary-format readers, and the FileFilter/OptionsParser parse layer are the recommended first conversions. Zero first-party SEH; the debug-loop and VEH machinery is separate from C++ exceptions and must remain untouched.
