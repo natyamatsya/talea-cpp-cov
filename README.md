@@ -54,7 +54,7 @@ The built-in HTML, Cobertura and binary exporters are unaffected.
 - **Line coverage**.
 - **Branch coverage** (experimental): See [Branch coverage](#branch-coverage-experimental) below.
 - **Run as Visual Studio Plugin**: See [here](https://github.com/OpenCppCoverage/OpenCppCoveragePlugin) for more information.
-- **Jenkins support**: See [here](https://github.com/OpenCppCoverage/OpenCppCoverage/wiki/Jenkins) for more information.
+- **Jenkins support**: See [here](https://github.com/OpenCppCoverage/OpenCppCoverage/wiki/Jenkins) for more information. For unattended runs, a crashing target does not pop a WER dialog — see [Crashing targets and the Windows Error Reporting dialog](#crashing-targets-and-the-windows-error-reporting-dialog).
 - **Support optimized build**.
 - **Exclude a line based on a regular expression**.
 - **Child processes coverage**.
@@ -159,6 +159,38 @@ recursive across the whole process tree; opt out with `--no_cover_children`).
 It is 64-bit only. Pass `--no_veh` to fall back to the classic debugger engine,
 which is slower but additionally re-instruments a DLL that is unloaded and then
 loaded again.
+
+### Crashing targets and the Windows Error Reporting dialog
+
+When a covered process crashes, the two engines differ in what the OS does:
+
+- Under the **debugger engine** (`--no_veh`), a debugger is attached, so the
+  target's unhandled exceptions are delivered to the tool and Windows Error
+  Reporting (WER) never engages.
+- Under the **default VEH engine**, the target runs natively. So that a
+  crashing process cannot pop the "*… has stopped working*" dialog — which
+  would block an unattended run and hide the failure — the tool places the
+  whole target process tree in a [job object](https://learn.microsoft.com/windows/win32/procthread/job-objects)
+  with `JOB_OBJECT_LIMIT_DIE_ON_UNHANDLED_EXCEPTION`. Every process in the tree
+  (the target and, transitively, a test runner's spawned test executables) then
+  terminates *silently* on an unhandled exception, and its exception code
+  surfaces as the exit code, which the tool logs
+  (`the target exited with crash code 0xc0000005…`). Coverage collected up to
+  the fault is still reported.
+
+  This is automatic and needs no machine configuration. It reliably suppresses
+  the dialog for classic unhandled exceptions (access violations and the like).
+  A few failure modes — notably `__fastfail` (`0xC0000409`, e.g. a `/GS`
+  stack-cookie check or a CRT fatal error) — can still reach WER on some Windows
+  builds despite the job. For a hard guarantee on an **unattended CI runner**,
+  also disable the WER UI machine-wide once, in
+  `HKLM\SOFTWARE\Microsoft\Windows\Windows Error Reporting`:
+
+  - `DontShowUI` = `1` (DWORD) — WER never shows a dialog; faults are handled
+    silently and the exit code still propagates.
+  - Optionally add a `LocalDumps` subkey (`DumpFolder`, `DumpType` = `2` for a
+    full dump) to capture crash dumps to a folder for post-mortem instead of
+    losing them.
 
 ### Compiler-instrumentation fast mode (experimental)
 

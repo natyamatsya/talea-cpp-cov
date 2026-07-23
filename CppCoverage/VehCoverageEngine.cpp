@@ -1247,6 +1247,44 @@ namespace CppCoverage
 		}
 
 		//---------------------------------------------------------------------
+		// A job that suppresses the Windows Error Reporting dialog for the
+		// whole target process tree. The debugger engine never triggers WER
+		// (an attached debugger takes the target's unhandled exceptions); the
+		// VEH engine runs the target natively, so a crashing test would raise
+		// the "stopped working" box - blocking an unattended run and hiding
+		// the failure behind a dialog. JOB_OBJECT_LIMIT_DIE_ON_UNHANDLED_
+		// EXCEPTION forces SEM_NOGPFAULTERRORBOX on every process in the job,
+		// so a crash terminates silently and its exception code surfaces as
+		// the exit code (which ctest and this engine log). Child processes
+		// inherit job membership, so ctest's spawned test exes are covered.
+		//
+		// Returns the job handle (assign the root process to it before
+		// resuming), or null if job setup failed - in which case the run
+		// still proceeds, just without dialog suppression.
+		HANDLE CreateNoWerDialogJob()
+		{
+			HANDLE job = CreateJobObjectW(nullptr, nullptr);
+			if (!job)
+				return nullptr;
+
+			JOBOBJECT_EXTENDED_LIMIT_INFORMATION info{};
+			info.BasicLimitInformation.LimitFlags =
+			    JOB_OBJECT_LIMIT_DIE_ON_UNHANDLED_EXCEPTION;
+			// Deliberately NOT KILL_ON_JOB_CLOSE: children are read back for
+			// coverage after they exit on their own; the job only shapes
+			// error handling, it must not reap live processes.
+			if (!SetInformationJobObject(job,
+			                             JobObjectExtendedLimitInformation,
+			                             &info,
+			                             sizeof(info)))
+			{
+				CloseHandle(job);
+				return nullptr;
+			}
+			return job;
+		}
+
+		//---------------------------------------------------------------------
 		// Sets up a child the parent's hook force-suspended: compute its probes
 		// offline, lay out its shared section, and inject the helper into the
 		// still-suspended child. When coverChildren is set the child gets its
@@ -1552,6 +1590,19 @@ namespace CppCoverage
 		UniqueHandle processHandle{processInfo.hProcess};
 		UniqueHandle threadHandle{processInfo.hThread};
 
+		// Suppress the WER crash dialog for the whole tree before the target
+		// runs a single instruction (it is CREATE_SUSPENDED). Best-effort:
+		// keep the job handle alive for the run's duration by holding it in
+		// scope; assignment failure is non-fatal.
+		UniqueHandle werJob{CreateNoWerDialogJob()};
+		if (werJob && !AssignProcessToJobObject(werJob.get(),
+		                                        processHandle.get()))
+		{
+			LOG_WARNING("VEH: could not suppress the crash-report dialog for "
+			            "the target; a crashing child may show a WER box.");
+			werJob.reset();
+		}
+
 		if (!Is64BitProcess(processHandle.get()))
 		{
 			TerminateProcess(processHandle.get(), 1);
@@ -1653,6 +1704,18 @@ namespace CppCoverage
 
 		DWORD exitCode = 0;
 		GetExitCodeProcess(processHandle.get(), &exitCode);
+
+		// A crash exit code is now silent at the OS level (the WER dialog is
+		// suppressed), so surface it in the log - the run must never hide a
+		// target that died. The high bit marks NTSTATUS failure codes
+		// (0xC0000005 access violation, 0xC0000409 fast-fail, ...).
+		if ((exitCode & 0xC0000000u) == 0xC0000000u)
+		{
+			LOG_WARNING(
+			    "VEH: the target exited with crash code {:#010x}; its coverage "
+			    "up to the fault is included.",
+			    exitCode);
+		}
 
 		ExecutedAddressManager manager;
 		std::vector<BranchResult> branchResults;
