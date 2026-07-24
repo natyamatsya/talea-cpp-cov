@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# OpenCppCoverage is an open source code coverage for C++.
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 natyamatsya and talea-cpp-cov contributors
 #
 # log_parity.py -- regression gate for the boost-log -> spdlog conversion.
 #
