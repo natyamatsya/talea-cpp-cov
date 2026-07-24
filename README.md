@@ -8,14 +8,16 @@ talea-cpp-cov is a code coverage tool for C++ on Windows.
 The main usage is unit-testing coverage, but you can also use it to see the executed lines in a program for debugging.
 
 ---------------------
-## Fork status: experimental, for private usage
+## Fork status: experimental & unsupported
 
 This is a personal fork of the archived
 [OpenCppCoverage/OpenCppCoverage](https://github.com/OpenCppCoverage/OpenCppCoverage)
 project, which is no longer maintained by its original author.
 
-It exists to experiment with features I need myself — currently
-[branch coverage](#branch-coverage-experimental). Please note:
+The code and releases are public so anyone can use them, but it is developed for
+my own use — to experiment with features I need, currently
+[branch coverage](#branch-coverage-experimental) — and is **not** run as a
+community project. Please note:
 
 * this fork is **not** a community successor of the original project;
 * there are no plans for serious maintenance or support;
