@@ -2,7 +2,7 @@
 # port installs no CMake config, so a find module is required) and provides
 # the imported target ctemplate::ctemplate.
 #
-# Consumers must define CTEMPLATE_DLL_DECL= (empty); occ_defaults does.
+# Consumers must define CTEMPLATE_DLL_DECL= (empty); talea_defaults does.
 
 find_path(ctemplate_INCLUDE_DIR ctemplate/template.h)
 find_library(ctemplate_LIBRARY NAMES libctemplate ctemplate)

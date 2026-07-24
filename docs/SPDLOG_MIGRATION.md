@@ -39,7 +39,7 @@ configured in `Tools.dll` would silently miss lines emitted elsewhere.
   *(leaks a boost type)*, `EnableLogger(bool)`,
   `InitLoggerOstream(boost::shared_ptr<std::ostringstream>)` *(leaks a boost type;
   a test captures error output through it)*.
-- Callers: `OpenCppCoverage.cpp` (init + severity from `--verbose/--quiet`) and
+- Callers: `talea-cpp-cov.cpp` (init + severity from `--verbose/--quiet`) and
   three test files.
 
 ## End state
@@ -123,8 +123,8 @@ Batch = one file (or a small module). Per batch, in order:
    moving on.
 
 Suggested order: leaf modules with the simplest lines first (`Tools`,
-`FileFilter`), then `Exporter`, then `CppCoverage` (the bulk), then
-`OpenCppCoverage`. ~5–10 sites per batch keeps each parity diff trivial to reason
+`FileFilter`), then `Exporter`, then `TaleaCppCov` (the bulk), then
+`talea-cpp-cov`. ~5–10 sites per batch keeps each parity diff trivial to reason
 about.
 
 ## Phase final — remove the bridge

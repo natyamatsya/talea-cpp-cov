@@ -3,9 +3,9 @@ add_executable(Benchmarks
 	CoverageDataBenchmark.cpp
 	main.cpp)
 
-occ_apply_conventions(Benchmarks)
+talea_apply_conventions(Benchmarks)
 # shlwapi: required by the statically linked google-benchmark.
 target_link_libraries(Benchmarks PRIVATE
 	benchmark::benchmark fmt::fmt
-	occ::CppCoverage occ::Exporter occ::Coverage occ::Tools
-	shlwapi occ_mimalloc)
+	talea::TaleaCppCov talea::Exporter talea::Coverage talea::Tools
+	shlwapi talea_mimalloc)

@@ -3,7 +3,7 @@
 #
 # log_parity.py -- regression gate for the boost-log -> spdlog conversion.
 #
-# `capture` runs OpenCppCoverage over a fixed target at --verbose, then
+# `capture` runs talea-cpp-cov over a fixed target at --verbose, then
 # normalizes the volatile parts of LastCoverageResults.log (timestamps, pids,
 # addresses, durations) and writes the result to a snapshot file. Convert a
 # batch of LOG_* sites between two captures and `compare` them: the destination
@@ -38,7 +38,7 @@ def normalize(text: str) -> str:
 
 def capture(exe: pathlib.Path, target: pathlib.Path, out: pathlib.Path,
             sort: bool) -> int:
-    workdir = pathlib.Path(tempfile.mkdtemp(prefix="occ_parity_"))
+    workdir = pathlib.Path(tempfile.mkdtemp(prefix="talea_parity_"))
     cobertura = workdir / "cov.xml"
     cmd = [str(exe), "--verbose", "--export_type",
            f"cobertura:{cobertura}", "--", str(target)]

@@ -1,21 +1,21 @@
-# Porting OpenClover coverage statistics & painting to OpenCppCoverage
+# Porting OpenClover coverage statistics & painting to talea-cpp-cov
 
 > Design exploration — not a commitment. Grounds every claim in the source
 > checkouts under `inspiration/` (all git-ignored, local reference only):
 > `inspiration/openclover/clover` (OpenClover 5.x), `inspiration/jenkins-ci/coverage-model`
 > (the Jenkins Coverage plugin's parser library), and
-> `inspiration/OpenCppCoveragePlugin` (the Visual Studio plugin).
+> `inspiration/talea-cpp-covPlugin` (the Visual Studio plugin).
 
 ## 1. Goal
 
 The original Clover — especially its Eclipse source painting — was unusually
 pleasant to read. This document explores which of OpenClover's **coverage
 statistics** and **source-painting styles** could realistically be brought to
-OpenCppCoverage's outputs, evaluated against the two consumers named in the
+talea-cpp-cov's outputs, evaluated against the two consumers named in the
 brief: the **Jenkins Coverage plugin** and the **Visual Studio plugin** — plus
 the two surfaces we fully control (our **Cobertura** and **HTML** exporters).
 
-The key framing: OpenCppCoverage produces *data*; the *painting* happens in
+The key framing: talea-cpp-cov produces *data*; the *painting* happens in
 consumers. So most "port the visuals" work is really **"emit richer data so the
 consumers can paint it,"** plus enhancing our own HTML exporter, which is the
 one painter we own end to end.
@@ -41,7 +41,7 @@ our partial-branch fidelity. No work recommended here beyond what §5 adds to
 Cobertura.
 
 ### 2.2 Visual Studio — the old plugin is dead, but VS 2026 ships coverage
-The legacy `OpenCppCoverage/OpenCppCoveragePlugin` is **GitHub-archived**
+The legacy `talea-cpp-cov/talea-cpp-covPlugin` is **GitHub-archived**
 (`isArchived: true`); real development stopped in **2020** (96 commits in 2016 →
 15 in 2020 → nothing but a 2026 archival README), and it targets VS2013–2017
 packaging. Mechanically it showed a **coverage-tree tool window**
@@ -63,7 +63,7 @@ Because **we already emit Cobertura**, this is now the **primary, first-party VS
 path** — no plugin required:
 
 ```
-OpenCppCoverage --export_type cobertura:cov.xml -- app.exe
+talea-cpp-cov --export_type cobertura:cov.xml -- app.exe
 dotnet-coverage merge -o cov.coverage -f coverage cov.xml   # binary the IDE opens
 ```
 
@@ -116,7 +116,7 @@ of `getPcCoveredElements() = coveredElements/elements`
   `coveredByTestUniq` per-test shading. Plus a rich dashboard: sortable metric
   tables, a **treemap**, coverage "clouds", and **historical trend** pages.
 
-## 4. What OpenCppCoverage produces today (baseline)
+## 4. What talea-cpp-cov produces today (baseline)
 
 - **Data model**: boolean line coverage (`LineCoverage.HasBeenExecuted`) +
   per-line branch outcomes (`BranchCoverage` true/false), from the debugger, VEH,

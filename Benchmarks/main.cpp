@@ -16,7 +16,7 @@
 
 // When built with -DOCC_MIMALLOC=ON, override global new/delete with mimalloc so
 // the benchmarks measure allocation under mimalloc; a no-op when off.
-#ifdef OCC_USE_MIMALLOC
+#ifdef TALEA_USE_MIMALLOC
 #include <mimalloc-new-delete.h>
 #endif
 

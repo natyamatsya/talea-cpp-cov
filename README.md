@@ -1,4 +1,4 @@
-# OpenCppCoverage (experimental fork)
+# talea-cpp-cov (experimental fork)
 
 OpenCppCoverage is an open source code coverage tool for C++ under Windows.
 
@@ -29,7 +29,7 @@ Beyond the coverage features below, this fork has modernized the project:
 
 * **CMake + Ninja build** replacing the MSBuild solution, with presets for both
   MSVC (`cl.exe`) and `clang-cl.exe` — see [Building from source](#building-from-source).
-* **Single self-contained executable** — `OpenCppCoverage.exe` links every
+* **Single self-contained executable** — `talea-cpp-cov.exe` links every
   dependency and the C runtime statically, so it ships as one file with no
   side-by-side DLLs and no Visual C++ redistributable; its only dependencies are
   Windows system libraries.
@@ -49,7 +49,7 @@ The built-in HTML, Cobertura and binary exporters are unaffected.
 ---------------------
 ## Features:
 - **Visual Studio support**: Support compiler with program database file (.pdb).
-- **Non intrusive**: Just run your program with OpenCppCoverage, no need to recompile your application.
+- **Non intrusive**: Just run your program with talea-cpp-cov, no need to recompile your application.
 - **HTML reporting**
 - **Line coverage**.
 - **Branch coverage** (experimental): See [Branch coverage](#branch-coverage-experimental) below.
@@ -104,12 +104,12 @@ Notes:
   itself is unchanged.
 
 ## Download
-OpenCppCoverage can be downloaded from [here](../../releases).
+talea-cpp-cov can be downloaded from [here](../../releases).
 
 ## Usage
 You can simply run the following command:
 
-```OpenCppCoverage.exe --sources MySourcePath* -- YourProgram.exe arg1 arg2```
+```talea-cpp-cov.exe --sources MySourcePath* -- YourProgram.exe arg1 arg2```
 
 For example, *MySourcePath* can be *MyProject*, if your sources are located in *C:\Dev\MyProject*.
 
@@ -118,7 +118,7 @@ You can also have a look at [Command-line reference](https://github.com/OpenCppC
 
 ### PDB line-table cache
 
-Parsed PDB line tables are cached under `%LOCALAPPDATA%\OpenCppCoverage\PdbCache`,
+Parsed PDB line tables are cached under `%LOCALAPPDATA%\talea-cpp-cov\PdbCache`,
 keyed by the PDB's GUID and age (the linker's exact identity), so repeated runs
 against unchanged binaries skip the debug-information parse entirely. A relink
 changes the key, so the cache can never return stale data. Use `--no_pdb_cache`
@@ -252,12 +252,12 @@ benchmarks, and the columnar `.cov` aggregation format, see
 
 ## Branch coverage (experimental)
 
-In addition to line coverage, OpenCppCoverage can measure branch coverage: for every
+In addition to line coverage, talea-cpp-cov can measure branch coverage: for every
 conditional jump, it records whether the branch was taken, not taken, or both.
 Branch coverage is disabled by default and enabled with `--branch_coverage`:
 
 ```
-OpenCppCoverage.exe --branch_coverage --sources MySourcePath* --export_type cobertura:coverage.xml -- YourProgram.exe
+talea-cpp-cov.exe --branch_coverage --sources MySourcePath* --export_type cobertura:coverage.xml -- YourProgram.exe
 ```
 
 ### How it works

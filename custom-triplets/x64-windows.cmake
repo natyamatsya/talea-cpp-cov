@@ -1,6 +1,6 @@
 # Overlay of the built-in x64-windows triplet: fully static.
 #
-# OpenCppCoverage.exe is a single, self-contained static executable - all of
+# talea-cpp-cov.exe is a single, self-contained static executable - all of
 # our own libraries are static, the CRT is static (/MT), and every vcpkg
 # dependency is linked statically with the static CRT too. This removes the
 # Visual C++ redistributable requirement and ships the tool as one file.

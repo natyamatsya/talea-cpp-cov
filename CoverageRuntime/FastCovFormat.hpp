@@ -19,7 +19,7 @@
 #include <cstdint>
 
 // On-disk format of a "fast mode" coverage dump, written by the runtime that
-// the instrumented target links (see OpenCppCoverageFastCov.cpp) and read by
+// the instrumented target links (see TaleaCppCovAppFastCov.cpp) and read by
 // the host-side importer.
 //
 // The target is built with clang-cl -fsanitize-coverage=inline-8bit-counters,
@@ -40,7 +40,7 @@ namespace FastCov
 
 	// The environment variable the host sets to tell the runtime where to write
 	// the dump. When unset, the runtime writes nothing.
-	constexpr const wchar_t* OutputPathEnvVar = L"OPENCPPCOVERAGE_FASTCOV_OUTPUT";
+	constexpr const wchar_t* OutputPathEnvVar = L"TALEA_CPP_COV_FASTCOV_OUTPUT";
 
 #pragma pack(push, 1)
 	struct DumpHeader

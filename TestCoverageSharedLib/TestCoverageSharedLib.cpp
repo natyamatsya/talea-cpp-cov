@@ -1,4 +1,4 @@
-// DllForCppCoverageTest.cpp : Defines the entry point for the application.
+// DllForTaleaCppCovTest.cpp : Defines the entry point for the application.
 //
 
 // OpenCppCoverage is an open source code coverage for C++.

@@ -19,9 +19,9 @@
 #include <cstdint>
 
 #include "Coverage/FileCoverage.hpp"
-#include "CppCoverage/CppCoverageException.hpp"
+#include "TaleaCppCov/TaleaCppCovException.hpp"
 
-namespace cov = CppCoverage;
+namespace cov = TaleaCppCov;
 
 namespace CoverageTest
 {

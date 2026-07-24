@@ -19,7 +19,7 @@
 
 #include <vector>
 
-#include "CppCoverage/BranchDisassembler.hpp"
+#include "TaleaCppCov/BranchDisassembler.hpp"
 
 namespace
 {
@@ -44,7 +44,7 @@ namespace
 	//-------------------------------------------------------------------------
 	void FindConditionalBranches(benchmark::State& state)
 	{
-		CppCoverage::BranchDisassembler disassembler{true};
+		TaleaCppCov::BranchDisassembler disassembler{true};
 		auto buffer = CreateCodeBuffer(static_cast<size_t>(state.range(0)));
 
 		for (auto _ : state)

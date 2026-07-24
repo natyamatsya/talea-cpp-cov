@@ -12,9 +12,9 @@ add_library(Tools STATIC
 	UniquePath.cpp
 	WarningManager.cpp
 	dllmain.cpp)
-add_library(occ::Tools ALIAS Tools)
+add_library(talea::Tools ALIAS Tools)
 
-occ_apply_conventions(Tools)
+talea_apply_conventions(Tools)
 target_compile_definitions(Tools PRIVATE TOOLS_EXPORTS)
 # fmt/spdlog are PUBLIC because Log.hpp exposes them to every consumer; both
 # are linked statically into Tools.dll per the custom vcpkg triplet.

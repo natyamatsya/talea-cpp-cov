@@ -1,5 +1,5 @@
 {
-  "name": "opencppcoverage",
+  "name": "talea-cpp-cov",
   "version-string": "0.9.9.0",
   "builtin-baseline": "07425ae85e730721ba2deeb55937be1498a7115a",
   "dependencies": [

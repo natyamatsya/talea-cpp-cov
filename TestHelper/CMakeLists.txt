@@ -6,11 +6,11 @@ add_library(TestHelper STATIC
 	CoverageDataComparer.cpp
 	TemporaryPath.cpp
 	Tools.cpp)
-add_library(occ::TestHelper ALIAS TestHelper)
+add_library(talea::TestHelper ALIAS TestHelper)
 
-occ_apply_conventions(TestHelper)
+talea_apply_conventions(TestHelper)
 target_link_libraries(TestHelper
-	PUBLIC occ_gtest occ::Coverage occ::Tools)
+	PUBLIC talea_gtest talea::Coverage talea::Tools)
 
 target_precompile_headers(TestHelper PRIVATE stdafx.h)
 
@@ -25,4 +25,4 @@ add_library(TestUnloadHelper SHARED TestUnloadHelper.cpp)
 set_target_properties(TestUnloadHelper PROPERTIES
 	RUNTIME_OUTPUT_NAME TestHelper
 	ARCHIVE_OUTPUT_NAME TestUnloadHelper)
-occ_apply_conventions(TestUnloadHelper)
+talea_apply_conventions(TestUnloadHelper)

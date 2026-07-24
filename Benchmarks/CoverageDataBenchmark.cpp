@@ -32,9 +32,9 @@
 #include "Coverage/ModuleCoverage.hpp"
 #include "Coverage/FileCoverage.hpp"
 #include "Coverage/LineCoverage.hpp"
-#include "CppCoverage/CoverageDataMerger.hpp"
-#include "CppCoverage/RawPdbReader.hpp"
-#include "CppCoverage/PdbLineTableCache.hpp"
+#include "TaleaCppCov/CoverageDataMerger.hpp"
+#include "TaleaCppCov/RawPdbReader.hpp"
+#include "TaleaCppCov/PdbLineTableCache.hpp"
 #include "Exporter/Binary/CoverageDataSerializer.hpp"
 #include "Exporter/Binary/CoverageDataDeserializer.hpp"
 #include "Exporter/Binary/ColumnarCoverage.hpp"
@@ -86,7 +86,7 @@ namespace
 		for (auto _ : state)
 		{
 			auto merged =
-			    CppCoverage::CoverageDataMerger{}.Merge(coverageDataCollection);
+			    TaleaCppCov::CoverageDataMerger{}.Merge(coverageDataCollection);
 			benchmark::DoNotOptimize(merged);
 		}
 	}
@@ -96,7 +96,7 @@ namespace
 	{
 		auto coverageData = CreateCoverageData();
 		auto path = std::filesystem::temp_directory_path() /
-		            "OpenCppCoverageBenchmark.cov";
+		            "TaleaCppCovAppBenchmark.cov";
 
 		for (auto _ : state)
 		{
@@ -116,7 +116,7 @@ namespace
 	{
 		auto coverageData = CreateCoverageData();
 		auto path = std::filesystem::temp_directory_path() /
-		            "OpenCppCoverageColumnarBenchmark.cov";
+		            "TaleaCppCovAppColumnarBenchmark.cov";
 		// The serializer writes the columnar v2 format.
 		Exporter::CoverageDataSerializer{}.Serialize(coverageData, path);
 
@@ -238,23 +238,23 @@ namespace
 	//-------------------------------------------------------------------------
 	// Cold PDB line-table parse: the dominant per-module startup cost, and the
 	// raw_pdb reader is the default collection path (--no_raw_pdb falls back to
-	// DIA). Parses CppCoverage.dll's own PDB - a large, representative module -
+	// DIA). Parses TaleaCppCov.dll's own PDB - a large, representative module -
 	// fresh each iteration. The OS keeps the file warm, so this measures parse
 	// CPU, not disk I/O.
 	void ParsePdbRawPdb(benchmark::State& state)
 	{
-		const auto module = std::filesystem::path{OUT_DIR} / L"CppCoverage.dll";
+		const auto module = std::filesystem::path{OUT_DIR} / L"TaleaCppCov.dll";
 		if (!std::filesystem::exists(module))
 		{
-			state.SkipWithError("CppCoverage.dll not found next to the benchmark");
+			state.SkipWithError("TaleaCppCov.dll not found next to the benchmark");
 			return;
 		}
 
 		std::size_t fileCount = 0;
 		for (auto _ : state)
 		{
-			CppCoverage::ModuleLineTable table;
-			if (!CppCoverage::RawPdbReader::TryRead(module, table))
+			TaleaCppCov::ModuleLineTable table;
+			if (!TaleaCppCov::RawPdbReader::TryRead(module, table))
 			{
 				state.SkipWithError("RawPdbReader::TryRead failed");
 				return;

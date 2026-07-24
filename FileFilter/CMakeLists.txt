@@ -6,11 +6,11 @@ add_library(FileFilter STATIC
 	RelocationsExtractor.cpp
 	UnifiedDiffCoverageFilter.cpp
 	UnifiedDiffParser.cpp)
-add_library(occ::FileFilter ALIAS FileFilter)
+add_library(talea::FileFilter ALIAS FileFilter)
 
-occ_apply_conventions(FileFilter)
+talea_apply_conventions(FileFilter)
 target_compile_definitions(FileFilter PRIVATE FILEFILTER_EXPORTS)
 target_link_libraries(FileFilter
-	PUBLIC occ::Tools)
+	PUBLIC talea::Tools)
 
 target_precompile_headers(FileFilter PRIVATE stdafx.h)

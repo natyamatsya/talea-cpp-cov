@@ -19,7 +19,7 @@
 #include <cstddef>
 #include <cstdint>
 
-// Shared contract between the OpenCppCoverage host and the injected VEH
+// Shared contract between the TaleaCppCovApp host and the injected VEH
 // helper DLL. Header-only, no dependencies, so the helper stays a tiny
 // self-contained DLL.
 //
@@ -114,9 +114,9 @@ namespace VehCoverage
 	// followed by the *spawning* process's decimal pid (so a process's own
 	// helper and the host agree on the names without another channel).
 	constexpr const wchar_t* ChildPendingEventPrefix =
-	    L"Local\\OpenCppCoverageVehChildPending_";
+	    L"Local\\TaleaCppCovAppVehChildPending_";
 	constexpr const wchar_t* ChildReadyEventPrefix =
-	    L"Local\\OpenCppCoverageVehChildReady_";
+	    L"Local\\TaleaCppCovAppVehChildReady_";
 
 	//-------------------------------------------------------------------------
 	// ASCII lowercase, used by both host and helper so module base names match
@@ -188,5 +188,5 @@ namespace VehCoverage
 	// session). Both sides derive the same name from the pid, so no other
 	// channel is needed to hand it over.
 	constexpr const wchar_t* MappingNamePrefix =
-	    L"Local\\OpenCppCoverageVeh_";
+	    L"Local\\TaleaCppCovAppVeh_";
 }

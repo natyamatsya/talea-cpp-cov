@@ -3,8 +3,8 @@ add_executable(CoverageTest
 	FileCoverageTest.cpp
 	CoverageTest.cpp)
 
-occ_apply_conventions(CoverageTest)
-target_link_libraries(CoverageTest PRIVATE occ_gtest occ::Coverage)
+talea_apply_conventions(CoverageTest)
+target_link_libraries(CoverageTest PRIVATE talea_gtest talea::Coverage)
 
 target_precompile_headers(CoverageTest PRIVATE pch.h)
-occ_register_tests(CoverageTest)
+talea_register_tests(CoverageTest)

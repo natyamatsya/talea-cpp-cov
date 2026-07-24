@@ -3,9 +3,9 @@
 # relocation handling; do not "fix" this.
 add_library(TestCoverageOptimizedBuild SHARED
 	TestCoverageOptimizedBuild.cpp)
-add_library(occ::TestCoverageOptimizedBuild ALIAS TestCoverageOptimizedBuild)
+add_library(talea::TestCoverageOptimizedBuild ALIAS TestCoverageOptimizedBuild)
 
-occ_apply_conventions(TestCoverageOptimizedBuild NO_DEFAULT_OPTIMIZATION)
+talea_apply_conventions(TestCoverageOptimizedBuild NO_DEFAULT_OPTIMIZATION)
 target_compile_definitions(TestCoverageOptimizedBuild PRIVATE
 	TESTCOVERAGERELEASELIB_EXPORTS)
 target_compile_options(TestCoverageOptimizedBuild PRIVATE /O2 /Ob2 /Oi /Gy

@@ -10,9 +10,9 @@ add_library(Exporter STATIC
 	Html/HtmlFolderStructure.cpp
 	Html/TemplateHtmlExporter.cpp
 	InvalidOutputFileException.cpp)
-add_library(occ::Exporter ALIAS Exporter)
+add_library(talea::Exporter ALIAS Exporter)
 
-occ_apply_conventions(Exporter)
+talea_apply_conventions(Exporter)
 target_compile_definitions(Exporter PRIVATE
 	EXPORTER_EXPORTS
 	_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING)
@@ -20,7 +20,7 @@ target_compile_options(Exporter PRIVATE /wd4251)
 # ctemplate is PUBLIC: Html/TemplateHtmlExporter.hpp exposes it to consumers
 # (ExporterTest instantiates ctemplate symbols directly).
 target_link_libraries(Exporter
-	PUBLIC occ::CppCoverage occ::Coverage occ::Tools ctemplate::ctemplate
+	PUBLIC talea::TaleaCppCov talea::Coverage talea::Tools ctemplate::ctemplate
 	PRIVATE fmt::fmt)
 
 target_precompile_headers(Exporter PRIVATE stdafx.h)

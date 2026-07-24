@@ -2,9 +2,9 @@
 # line coverage stays deterministic; do not "fix" this.
 add_library(TestCoverageSharedLib SHARED
 	TestCoverageSharedLib.cpp)
-add_library(occ::TestCoverageSharedLib ALIAS TestCoverageSharedLib)
+add_library(talea::TestCoverageSharedLib ALIAS TestCoverageSharedLib)
 
-occ_apply_conventions(TestCoverageSharedLib NO_DEFAULT_OPTIMIZATION)
+talea_apply_conventions(TestCoverageSharedLib NO_DEFAULT_OPTIMIZATION)
 target_compile_options(TestCoverageSharedLib PRIVATE
 	$<$<CONFIG:Debug>:/Od /Ob0>
 	$<$<AND:$<CONFIG:Debug>,$<CXX_COMPILER_ID:MSVC>>:/JMC>

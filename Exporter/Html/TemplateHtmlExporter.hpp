@@ -23,7 +23,7 @@
 
 #include "../ExporterExport.hpp"
 
-namespace CppCoverage
+namespace TaleaCppCov
 {
 	class CoverageRate;
 }
@@ -62,8 +62,8 @@ namespace Exporter
 		static const std::string CodeTemplate;
 		static const std::string IdTemplate;
 		static const std::string ThirdPartyPathTemplate;
-		static const std::string OCCProjectLink;
-		static const std::string OCCVersion;
+		static const std::string TaleaProjectLink;
+		static const std::string TaleaVersion;
 		static const std::string ActualProjectLink;
 
 	public:
@@ -76,14 +76,14 @@ namespace Exporter
 
 		void AddFileSectionToDictionary(
 			const fs::path& originalFilename,
-			const CppCoverage::CoverageRate& coverageRate,
+			const TaleaCppCov::CoverageRate& coverageRate,
 			bool isSimpleText,
 			const fs::path* fileOutput,
 			ctemplate::TemplateDictionary& moduleTemplateDictionary);
 
 		void AddModuleSectionToDictionary(
 			const fs::path& originalFilename,
-			const CppCoverage::CoverageRate& coverageRate,
+			const TaleaCppCov::CoverageRate& coverageRate,
 			bool isSimpleText,
 			const fs::path* moduleOutput,
 			ctemplate::TemplateDictionary& projectDictionary);
@@ -110,7 +110,7 @@ namespace Exporter
 			ctemplate::TemplateDictionary&,
 			bool isSimpleText,
 			const fs::path* link,
-			const CppCoverage::CoverageRate&,
+			const TaleaCppCov::CoverageRate&,
 			const fs::path& originalFilename);
 
 	private:

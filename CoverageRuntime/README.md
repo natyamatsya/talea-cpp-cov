@@ -1,10 +1,10 @@
-# OpenCppCoverage instrumentation runtime
+# talea-cpp-cov instrumentation runtime
 
 This is the compiler-instrumentation collection path (`--engine
 instrumentation`), the standard path for whole test suites and CI. Instead of
 trapping on breakpoints, the target is compiled so that each basic block
 increments an inline counter — no debugger, no per-hit kernel round trip — and
-a small runtime writes the counters out at exit. OpenCppCoverage then maps them
+a small runtime writes the counters out at exit. talea-cpp-cov then maps them
 back to source lines (and template instantiations) through the PDB. Collection
 runs at native speed, independent of execution count, which is what makes it
 the scalable choice for large suites.
@@ -16,7 +16,7 @@ instead (`--engine breakpoint` / `--engine debugger`). The instrumentation
 engine is architecture-agnostic — the same flags target x64 and ARM64.
 
 **Two toolchains are supported**, each with its own runtime source file:
-`OpenCppCoverageFastCov.cpp` for clang-cl and `OpenCppCoverageFastCovMsvc.cpp`
+`talea-cpp-cov-fastcov.cpp` for clang-cl and `talea-cpp-cov-fastcov-msvc.cpp`
 for MSVC (`cl.exe`). Pick the one matching your compiler.
 
 ## Building with clang-cl
@@ -32,10 +32,10 @@ REM instrumented code
 clang-cl -fsanitize-coverage=inline-8bit-counters,pc-table /Zi /O2 /c your_code.cpp
 
 REM the clang runtime, NOT instrumented
-clang-cl /Zi /O2 /c path\to\OpenCppCoverageFastCov.cpp
+clang-cl /Zi /O2 /c path\to\talea-cpp-cov-fastcov.cpp
 
 REM link with lld
-clang-cl your_code.obj OpenCppCoverageFastCov.obj -fuse-ld=lld /Fe:your_app.exe /link /DEBUG
+clang-cl your_code.obj talea-cpp-cov-fastcov.obj -fuse-ld=lld /Fe:your_app.exe /link /DEBUG
 ```
 
 `clang-cl` and `lld` ship with Visual Studio's "C++ Clang tools for Windows"
@@ -52,10 +52,10 @@ REM instrumented code
 cl /fsanitize-coverage=inline-8bit-counters /Zi /O2 /c your_code.cpp
 
 REM the MSVC runtime, NOT instrumented
-cl /Zi /O2 /c path\to\OpenCppCoverageFastCovMsvc.cpp
+cl /Zi /O2 /c path\to\talea-cpp-cov-fastcov-msvc.cpp
 
 REM ordinary MSVC link
-link /DEBUG your_code.obj OpenCppCoverageFastCovMsvc.obj /OUT:your_app.exe
+link /DEBUG your_code.obj talea-cpp-cov-fastcov-msvc.obj /OUT:your_app.exe
 ```
 
 Because MSVC omits the PC table, the importer recovers each counter's block
@@ -89,10 +89,10 @@ executable. Two things to note when instrumenting a DLL:
 ```
 REM instrumented DLL: link the runtime for the anchor
 cl /fsanitize-coverage=inline-8bit-counters /Zi /O2 /c your_lib.cpp
-link /DLL /DEBUG your_lib.obj OpenCppCoverageFastCovMsvc.obj /OUT:your_lib.dll
+link /DLL /DEBUG your_lib.obj talea-cpp-cov-fastcov-msvc.obj /OUT:your_lib.dll
 
 REM the executable links the runtime as well; its copy writes the dump
-link /DEBUG your_app.obj OpenCppCoverageFastCovMsvc.obj your_lib.lib /OUT:your_app.exe
+link /DEBUG your_app.obj talea-cpp-cov-fastcov-msvc.obj your_lib.lib /OUT:your_app.exe
 ```
 
 A module with a `.sancov` section but no PDB is skipped by the importer; system
@@ -100,14 +100,14 @@ and uninstrumented DLLs have no such section and are ignored.
 
 ## Running and importing
 
-Set `OPENCPPCOVERAGE_FASTCOV_OUTPUT` to the dump path before running the target,
+Set `TALEA_CPP_COV_FASTCOV_OUTPUT` to the dump path before running the target,
 then import the dump:
 
 ```
-set OPENCPPCOVERAGE_FASTCOV_OUTPUT=coverage.fastcov
+set TALEA_CPP_COV_FASTCOV_OUTPUT=coverage.fastcov
 your_app.exe
 
-OpenCppCoverage --sources MySource* --input_fastcov coverage.fastcov ^
+talea-cpp-cov --sources MySource* --input_fastcov coverage.fastcov ^
                --fastcov_template_report templates.md ^
                --export_type cobertura:coverage.xml
 ```

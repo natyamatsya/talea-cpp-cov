@@ -6,7 +6,7 @@
 > rendered against source. Captured here so the analysis isn't lost; nothing
 > below is scheduled.
 
-OpenCppCoverage today maps coverage back to **source** (cobertura / HTML / line
+talea-cpp-cov today maps coverage back to **source** (cobertura / HTML / line
 %, branch taken-or-not). A separate audience consumes coverage at the **binary**
 level — basic blocks and edges over the disassembly, or raw execution feedback.
 Supporting them is a real opportunity, but it is orthogonal to the source-level
@@ -46,7 +46,7 @@ Edge / hit-count / block coverage has three distinct consumers, and only one is
 
 ## 2. Option A — drcov exporter (the cheap, high-value path)
 
-**Goal:** view OpenCppCoverage results in Lighthouse / Ghidra (Cartographer) /
+**Goal:** view talea-cpp-cov results in Lighthouse / Ghidra (Cartographer) /
 Binary Ninja (bncov).
 
 **Key point: this needs no rewriter.** The debugger and VEH engines already know

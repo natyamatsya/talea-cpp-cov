@@ -27,11 +27,11 @@
 #include "CTemplate.hpp"
 #include "Tools/Tool.hpp"
 
-#include "CppCoverage/CoverageRate.hpp"
+#include "TaleaCppCov/CoverageRate.hpp"
 
 #include "Tools/Error.hpp"
 
-namespace cov = CppCoverage;
+namespace cov = TaleaCppCov;
 namespace fs = std::filesystem;
 
 namespace Exporter
@@ -131,8 +131,8 @@ namespace Exporter
 	const std::string TemplateHtmlExporter::CodeTemplate = "CODE";
 	const std::string TemplateHtmlExporter::IdTemplate = "ID";
 	const std::string TemplateHtmlExporter::ThirdPartyPathTemplate = "THIRD_PARTY_PATH";
-	const std::string TemplateHtmlExporter::OCCProjectLink = "OCC_PROJECT_LINK";
-	const std::string TemplateHtmlExporter::OCCVersion = "OCC_VERSION";
+	const std::string TemplateHtmlExporter::TaleaProjectLink = "TALEA_PROJECT_LINK";
+	const std::string TemplateHtmlExporter::TaleaVersion = "TALEA_VERSION";
 	const std::string TemplateHtmlExporter::ActualProjectLink = "https://github.com/OpenCppCoverage/OpenCppCoverage/releases";
 
 	//-------------------------------------------------------------------------
@@ -157,8 +157,8 @@ namespace Exporter
 
 		dictionary->SetValue(TitleTemplate, titleStr);
 		dictionary->SetValue(MainMessageTemplate, ToString(message));
-		dictionary->SetValue(OCCProjectLink, ActualProjectLink);
-		dictionary->SetValue(OCCVersion, OPENCPPCOVERAGE_VERSION);
+		dictionary->SetValue(TaleaProjectLink, ActualProjectLink);
+		dictionary->SetValue(TaleaVersion, TALEA_CPP_COV_VERSION);
 
 		return dictionary;
 	}
@@ -231,8 +231,8 @@ namespace Exporter
 		dictionary.SetValue(CodeTemplate, ToString(codeContent));
 		dictionary.SetValue(BodyOnLoadTemplate, bodyLoad);
 		dictionary.SetValue(SourceWarningMessageTemplate, warning);
-		dictionary.SetValue(OCCProjectLink, ActualProjectLink);
-		dictionary.SetValue(OCCVersion, OPENCPPCOVERAGE_VERSION);
+		dictionary.SetValue(TaleaProjectLink, ActualProjectLink);
+		dictionary.SetValue(TaleaVersion, TALEA_CPP_COV_VERSION);
 		Tools::ThrowOnError(WriteTemplate(dictionary, fileTemplatePath_, output));
 	}
 	//-------------------------------------------------------------------------

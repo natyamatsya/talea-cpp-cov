@@ -18,13 +18,13 @@
 
 #include <cstdint>
 
-// Branch-condition evaluation shared between the OpenCppCoverage host and the
+// Branch-condition evaluation shared between the TaleaCppCovApp host and the
 // injected VEH helper. Header-only and dependency-free (no CRT, no Windows.h)
 // so the tiny helper DLL can evaluate a conditional jump's direction in-process
 // from the trapped thread's flags, exactly as the debugger engine does out of
-// process in CppCoverage/BranchCondition.cpp.
+// process in TaleaCppCov/BranchCondition.cpp.
 //
-// The enumerator order mirrors CppCoverage::BranchCondition; the host maps its
+// The enumerator order mirrors TaleaCppCov::BranchCondition; the host maps its
 // own enum onto this one (with a static_assert guard) before writing it into
 // the shared section, so both sides agree on the byte value.
 namespace VehCoverage
@@ -55,7 +55,7 @@ namespace VehCoverage
 	//-------------------------------------------------------------------------
 	// True if a Jcc with the given condition would jump, given the trapped
 	// thread's EFLAGS (and RCX for the Jcxz family). Same predicates as
-	// CppCoverage::IsBranchTaken.
+	// TaleaCppCov::IsBranchTaken.
 	inline bool
 	IsBranchTaken(BranchCondition condition, std::uint32_t eflags, std::uint64_t rcx) noexcept
 	{

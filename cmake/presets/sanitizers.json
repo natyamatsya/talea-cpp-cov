@@ -8,7 +8,7 @@
       "inherits": "msvc",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "OCC_SANITIZER": "address"
+        "TALEA_SANITIZER": "address"
       }
     },
     {
@@ -17,7 +17,7 @@
       "inherits": "clang-cl",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "OCC_SANITIZER": "address"
+        "TALEA_SANITIZER": "address"
       }
     },
     {
@@ -26,7 +26,7 @@
       "inherits": "clang-cl",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "OCC_SANITIZER": "undefined"
+        "TALEA_SANITIZER": "undefined"
       }
     }
   ],

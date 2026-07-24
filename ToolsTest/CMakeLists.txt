@@ -4,9 +4,9 @@ add_executable(ToolsTest
 	ToolTest.cpp
 	ToolsTest.cpp)
 
-occ_apply_conventions(ToolsTest)
+talea_apply_conventions(ToolsTest)
 target_link_libraries(ToolsTest PRIVATE
-	occ_gtest occ::TestHelper occ::Tools)
+	talea_gtest talea::TestHelper talea::Tools)
 
 target_precompile_headers(ToolsTest PRIVATE stdafx.h)
-occ_register_tests(ToolsTest)
+talea_register_tests(ToolsTest)

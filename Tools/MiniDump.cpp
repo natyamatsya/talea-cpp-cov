@@ -76,7 +76,7 @@ namespace Tools
 			minidumpInfo.ExceptionPointers = exceptionInfo;
 			minidumpInfo.ClientPointers = FALSE;
 
-			const auto dmpFilename = L"OpenCppCoverage.dmp";
+			const auto dmpFilename = L"TaleaCppCovApp.dmp";
 			HANDLE hFile = CreateFile(dmpFilename, GENERIC_WRITE, 0, nullptr,
 				CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 			

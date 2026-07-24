@@ -67,7 +67,7 @@ namespace Tools
 			{
 				auto sink = std::make_shared<spdlog::sinks::stderr_sink_mt>();
 				sink->set_pattern("[%l] %v");
-				spdlog::logger created{"occ", std::move(sink)};
+				spdlog::logger created{"talea", std::move(sink)};
 				created.flush_on(spdlog::level::trace);
 				return created;
 			}();

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    End-to-end engine / startup benchmark for OpenCppCoverage.
+    End-to-end engine / startup benchmark for talea-cpp-cov.
 
 .DESCRIPTION
     Benchmarks.exe (google-benchmark) covers the in-process micro-benchmarks
@@ -28,7 +28,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$OpenCppCoverage = "$PSScriptRoot\..\x64\Release\OpenCppCoverage.exe",
+    [string]$talea-cpp-cov = "$PSScriptRoot\..\x64\Release\talea-cpp-cov.exe",
     [Parameter(Mandatory = $true)][string]$Target,
     [string]$Sources = "*",
     [string]$Modules = "*",
@@ -37,10 +37,10 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-if (-not (Test-Path $OpenCppCoverage)) { throw "OpenCppCoverage not found: $OpenCppCoverage" }
+if (-not (Test-Path $talea-cpp-cov)) { throw "talea-cpp-cov not found: $talea-cpp-cov" }
 if (-not (Test-Path $Target)) { throw "Target not found: $Target" }
 
-$cache = Join-Path $env:LOCALAPPDATA "OpenCppCoverage\PdbCache"
+$cache = Join-Path $env:LOCALAPPDATA "talea-cpp-cov\PdbCache"
 $output = [System.IO.Path]::GetTempFileName()
 
 function Clear-PdbCache {
@@ -49,7 +49,7 @@ function Clear-PdbCache {
 
 function Invoke-Run([string[]]$flags) {
     # The target's own exit code is irrelevant to the measurement.
-    & $OpenCppCoverage --quiet --sources $Sources --modules $Modules @flags `
+    & $talea-cpp-cov --quiet --sources $Sources --modules $Modules @flags `
         --export_type "binary:$output" -- $Target @TargetArgs 2>&1 | Out-Null
 }
 

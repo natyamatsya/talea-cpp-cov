@@ -30,7 +30,7 @@ namespace Coverage
 	class ModuleCoverage;
 }
 
-namespace CppCoverage
+namespace TaleaCppCov
 {
 	class CoverageRateComputer;
 }
@@ -64,7 +64,7 @@ namespace Exporter
 			const HtmlFile& htmlFile) const;
 
 		void ExportFiles(
-			CppCoverage::CoverageRateComputer&,
+			TaleaCppCov::CoverageRateComputer&,
 			const Coverage::ModuleCoverage& module,
 			const HtmlFolderStructure& htmlFolderStructure,
 			ctemplate::TemplateDictionary& moduleTemplateDictionary);

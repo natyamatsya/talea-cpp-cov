@@ -8,7 +8,7 @@
 # Header-only: an INTERFACE target that only propagates the include directory,
 # so gch/small_vector.hpp is reachable as <gch/small_vector.hpp>.
 add_library(SmallVector INTERFACE)
-add_library(occ::SmallVector ALIAS SmallVector)
+add_library(talea::SmallVector ALIAS SmallVector)
 
 target_include_directories(SmallVector
 	INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}")

@@ -22,14 +22,14 @@
       "inherits": "clang-cl",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "OCC_MIMALLOC": "ON"
+        "TALEA_MIMALLOC": "ON"
       }
     },
     {
       "name": "clang-cl-profile",
       "displayName": "clang-cl x64 Release for profiling (/OPT:NOICF)",
       "inherits": "clang-cl-release",
-      "cacheVariables": { "OCC_PROFILE": "ON" }
+      "cacheVariables": { "TALEA_PROFILE": "ON" }
     }
   ],
   "buildPresets": [

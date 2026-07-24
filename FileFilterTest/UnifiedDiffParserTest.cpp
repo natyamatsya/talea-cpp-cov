@@ -109,13 +109,13 @@ namespace FileFilterTest
 		std::wifstream diffFile{ diffPath_.string() };
 		auto files = unifiedDiffParser_.Parse(diffFile).value();
 		
-		ASSERT_EQ(1, GetSelectedLinesCount(files, "CppCoverage/CodeCoverageRunner.cpp"));
-		ASSERT_EQ(3, GetSelectedLinesCount(files, "CppCoverage/CoverageData.cpp"));
-		ASSERT_EQ(2, GetSelectedLinesCount(files, "CppCoverage/CoverageData.hpp"));
-		ASSERT_EQ(14, GetSelectedLinesCount(files, "CppCoverage/ExecutedAddressManager.cpp"));
-		ASSERT_EQ(6, GetSelectedLinesCount(files, "CppCoverage/ExecutedAddressManager.hpp"));
-		ASSERT_EQ(4, GetSelectedLinesCount(files, "CppCoverageTest/CodeCoverageRunnerTest.cpp"));
-		ASSERT_EQ(4, GetSelectedLinesCount(files, "CppCoverageTest/ExecutedAddressManagerTest.cpp"));
+		ASSERT_EQ(1, GetSelectedLinesCount(files, "TaleaCppCov/CodeCoverageRunner.cpp"));
+		ASSERT_EQ(3, GetSelectedLinesCount(files, "TaleaCppCov/CoverageData.cpp"));
+		ASSERT_EQ(2, GetSelectedLinesCount(files, "TaleaCppCov/CoverageData.hpp"));
+		ASSERT_EQ(14, GetSelectedLinesCount(files, "TaleaCppCov/ExecutedAddressManager.cpp"));
+		ASSERT_EQ(6, GetSelectedLinesCount(files, "TaleaCppCov/ExecutedAddressManager.hpp"));
+		ASSERT_EQ(4, GetSelectedLinesCount(files, "TaleaCppCovTest/CodeCoverageRunnerTest.cpp"));
+		ASSERT_EQ(4, GetSelectedLinesCount(files, "TaleaCppCovTest/ExecutedAddressManagerTest.cpp"));
 		ASSERT_EQ(0, GetSelectedLinesCount(files, "TestHelper/Container.hpp"));
 		ASSERT_EQ(0, GetSelectedLinesCount(files, "TestHelper/Container.inl"));
 		ASSERT_EQ(0, GetSelectedLinesCount(files, "TestHelper/CoverageDataComparer.cpp"));
@@ -128,7 +128,7 @@ namespace FileFilterTest
 		std::wifstream diffFile{ diffPath_.string() };
 		auto files = unifiedDiffParser_.Parse(diffFile).value();
 
-		const auto& file = GetFile(files, "CppCoverage/ExecutedAddressManager.cpp");
+		const auto& file = GetFile(files, "TaleaCppCov/ExecutedAddressManager.cpp");
 		const auto& lines = file.GetSelectedLines();
 		const std::set<std::int32_t> expectedLines =
 				{93, 95, 105, 130, 132, 133, 134, 154, 155, 156, 158, 159, 160, 162};

@@ -1,0 +1,151 @@
+// OpenCppCoverage is an open source code coverage for C++.
+// Copyright (C) 2019 OpenCppCoverage
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+#include "stdafx.h"
+#include "ExportOptionParser.hpp"
+#include "OptionsSpec.hpp"
+#include "Options.hpp"
+#include "Tools/Tool.hpp"
+
+namespace TaleaCppCov
+{
+	namespace
+	{
+		//---------------------------------------------------------------------
+		struct ExportData
+		{
+			std::wstring argument;
+			std::wstring exportType;
+		};
+
+		//---------------------------------------------------------------------
+		ExportData ParseExportData(const std::wstring& exportStr)
+		{
+			ExportData exportData;
+			auto pos = exportStr.find(ExportOptionParser::ExportSeparator);
+
+			if (pos != std::wstring::npos)
+			{
+				exportData.exportType = exportStr.substr(0, pos);
+				exportData.argument = exportStr.substr(pos + 1);
+			}
+			else
+				exportData.exportType = exportStr;
+
+			return exportData;
+		}
+
+		//-------------------------------------------------------------------------
+		std::optional<OptionsExport> CreateExport(
+		    const std::map<std::wstring, OptionsExportType>& exportTypes,
+		    const ExportData& exportData)
+		{
+			auto it = exportTypes.find(exportData.exportType);
+
+			if (it != exportTypes.end())
+			{
+				OptionsExportType type = it->second;
+				auto exportOutputPath = exportData.argument;
+
+				return OptionsExport{
+				    type,
+				    std::wstring{exportData.exportType},
+				    exportOutputPath.empty()
+				        ? std::nullopt
+				        : std::make_optional(exportOutputPath)};
+			}
+
+			return std::nullopt;
+		}
+	}
+
+	const char ExportOptionParser::ExportSeparator = ':';
+	const std::string ExportOptionParser::ExportTypeOption = "export_type";
+	const std::string ExportOptionParser::ExportTypeHtmlValue = "html";
+	const std::string ExportOptionParser::ExportTypeCoberturaValue =
+	    "cobertura";
+	const std::string ExportOptionParser::ExportTypeBinaryValue = "binary";
+
+	//-------------------------------------------------------------------------
+	ExportOptionParser::ExportOptionParser()
+	{
+		exportTypes_.emplace(
+		    Tools::LocalToWString(ExportOptionParser::ExportTypeHtmlValue),
+		    OptionsExportType::Html);
+		exportTypes_.emplace(
+		    Tools::LocalToWString(ExportOptionParser::ExportTypeCoberturaValue),
+		    OptionsExportType::Cobertura);
+		exportTypes_.emplace(
+		    Tools::LocalToWString(ExportOptionParser::ExportTypeBinaryValue),
+		    OptionsExportType::Binary);
+	}
+
+	//----------------------------------------------------------------------------
+	Tools::Expected<void> ExportOptionParser::ParseOption(const OptionsSpec& spec,
+	                                                      Options& options)
+	{
+		// --export_type defaults to cobertura when none is given. The HTML
+		// exporter keeps an unaggregated per-module tree that balloons to
+		// gigabytes on a large multi-module run (and dilutes its roll-up with
+		// shared headers counted per module), so it is opt-in; the compact,
+		// aggregated Cobertura XML is the sensible default and renders to HTML
+		// through any Cobertura tool when a report is wanted.
+		std::vector<std::string> exportTypeStrCollection = spec.export_type;
+		if (exportTypeStrCollection.empty())
+			exportTypeStrCollection.push_back(
+			    ExportOptionParser::ExportTypeCoberturaValue);
+
+		for (const auto& exportTypeStr : exportTypeStrCollection)
+		{
+			auto exportData =
+			    ParseExportData(Tools::LocalToWString(exportTypeStr));
+			auto optionExport = CreateExport(exportTypes_, exportData);
+
+			if (optionExport)
+				options.AddExport(std::move(*optionExport));
+			else
+				return std::unexpected(Tools::Error{
+				    exportData.exportType + L" is not a valid export type."});
+		}
+		return {};
+	}
+
+	//----------------------------------------------------------------------------
+	std::wstring ExportOptionParser::GetExportTypeText() const
+	{
+		const auto separator = ", ";
+		std::vector<std::pair<std::wstring, std::wstring>> exportArgumentInfos =
+		    {{Tools::LocalToWString(ExportOptionParser::ExportTypeHtmlValue),
+		      L"output folder (optional)"},
+		     {Tools::LocalToWString(
+		          ExportOptionParser::ExportTypeCoberturaValue),
+		      L"output file (optional)"},
+		     {Tools::LocalToWString(ExportOptionParser::ExportTypeBinaryValue),
+		      L"output file (optional)"}};
+
+		std::wstring exports;
+		for (const auto& argumentInfos : exportArgumentInfos)
+		{
+			exports += L"   " + argumentInfos.first + L": " +
+			           argumentInfos.second + L'\n';
+		}
+		return L"Format: <exportType>[:<parameter>].\n"
+		       "<exportType> can be:\n" +
+		       exports +
+		       L"Example: html:MyFolder\\MySubFolder\n"
+		       "This flag can have multiple occurrences.";
+	}
+}

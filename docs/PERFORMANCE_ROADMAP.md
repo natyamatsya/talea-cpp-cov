@@ -15,7 +15,7 @@ formats already in place.
 
 | Benchmark | Time | Notes |
 |---|---|---|
-| `ParsePdbRawPdb` | 2.00 ms | cold raw_pdb parse of CppCoverage.dll (160 source files) |
+| `ParsePdbRawPdb` | 2.00 ms | cold raw_pdb parse of TaleaCppCov.dll (160 source files) |
 | `MergeCoverageData` | 1.43 ms | 3 modules x 20 files x 500 lines = 30k lines (was 3.1 ms; Tier 1 #1) |
 | `MergeColumnarShards/30` | 12.6 ms | ~0.42 ms per same-build shard (was 15.5 ms; Tier 1 #1) |
 | `SerializeAndDeserializeCoverageData` | 2.15 ms | columnar `.cov` round-trip (was 3.5 ms; Tier 1 #1) |
@@ -196,7 +196,7 @@ a per-call arena reset would free the result. A sizeable, risky change to the
 core model.
 
 **Instead, swapping the global allocator to mimalloc got more, everywhere, for
-~20 lines.** `OCC_MIMALLOC` links `mimalloc` statically and overrides
+~20 lines.** `TALEA_MIMALLOC` links `mimalloc` statically and overrides
 `operator new`/`delete` in the executables' entry-point TUs. It is **on by
 default in the Release presets** (the shipping build); Debug stays on the CRT so
 its `/MTd` debug heap keeps validating allocations. Measured (10-rep medians,
@@ -223,7 +223,7 @@ Windows single-static-exe; jemalloc/tcmalloc have weaker Windows support.
 Now that clang-cl builds cleanly, the tool binary can be optimized further
 without touching source:
 - **ThinLTO** (clang-cl + `lld-link`) across the DLLs — cross-module inlining
-  the current per-DLL `/GL` cannot do. Add behind an `OCC_CLANG_THINLTO` option.
+  the current per-DLL `/GL` cannot do. Add behind an `TALEA_CLANG_THINLTO` option.
 - **PGO**: instrument a clang-cl build, profile a representative coverage run,
   rebuild optimized. The debug loop and PDB parser are branch-heavy and would
   benefit.
@@ -259,7 +259,7 @@ earlier work and survives only as historical comments). Both are now gone, so
   `Zydis`.
 
 Net effect: `boost-range` and `boost-container` are both removed from
-`vcpkg.json`; the `occ_boost` CMake interface (which also pulled in `bcrypt`, a
+`vcpkg.json`; the `talea_boost` CMake interface (which also pulled in `bcrypt`, a
 transitive-only boost dependency) is deleted; `find_package(Boost ...)` is gone.
 The vcpkg build no longer fetches or builds any boost package. Revisit only if a
 standard small-vector with heap spill lands, at which point the vendored header

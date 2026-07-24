@@ -14,7 +14,7 @@ add_executable(TestCoverageConsole
 	TestDiff.cpp
 	TestThread.cpp)
 
-occ_apply_conventions(TestCoverageConsole NO_DEFAULT_OPTIMIZATION)
+talea_apply_conventions(TestCoverageConsole NO_DEFAULT_OPTIMIZATION)
 target_compile_options(TestCoverageConsole PRIVATE
 	$<$<CONFIG:Debug>:/Od /Ob0>
 	$<$<AND:$<CONFIG:Debug>,$<CXX_COMPILER_ID:MSVC>>:/JMC>
@@ -22,9 +22,9 @@ target_compile_options(TestCoverageConsole PRIVATE
 	# The fixture code deliberately contains a null dereference and a
 	# #pragma once in a .cpp; cl at /W3 never warned on these, so silence
 	# clang's equivalents rather than touch sources whose line numbers are
-	# asserted by tests. (-Wno-unused-variable lives in occ_defaults; listing
+	# asserted by tests. (-Wno-unused-variable lives in talea_defaults; listing
 	# it here too would win CMake's option de-duplication and then be
 	# re-enabled by /W3's -Wall.)
 	$<$<CXX_COMPILER_ID:Clang>:-Wno-null-dereference;-Wno-pragma-once-outside-header>)
 target_link_libraries(TestCoverageConsole PRIVATE
-	occ::TestCoverageOptimizedBuild occ::TestCoverageSharedLib occ::Tools)
+	talea::TestCoverageOptimizedBuild talea::TestCoverageSharedLib talea::Tools)

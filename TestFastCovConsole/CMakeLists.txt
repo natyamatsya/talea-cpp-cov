@@ -10,7 +10,7 @@ endif()
 
 add_executable(TestFastCovConsole
 	TestFastCovConsole.cpp
-	"${CMAKE_SOURCE_DIR}/CoverageRuntime/OpenCppCoverageFastCovMsvc.cpp")
+	"${CMAKE_SOURCE_DIR}/CoverageRuntime/talea-cpp-cov-fastcov-msvc.cpp")
 
 # Instrument only the fixture; the runtime must be compiled WITHOUT coverage
 # (it defines the anchor the instrumented module needs and writes the dump).

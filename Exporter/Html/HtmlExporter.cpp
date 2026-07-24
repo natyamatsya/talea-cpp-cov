@@ -26,8 +26,8 @@
 #include "Coverage/CoverageData.hpp"
 #include "Coverage/ModuleCoverage.hpp"
 #include "Coverage/FileCoverage.hpp"
-#include "CppCoverage/CoverageRateComputer.hpp"
-#include "CppCoverage/CoverageRate.hpp"
+#include "TaleaCppCov/CoverageRateComputer.hpp"
+#include "TaleaCppCov/CoverageRate.hpp"
 
 #include "Tools/Log.hpp"
 #include "Tools/Tool.hpp"
@@ -36,7 +36,7 @@
 #include "HtmlFileCoverageExporter.hpp"
 #include "HtmlFolderStructure.hpp"
 #include "HtmlFile.hpp"
-namespace cov = CppCoverage;
+namespace cov = TaleaCppCov;
 
 namespace Exporter
 {		

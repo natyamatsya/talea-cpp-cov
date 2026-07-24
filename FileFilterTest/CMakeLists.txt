@@ -7,10 +7,10 @@ add_executable(FileFilterTest
 	UnifiedDiffCoverageFilterTest.cpp
 	UnifiedDiffParserTest.cpp)
 
-occ_apply_conventions(FileFilterTest)
+talea_apply_conventions(FileFilterTest)
 target_link_libraries(FileFilterTest PRIVATE
-	occ_gtest
-	occ::FileFilter occ::TestCoverageOptimizedBuild occ::TestHelper occ::Tools)
+	talea_gtest
+	talea::FileFilter talea::TestCoverageOptimizedBuild talea::TestHelper talea::Tools)
 
 target_precompile_headers(FileFilterTest PRIVATE stdafx.h)
-occ_register_tests(FileFilterTest)
+talea_register_tests(FileFilterTest)

@@ -1,22 +1,22 @@
 <#
 .SYNOPSIS
-    ETW CPU-sampling capture of an OpenCppCoverage run, for flame graphs.
+    ETW CPU-sampling capture of an talea-cpp-cov run, for flame graphs.
 
 .DESCRIPTION
     Records a system-wide CPU sampling trace (PROC_THREAD+LOADER+PROFILE with
-    stackwalk, 8 kHz) while OpenCppCoverage collects coverage of a target, then
+    stackwalk, 8 kHz) while talea-cpp-cov collects coverage of a target, then
     writes a merged .etl. ETW kernel sampling needs elevation, so the script
     re-launches itself elevated (one UAC prompt) if it is not already admin.
 
     Fold the result into a flame graph (see README.md):
       $env:_NT_SYMBOL_PATH = '<bin-with-pdbs>'
       xperf -i out.etl -symbols -a dumper -stacktimeshifting `
-        | python fold-flamegraph.py OpenCppCoverage.exe out.svg
+        | python fold-flamegraph.py talea-cpp-cov.exe out.svg
 
 .EXAMPLE
-    .\capture-flamegraph.ps1 -OccExe out\clang-cl-profile\bin\OpenCppCoverage.exe `
-        -Target out\clang-cl-profile\bin\CppCoverageTest.exe `
-        -Sources . -Modules CppCoverageTest -Etl occ.etl
+    .\capture-flamegraph.ps1 -OccExe out\clang-cl-profile\bin\talea-cpp-cov.exe `
+        -Target out\clang-cl-profile\bin\TaleaCppCovTest.exe `
+        -Sources . -Modules TaleaCppCovTest -Etl talea.etl
 #>
 [CmdletBinding()]
 param(
@@ -26,7 +26,7 @@ param(
     [string]$Modules = "*",
     [string]$TargetArgs = "",          # space-separated args after `--`
     [switch]$Debugger,                  # --engine debugger (breakpoint is the default)
-    [string]$Etl = "occ.etl",
+    [string]$Etl = "talea.etl",
     [int]$ProfIntervalUnits = 1221      # ~8 kHz (0.1 us units)
 )
 $ErrorActionPreference = "Stop"

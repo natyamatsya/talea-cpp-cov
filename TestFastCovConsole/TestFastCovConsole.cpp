@@ -19,7 +19,7 @@
 // Fixture for the compiler-instrumentation ("fast mode") coverage path. It is
 // compiled with /fsanitize-coverage=inline-8bit-counters and linked with the
 // MSVC fast-mode runtime (see CoverageRuntime), so running it writes a dump to
-// OPENCPPCOVERAGE_FASTCOV_OUTPUT that FastCoverageImporter reads back.
+// TALEA_CPP_COV_FASTCOV_OUTPUT that FastCoverageImporter reads back.
 //
 // The lines are laid out so a run exercises one branch and skips the other,
 // giving a deterministic covered / not-covered split the test asserts on. Keep

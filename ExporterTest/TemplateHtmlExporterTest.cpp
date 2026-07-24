@@ -20,7 +20,7 @@
 #include "TestHelper/TemporaryPath.hpp"
 #include "Exporter/Html/TemplateHtmlExporter.hpp"
 #include "Exporter/Html/CTemplate.hpp"
-#include "CppCoverage/CoverageRate.hpp"
+#include "TaleaCppCov/CoverageRate.hpp"
 #include "Tools/Tool.hpp"
 
 using namespace Exporter;
@@ -138,7 +138,7 @@ namespace ExporterTest
 		const std::wstring message = L"Message";
 		auto project = exporter.CreateTemplateDictionary(title, message);
 
-		CppCoverage::CoverageRate coverage{ 10, 20 };
+		TaleaCppCov::CoverageRate coverage{ 10, 20 };
 		const fs::path moduleName = L"ModuleName";
 		const fs::path moduleOutput = L"ModuleOutput";
 		exporter.AddModuleSectionToDictionary(moduleName, coverage, false, &moduleOutput, *project);
@@ -172,7 +172,7 @@ namespace ExporterTest
 		
 		const fs::path filename = "filename";
 		exporter.AddFileSectionToDictionary(filename,
-			CppCoverage::CoverageRate{ 10, 20 }, false, nullptr, *module);
+			TaleaCppCov::CoverageRate{ 10, 20 }, false, nullptr, *module);
 		auto outputFile = output_folder.GetPath() / "module";
 		exporter.GenerateModuleTemplate(*module, outputFile);
 

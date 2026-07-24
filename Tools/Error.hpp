@@ -29,7 +29,7 @@ namespace Tools
 	// The uniform error type carried by std::expected in place of a thrown
 	// exception. Carries the file:line-prefixed message the exception used to
 	// hold. The former THROW_LAST_ERROR sites format the Win32 error text into
-	// this message (via CppCoverage::GetErrorMessage) rather than carrying a
+	// this message (via TaleaCppCov::GetErrorMessage) rather than carrying a
 	// structured code.
 	struct Error
 	{

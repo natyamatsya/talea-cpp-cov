@@ -22,7 +22,7 @@
       "inherits": "msvc",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "OCC_MIMALLOC": "ON"
+        "TALEA_MIMALLOC": "ON"
       }
     }
   ],

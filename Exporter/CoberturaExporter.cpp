@@ -34,7 +34,7 @@
 #include "Coverage/ModuleCoverage.hpp"
 #include "Coverage/FileCoverage.hpp"
 #include "Coverage/LineCoverage.hpp"
-#include "CppCoverage/CoverageRateComputer.hpp"
+#include "TaleaCppCov/CoverageRateComputer.hpp"
 #include "InvalidOutputFileException.hpp"
 
 #include "Tools/Tool.hpp"
@@ -215,7 +215,7 @@ namespace Exporter
 
 		//---------------------------------------------------------------------
 		void WriteCoverageAttributes(XmlWriter& writer,
-		                             const CppCoverage::CoverageRate& coverageRate)
+		                             const TaleaCppCov::CoverageRate& coverageRate)
 		{
 			writer.Attr("line-rate", FormatRate(coverageRate.GetRate()));
 			if (coverageRate.GetTotalBranchCount() != 0)
@@ -266,7 +266,7 @@ namespace Exporter
 
 		//---------------------------------------------------------------------
 		void WriteFile(XmlWriter& writer,
-		               const CppCoverage::CoverageRateComputer& coverageRateComputer,
+		               const TaleaCppCov::CoverageRateComputer& coverageRateComputer,
 		               const Coverage::FileCoverage& file)
 		{
 			const auto& path = file.GetPath();
@@ -356,7 +356,7 @@ namespace Exporter
 
 		//---------------------------------------------------------------------
 		void WritePackages(XmlWriter& writer,
-		                   const CppCoverage::CoverageRateComputer& coverageRateComputer,
+		                   const TaleaCppCov::CoverageRateComputer& coverageRateComputer,
 		                   const Coverage::CoverageData& coverageData)
 		{
 			if (!HasModuleWithFiles(coverageData))
@@ -398,7 +398,7 @@ namespace Exporter
 		void WriteCoverage(XmlWriter& writer,
 		                   const Coverage::CoverageData& coverageData)
 		{
-			CppCoverage::CoverageRateComputer coverageRateComputer(coverageData);
+			TaleaCppCov::CoverageRateComputer coverageRateComputer(coverageData);
 			const auto& coverageRate = coverageRateComputer.GetCoverageRate();
 
 			auto now = std::chrono::system_clock::now();

@@ -5,9 +5,9 @@ add_library(Coverage STATIC
 	FileCoverage.cpp
 	LineCoverage.cpp
 	ModuleCoverage.cpp)
-add_library(occ::Coverage ALIAS Coverage)
+add_library(talea::Coverage ALIAS Coverage)
 
-occ_apply_conventions(Coverage)
+talea_apply_conventions(Coverage)
 target_compile_definitions(Coverage PRIVATE COVERAGE_EXPORTS)
 
 target_precompile_headers(Coverage PRIVATE stdafx.h)

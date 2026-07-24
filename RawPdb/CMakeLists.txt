@@ -21,7 +21,7 @@ add_library(RawPdb STATIC
 	PDB_SourceFileStream.cpp
 	PDB_TPIStream.cpp
 	PDB_Types.cpp)
-add_library(occ::RawPdb ALIAS RawPdb)
+add_library(talea::RawPdb ALIAS RawPdb)
 
 set_target_properties(RawPdb PROPERTIES
 	CXX_STANDARD 17
@@ -30,4 +30,4 @@ target_include_directories(RawPdb
 	PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}"
 	INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_options(RawPdb PRIVATE /W3 $<$<CXX_COMPILER_ID:MSVC>:/sdl>)
-target_link_libraries(RawPdb PRIVATE occ_opt_default)
+target_link_libraries(RawPdb PRIVATE talea_opt_default)

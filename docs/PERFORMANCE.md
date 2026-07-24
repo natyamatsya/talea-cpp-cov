@@ -48,8 +48,8 @@ Worst cases are 100k-line programs; Release build, warm PDB cache unless noted.
 ## Engine comparison vs the official release
 
 The levers above, in one place: the same workload — collecting line coverage of
-`CppCoverageTest.exe` (134 unit tests) — run by three tools: the last official
-OpenCppCoverage release (0.9.9.0, debugger only), this fork's debugger engine,
+`TaleaCppCovTest.exe` (134 unit tests) — run by three tools: the last official
+talea-cpp-cov release (0.9.9.0, debugger only), this fork's debugger engine,
 and this fork's in-process VEH engine. Wall-clock is best-of-5; identical
 `--sources`/`--modules` filters and binary export.
 
@@ -65,7 +65,7 @@ and mimalloc. VEH compounds it past 5× by removing the cross-process debug-even
 round trip. Coverage output is identical in all three; these are pure
 performance differences.
 
-An ETW CPU-sampling flame graph of `OpenCppCoverage.exe` (self-time, 8 kHz)
+An ETW CPU-sampling flame graph of `talea-cpp-cov.exe` (self-time, 8 kHz)
 shows *why*:
 
 | Bucket | Debugger | VEH |
@@ -92,7 +92,7 @@ method used here.
   It is now one `findLinesByRVA` query over the whole image, bucketed by source
   file name. **5,000 headers: 4,731 → 745 ms.**
 - **PDB parse cache** (`--no_pdb_cache` to disable). Parsed line tables are
-  cached in memory and on disk under `%LOCALAPPDATA%\OpenCppCoverage\PdbCache`,
+  cached in memory and on disk under `%LOCALAPPDATA%\talea-cpp-cov\PdbCache`,
   keyed by the PDB's `(GUID, age)` — the linker's exact identity, read from the
   PE debug directory without DIA. A relink changes the key, so the cache can
   never return stale data. The cached table holds *raw* PDB names and *all*
