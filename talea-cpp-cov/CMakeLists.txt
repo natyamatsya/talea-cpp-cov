@@ -55,8 +55,9 @@ target_precompile_headers(TaleaCppCov PRIVATE stdafx.h)
 # The VEH engine loads VehCoverageHelper.dll from TaleaCppCov.dll's directory.
 add_dependencies(TaleaCppCov VehCoverageHelper)
 
-# msdia140.dll is deployed side-by-side (not COM-registered); the vendored
-# copy matches what the old Dia.props post-build step shipped.
+# msdia140.dll is deployed side-by-side (not COM-registered). The vendored copy
+# is msdia140.dll 14.51 from the Visual Studio 2026 DIA SDK, matching the build
+# toolset; refresh it from "<VS>/DIA SDK/bin/amd64/msdia140.dll" on a toolset bump.
 add_custom_command(TARGET TaleaCppCov POST_BUILD
 	COMMAND ${CMAKE_COMMAND} -E copy_if_different
 		"${CMAKE_CURRENT_SOURCE_DIR}/dia/x64/msdia140.dll"
