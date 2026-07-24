@@ -1,20 +1,53 @@
-add_executable(talea-cpp-cov-test
-	CommandLineOptionsTest.cpp
-	ImportExportTests.cpp
-	talea-cpp-cov-console-test.cpp
-	talea-cpp-cov-test.cpp
-	talea-cpp-cov-test-tools.cpp
-	WarningManagerTests.cpp)
+add_executable(TaleaCppCovTest
+	BranchConditionTest.cpp
+	BranchDisassemblerTest.cpp
+	BreakPointTest.cpp
+	CodeCoverageRunnerTest.cpp
+	CoverageDataMergerRandomTest.cpp
+	CoverageDataMergerTest.cpp
+	CoverageRateComputerTest.cpp
+	CoverageRateTest.cpp
+	TaleaCppCovExceptionTest.cpp
+	TaleaCppCovTest.cpp
+	DebugInformationEnumeratorTest.cpp
+	DebuggerTest.cpp
+	ExceptionHandlerTest.cpp
+	ExecutedAddressManagerTest.cpp
+	FastCoverageImporterTest.cpp
+	FilterAssistantTest.cpp
+	GlazeCliTest.cpp
+	HandleInformationTest.cpp
+	ImportClosureTest.cpp
+	LineRunScannerTest.cpp
+	OptionsParserConfigTest.cpp
+	OptionsParserExportTest.cpp
+	OptionsParserPatternTest.cpp
+	OptionsParserTest.cpp
+	OptionsParserUnifiedDiffTest.cpp
+	ProcessTest.cpp
+	RawPdbReaderTest.cpp
+	StartInfoTest.cpp
+	TestTools.cpp
+	UnifiedDiffCoverageFilterManagerTest.cpp
+	VehCoverageEngineTest.cpp
+	WildcardCoverageFilterTest.cpp
+	WildcardsTest.cpp)
 
-talea_apply_conventions(talea-cpp-cov-test)
-target_link_libraries(talea-cpp-cov-test PRIVATE
+talea_apply_conventions(TaleaCppCovTest)
+target_link_libraries(TaleaCppCovTest PRIVATE
 	talea_gtest
-	talea::TaleaCppCov talea::Exporter talea::Coverage
-	talea::TestCoverageSharedLib talea::TestHelper talea::Tools)
+	talea::TaleaCppCov talea::FileFilter talea::Coverage
+	talea::TestCoverageOptimizedBuild talea::TestCoverageSharedLib
+	talea::TestHelper talea::Tools)
 
-# End-to-end: runs the real talea-cpp-cov.exe over the other test binaries.
-add_dependencies(talea-cpp-cov-test TaleaCppCovTest ExporterTest talea-cpp-cov)
+# Fixtures this suite runs under its debugger at test time.
+add_dependencies(TaleaCppCovTest TestCoverageConsole VehCoverageHelper)
+# The fast-mode fixture exists only under MSVC (see TestFastCovConsole).
+if(TARGET TestFastCovConsole)
+	add_dependencies(TaleaCppCovTest TestFastCovConsole)
+endif()
 
-target_precompile_headers(talea-cpp-cov-test PRIVATE stdafx.h)
-
-talea_register_tests(talea-cpp-cov-test SERIAL TIMEOUT 300)
+target_precompile_headers(TaleaCppCovTest PRIVATE stdafx.h)
+# End-to-end suite: spawns debuggers and child processes. Each case runs in
+# well under a second; the generous timeout is a hang backstop, not a target.
+talea_register_tests(TaleaCppCovTest SERIAL TIMEOUT 300)

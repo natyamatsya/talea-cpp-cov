@@ -6,7 +6,7 @@
       "hidden": true,
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/out/${presetName}",
-      "toolchainFile": "${sourceDir}/Build/ThirdParty/vcpkg/scripts/buildsystems/vcpkg.cmake",
+      "toolchainFile": "${sourceDir}/build/third-party/vcpkg/scripts/buildsystems/vcpkg.cmake",
       "architecture": { "value": "x64", "strategy": "external" },
       "cacheVariables": {
         "VCPKG_TARGET_TRIPLET": "x64-windows",

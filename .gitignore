@@ -13,7 +13,7 @@ CoverageReport-*
 TestResults/
 nuget.exe
 vcpkg_installed/
-Build/ThirdParty/vcpkg
+build/third-party/vcpkg
 
 # CMake preset build trees
 out/

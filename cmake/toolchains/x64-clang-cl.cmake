@@ -7,9 +7,9 @@
 
 # Prefer the clang-cl bundled with the active Visual Studio over whatever
 # happens to be first on PATH (Swift/LLVM toolchains also ship a clang-cl).
-if(DEFINED ENV{VCINSTALLDIR} AND EXISTS "$ENV{VCINSTALLDIR}Tools/Llvm/x64/bin/clang-cl.exe")
-	set(CMAKE_C_COMPILER "$ENV{VCINSTALLDIR}Tools/Llvm/x64/bin/clang-cl.exe")
-	set(CMAKE_CXX_COMPILER "$ENV{VCINSTALLDIR}Tools/Llvm/x64/bin/clang-cl.exe")
+if(DEFINED ENV{VCINSTALLDIR} AND EXISTS "$ENV{VCINSTALLDIR}tools/Llvm/x64/bin/clang-cl.exe")
+	set(CMAKE_C_COMPILER "$ENV{VCINSTALLDIR}tools/Llvm/x64/bin/clang-cl.exe")
+	set(CMAKE_CXX_COMPILER "$ENV{VCINSTALLDIR}tools/Llvm/x64/bin/clang-cl.exe")
 else()
 	set(CMAKE_C_COMPILER clang-cl)
 	set(CMAKE_CXX_COMPILER clang-cl)

@@ -78,7 +78,7 @@ function(talea_apply_conventions target)
 		"TARGET_FILE_NAME=R\"|($<TARGET_FILE_NAME:${target}>)|\"")
 	# talea_sanitizers carries the sanitizer flags (empty unless TALEA_SANITIZER is
 	# set); attaching it here scopes sanitizers to first-party code and leaves
-	# the injected VehCoverageHelper and vendored RawPdb/Zydis untouched.
+	# the injected VehCoverageHelper and vendored raw-pdb/Zydis untouched.
 	target_link_libraries(${target} PRIVATE talea_defaults talea_sanitizers)
 	if(NOT ARG_NO_DEFAULT_OPTIMIZATION)
 		target_link_libraries(${target} PRIVATE talea_opt_default)

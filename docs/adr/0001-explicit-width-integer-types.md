@@ -84,8 +84,8 @@ trailing `//! <tag>` comment resolved at runtime by
 `__LINE__`-relative offset. With the line numbers no longer hardcoded, the
 fixtures take `<cstdint>` and fixed-width types freely.
 
-The one genuine residual is `TestCoverageConsole/TestDiff.cpp`, which is pinned
-by a golden unified-diff (`TaleaCppCovTest/Data/TestDiff.diff`) that hardcodes
+The one genuine residual is `test-coverage-console/TestDiff.cpp`, which is pinned
+by a golden unified-diff (`talea-cpp-cov-test/Data/TestDiff.diff`) that hardcodes
 both the literal source text (`int value2 = 0;`) and the hunk line numbers.
 Changing its integer spelling would require regenerating that golden file; since
 those `int`s are illustrative coverage-subject lines, not a data contract, the

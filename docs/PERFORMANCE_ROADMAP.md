@@ -249,7 +249,7 @@ earlier work and survives only as historical comments). Both are now gone, so
   Done in the line-coverage store (Tier 1, item 1).
 - `boost::container::small_vector<std::uint32_t, 1>` in `ExecutedAddressManager`
   → **vendored `gch::small_vector`** (Gene Harvey, MIT; a single header under
-  `SmallVector/gch/`). There is no standard small-buffer-with-spill vector —
+  `small-vector/gch/`). There is no standard small-buffer-with-spill vector —
   `std::inplace_vector` (C++26) is fixed-capacity and cannot spill to the heap,
   so it does not cover the multi-probe case — and the inline capacity of 1 saves
   a heap allocation on the common one-probe-per-address path, of which there can

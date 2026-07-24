@@ -1,9 +1,9 @@
-# Clones and bootstraps vcpkg into Build\ThirdParty\vcpkg.
+# Clones and bootstraps vcpkg into build\third-party\vcpkg.
 #
 # Dependencies are declared in vcpkg.json (manifest mode) and are built
 # automatically during the first MSBuild of the solution. To install them
 # ahead of time, run:
-#   Build\ThirdParty\vcpkg\vcpkg.exe install --triplet x64-windows
+#   build\third-party\vcpkg\vcpkg.exe install --triplet x64-windows
 
 $ErrorActionPreference = 'Stop'
 
@@ -11,7 +11,7 @@ $ErrorActionPreference = 'Stop'
 $vcpkgCommit = '07425ae85e730721ba2deeb55937be1498a7115a'
 
 $scriptFolder = Split-Path $script:MyInvocation.MyCommand.Path
-$vcpkgFolder = Join-Path $scriptFolder 'Build\ThirdParty\vcpkg'
+$vcpkgFolder = Join-Path $scriptFolder 'build\third-party\vcpkg'
 
 if (-not (Test-Path $vcpkgFolder)) {
     New-Item -ItemType Directory -Force (Split-Path $vcpkgFolder) | Out-Null

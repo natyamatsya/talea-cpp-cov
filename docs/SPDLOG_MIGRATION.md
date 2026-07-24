@@ -15,7 +15,7 @@ engine swap), then convert them to format strings **in verified batches**, and
 
 ## Why boost-log can't stay
 
-The `LOG_*` macros in `Tools/Log.hpp` expand — inline, in every module — to a
+The `LOG_*` macros in `tools/Log.hpp` expand — inline, in every module — to a
 boost-log global-logger singleton:
 
 ```cpp
@@ -33,7 +33,7 @@ configured in `Tools.dll` would silently miss lines emitted elsewhere.
   (`LOG_INFO << L"msg " << widePath << n;`), on a **wide** (`wchar_t`) logger that
   formats to UTF-8 file + console.
 - A custom `operator<<` for `std::set<T>` (+ a `LogCollection` helper) in
-  namespace `boost::log` in `Tools/Log.hpp`.
+  namespace `boost::log` in `tools/Log.hpp`.
 - Public `Tools` API (only non-`Log.*` logging touchpoints):
   `InitConsoleAndFileLog(path)`, `SetLoggerMinSeverity(boost…severity_level)`
   *(leaks a boost type)*, `EnableLogger(bool)`,
@@ -45,7 +45,7 @@ configured in `Tools.dll` would silently miss lines emitted elsewhere.
 ## End state
 
 ```cpp
-// Tools/Log.hpp — final
+// tools/Log.hpp — final
 enum class LogLevel { Trace, Debug, Info, Warning, Error };
 
 // Lazy: format only if the level is enabled. Format string checked at compile
@@ -70,7 +70,7 @@ what lets the parity gate (below) prove each batch is behaviour-preserving.
 Land spdlog with **zero call-site changes**:
 
 ```cpp
-// Tools/Log.hpp — transitional
+// tools/Log.hpp — transitional
 class TOOLS_DLL LogStream {              // move-only; exported ctor/dtor
 public:
     explicit LogStream(LogLevel);
@@ -83,8 +83,8 @@ private:
 ```
 
 Because the emitting destructor lives in `Tools.dll`, **spdlog headers are
-included only by `Tools/Log.cpp`** → no registry duplication → spdlog links
-static. `Tools/Log.cpp` sets up one thread-safe (`_mt`) spdlog logger: a stderr
+included only by `tools/Log.cpp`** → no registry duplication → spdlog links
+static. `tools/Log.cpp` sets up one thread-safe (`_mt`) spdlog logger: a stderr
 sink (`[level] message`) and, after `InitConsoleAndFileLog`, a file sink
 (`[%Y-%m-%d %H:%M:%S] [level] message`) — matching today's format byte-for-byte.
 
@@ -130,7 +130,7 @@ about.
 ## Phase final — remove the bridge
 
 When no `LOG_*_STREAM` remains: delete `LogStream`, the `_STREAM` macros, and the
-`std::set` `operator<<` shim (now replaced by `Tools::Join`). `Tools/Log.hpp` ends
+`std::set` `operator<<` shim (now replaced by `Tools::Join`). `tools/Log.hpp` ends
 with only the `LogLevel` enum and the `LOG_*(...)` format macros. Turn on the
 `log_audit.py` CI check.
 
@@ -177,5 +177,5 @@ with only the `LogLevel` enum and the `LOG_*(...)` format macros. Turn on the
 - **Concurrency** — spdlog `_mt` logger; the parity battery includes a parallel
   export run.
 - **Static invariant** — `log_audit.py` forbids `spdlog` includes outside
-  `Tools/Log.cpp`; without it a stray include would duplicate spdlog's registry
+  `tools/Log.cpp`; without it a stray include would duplicate spdlog's registry
   and silently re-create the boost-log problem.

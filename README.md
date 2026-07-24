@@ -76,7 +76,7 @@ Prerequisites:
   includes the DIA SDK, ATL, CMake and Ninja). For the clang-cl presets, also
   install the *C++ Clang tools for Windows* component (or a standalone LLVM).
 - Run `InstallThirdPartyLibraries.ps1` once: it clones and bootstraps a pinned
-  [vcpkg](https://github.com/microsoft/vcpkg) into `Build\ThirdParty\vcpkg`.
+  [vcpkg](https://github.com/microsoft/vcpkg) into `build\third-party\vcpkg`.
 
 Then, from an **x64 Native Tools Command Prompt** (the presets rely on the
 compiler and Windows SDK being on the environment paths):
@@ -226,7 +226,7 @@ Line coverage is **byte-identical to the breakpoint/debugger engines**. Branch
 coverage is *derived* from the block counters rather than observed per jump, so
 it is exact at sole-predecessor successors and approximate at control-flow
 merges — see [Branch coverage](#branch-coverage-experimental) and
-[CoverageRuntime/README.md](CoverageRuntime/README.md). Use a breakpoint/debugger
+[coverage-runtime/README.md](coverage-runtime/README.md). Use a breakpoint/debugger
 run when you need an exact branch audit of a scoped target.
 
 Both **clang-cl** and **MSVC (`cl.exe`)** are supported, and the runtime covers
@@ -237,7 +237,7 @@ for every instantiation, which lines it covered — and the lines covered in som
 but not all instantiations (a line exercised for `foo<int>` but never for
 `foo<double>`), which plain line coverage hides. It is architecture-agnostic
 (x64 and ARM64); its one cost is the recompile with instrumentation. See
-[CoverageRuntime/README.md](CoverageRuntime/README.md) for the build and run
+[coverage-runtime/README.md](coverage-runtime/README.md) for the build and run
 steps.
 
 ### Performance and benchmarks

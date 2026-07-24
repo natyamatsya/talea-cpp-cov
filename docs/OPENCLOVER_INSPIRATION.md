@@ -41,7 +41,7 @@ our partial-branch fidelity. No work recommended here beyond what §5 adds to
 Cobertura.
 
 ### 2.2 Visual Studio — the old plugin is dead, but VS 2026 ships coverage
-The legacy `talea-cpp-cov/talea-cpp-covPlugin` is **GitHub-archived**
+The legacy `talea-cpp-cov-app/talea-cpp-covPlugin` is **GitHub-archived**
 (`isArchived: true`); real development stopped in **2020** (96 commits in 2016 →
 15 in 2020 → nothing but a 2026 archival README), and it targets VS2013–2017
 packaging. Mechanically it showed a **coverage-tree tool window**
@@ -124,11 +124,11 @@ of `getPcCoveredElements() = coveredElements/elements`
   fast-mode template axis) but **not** turned into a function-coverage metric.
   **No general hit counts** (the debugger retires a breakpoint on first hit; VEH
   sets `hit=1`; only fast-mode counters carry counts, and they wrap at 256).
-- **Cobertura** (`Exporter/CoberturaExporter.cpp`): line-rate, branch-rate,
+- **Cobertura** (`exporter/CoberturaExporter.cpp`): line-rate, branch-rate,
   `branches-covered/valid`, and per-line `branch="true"
   condition-coverage="P% (c/t)"` + `<conditions>` when `--branch_coverage` is on.
   `<methods/>` is emitted **empty**.
-- **HTML** (`Exporter/Html/HtmlFileCoverageExporter.cpp`): a Clover-lite paint —
+- **HTML** (`exporter/html/HtmlFileCoverageExporter.cpp`): a Clover-lite paint —
   executed line background `#dfd` (green), unexecuted `#fdd` (red). It keys
   **only on line-executed** and **ignores branch data entirely**; no partial
   (amber) lines, no hit counts, no branch markers, no method view.

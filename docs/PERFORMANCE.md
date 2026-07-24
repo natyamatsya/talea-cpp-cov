@@ -154,7 +154,7 @@ counters at exit, imported with `--input_fastcov`. It is a *mode*, not the
 default (it needs the recompile), and is architecture-agnostic (the same flags
 target x64 and ARM64 — the portable answer to what Intel PT would have given,
 without the vendor lock-in). See
-[CoverageRuntime/README.md](../CoverageRuntime/README.md) for build/run steps.
+[coverage-runtime/README.md](../coverage-runtime/README.md) for build/run steps.
 
 - **Line-exact via control-flow reconstruction.** SanitizerCoverage uses
   *minimal* instrumentation — a block whose execution is implied by another
@@ -240,7 +240,7 @@ spreading allocations across threads just moves the contention.
 
 ## Reproducing the numbers
 
-Two harnesses live under `Benchmarks/`:
+Two harnesses live under `benchmarks/`:
 
 - **`Benchmarks.exe`** (google-benchmark) — in-process micro-benchmarks: the
   in-memory merge, the columnar `.cov` shard merge (`MergeColumnarShards/<N>`),
