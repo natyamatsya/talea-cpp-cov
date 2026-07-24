@@ -17,9 +17,14 @@
 #include "stdafx.h"
 #include <tchar.h>
 
+#include "Tools/MiniDump.hpp"
+
 //-----------------------------------------------------------------------------
 int _tmain(int argc, _TCHAR* argv[])
 {
+	// Runs the real talea-cpp-cov.exe over fixtures that deliberately crash.
+	// Suppress the WER dialogs so nothing blocks an unattended run.
+	Tools::DisableCrashDialogs();
 	::testing::InitGoogleMock(&argc, argv);
 	return RUN_ALL_TESTS();
 }

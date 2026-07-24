@@ -19,6 +19,10 @@
 
 #include <iostream>
 
+#include <cstdlib>
+#include <crtdbg.h>
+#include <werapi.h>
+
 #pragma warning(push)
 #pragma warning(disable: 4091) // 'typedef ': ignored on left of '' when no variable is declared
 #include <DbgHelp.h>
@@ -97,5 +101,31 @@ namespace Tools
 		SetErrorMode(dwMode | SEM_NOGPFAULTERRORBOX);
 
 		SetUnhandledExceptionFilter(CreateMiniDumpOnUnHandledException);
-	}	
+	}
+
+	//-------------------------------------------------------------------------
+	void DisableCrashDialogs()
+	{
+		// (1) The OS-level hard-error / GP-fault boxes. Inherited by children.
+		SetErrorMode(GetErrorMode() | SEM_FAILCRITICALERRORS |
+		             SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
+
+		// (2) The modern Windows Error Reporting UI ("… has stopped working")
+		// for this process, which SetErrorMode alone does not suppress.
+		WerSetFlags(WER_FAULT_REPORTING_NO_UI);
+
+		// (3) The C runtime's own dialogs. An uncaught exception ends in abort(),
+		// which in a debug build pops the "abort() has been called" message box;
+		// clear its behaviours and route the debug report to stderr instead of a
+		// window. These are per-process CRT state and are NOT inherited, so every
+		// process that can crash must call this itself.
+		_set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+#ifdef _DEBUG
+		for (int report : {_CRT_ERROR, _CRT_ASSERT})
+		{
+			_CrtSetReportMode(report, _CRTDBG_MODE_FILE);
+			_CrtSetReportFile(report, _CRTDBG_FILE_STDERR);
+		}
+#endif
+	}
 }

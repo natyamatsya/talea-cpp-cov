@@ -12,7 +12,8 @@ add_executable(TestCoverageConsole
 	SpecialLineInfo.cpp
 	TestDebugInformationEnumerator.cpp
 	TestDiff.cpp
-	TestThread.cpp)
+	TestThread.cpp
+	CrashDialogSuppression.cpp)
 
 talea_apply_conventions(TestCoverageConsole NO_DEFAULT_OPTIMIZATION)
 target_compile_options(TestCoverageConsole PRIVATE
