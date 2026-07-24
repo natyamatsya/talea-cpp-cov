@@ -1,8 +1,11 @@
 # talea-cpp-cov (experimental fork)
 
-OpenCppCoverage is an open source code coverage tool for C++ under Windows.
+[![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.txt)
+[![Version](https://img.shields.io/badge/version-0.1.0-informational.svg)](https://github.com/natyamatsya/talea-cpp-cov/releases)
 
-The main usage is for unit testing coverage, but you can also use it to know the executed lines in a program for debugging purpose.
+talea-cpp-cov is a code coverage tool for C++ on Windows.
+
+The main usage is unit-testing coverage, but you can also use it to see the executed lines in a program for debugging.
 
 ---------------------
 ## Fork status: experimental, for private usage
@@ -15,13 +18,19 @@ It exists to experiment with features I need myself — currently
 [branch coverage](#branch-coverage-experimental). Please note:
 
 * this fork is **not** a community successor of the original project;
-* there are no plans for serious maintenance, releases, or support;
+* there are no plans for serious maintenance or support;
 * issues and pull requests may not be reviewed or answered;
 * things may break or change without notice — use at your own risk.
 
 The project remains available under the terms described in the
-[LICENSE](LICENSE.txt) file. Feel free to use, modify, and fork it according
-to those terms.
+[LICENSE](LICENSE.txt) file (GPL-3.0-or-later). Feel free to use, modify, and
+fork it according to those terms.
+
+**Versioning.** talea-cpp-cov versions its releases independently of upstream,
+git-tagged with [semantic versioning](https://semver.org) and starting fresh at
+**v0.1.0**. It was branched from OpenCppCoverage 0.9.9.0; the two version lines
+are unrelated. Third-party dependency versions are pinned by vcpkg
+(`vcpkg.json`).
 
 ### Engineering changes in this fork
 

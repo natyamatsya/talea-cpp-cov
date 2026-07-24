@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 4.4.0)
 
-project(talea-cpp-cov VERSION 0.9.9.0 LANGUAGES C CXX)
+project(talea-cpp-cov VERSION 0.1.0 LANGUAGES C CXX)
 
 if(NOT WIN32 OR NOT MSVC)
 	message(FATAL_ERROR
