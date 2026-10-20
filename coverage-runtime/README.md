@@ -82,9 +82,17 @@ executable. Two things to note when instrumenting a DLL:
 - Build the DLL's translation units with the coverage flag, **and link the
   runtime into the DLL too** — an instrumented module needs the
   `_Sancov8bitUsed` anchor the runtime defines, or it will not link.
-- Linking the runtime into both the DLL and the executable is fine: only the
-  copy in the main executable writes the dump (it enumerates every module), so
-  there is exactly one dump regardless of how many modules link the runtime.
+- Linking the runtime into both the DLL and the executable is fine: the copy in
+  the main executable writes the process dump at exit (it enumerates every
+  module), and marks it written in `TALEA_CPP_COV_FASTCOV_DUMPED`. The copy in a
+  DLL dumps that DLL alone when it is unloaded, unless that mark is set — so a
+  DLL freed before exit (`FreeLibrary`, a plugin loader's unload) keeps its
+  coverage, and a DLL still loaded at exit is dumped exactly once.
+
+An executable without instrumented code of its own still needs the runtime to
+write the process dump: link it and force it in with `/INCLUDE:_Sancov8bitUsed`
+(nothing else references the anchor, so the linker would drop it). Without the
+runtime in the executable, each instrumented DLL dumps itself at unload or exit.
 
 ```
 REM instrumented DLL: link the runtime for the anchor
@@ -101,7 +109,14 @@ and uninstrumented DLLs have no such section and are ignored.
 ## Running and importing
 
 Set `TALEA_CPP_COV_FASTCOV_OUTPUT` to the dump path before running the target,
-then import the dump:
+then import the dump. When it names a directory (or ends with a separator), the
+MSVC runtime writes one file per process inside it,
+`<exe-stem>_<pid>.fastcov`, and one per DLL unload,
+`<exe-stem>_<pid>_<dll-stem>_<tick>.fastcov`; `--input_fastcov` accepts the
+directory and imports every dump in it. Paths may exceed `MAX_PATH`: the
+runtime opens them as `\\?\` paths and stores module paths with their length
+(raw dump version 2; the importer also reads version 1), and `talea-cpp-cov.exe`
+is long-path aware where the `LongPathsEnabled` policy is on.
 
 ```
 set TALEA_CPP_COV_FASTCOV_OUTPUT=coverage.fastcov

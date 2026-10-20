@@ -713,6 +713,8 @@ namespace TaleaCppCov
 		//---------------------------------------------------------------------
 		// Raw dump (MSVC): a copy of each module's .sancov counter region. The
 		// block addresses are recovered by disassembly in processModule.
+		// Version 1 stores each module path in a fixed-size field, version 2
+		// stores it with its length (see FastCovFormat.hpp).
 		template <typename ProcessFn>
 		Tools::Expected<void> ImportRawDump(const std::vector<char>& bytes,
 		                   const std::filesystem::path& dumpPath,
@@ -723,35 +725,72 @@ namespace TaleaCppCov
 				    L"Fast coverage dump is truncated: " + dumpPath.wstring()));
 			const auto* header =
 			    reinterpret_cast<const FastCov::RawDumpHeader*>(bytes.data());
-			if (header->version_ != FastCov::DumpVersion)
+			const bool version2 = header->version_ == FastCov::RawDumpVersion2;
+			if (!version2 && header->version_ != FastCov::DumpVersion)
 				return std::unexpected(MAKE_ERROR(
 				    L"Unsupported fast coverage dump version: " +
 				    dumpPath.wstring()));
 
+			auto truncated = [&]() {
+				return std::unexpected(MAKE_ERROR(
+				    L"Fast coverage dump is truncated: " + dumpPath.wstring()));
+			};
+
 			std::size_t offset = sizeof(FastCov::RawDumpHeader);
 			for (std::uint32_t m = 0; m < header->moduleCount_; ++m)
 			{
-				if (offset + sizeof(FastCov::RawModuleHeader) > bytes.size())
-					return std::unexpected(MAKE_ERROR(
-					    L"Fast coverage dump is truncated: " + dumpPath.wstring()));
-				const auto* moduleHeader =
-				    reinterpret_cast<const FastCov::RawModuleHeader*>(
-				        bytes.data() + offset);
-				offset += sizeof(FastCov::RawModuleHeader);
+				std::wstring modulePath;
+				std::uint32_t regionRva = 0;
+				std::uint32_t regionSize = 0;
+				if (version2)
+				{
+					if (offset + sizeof(FastCov::RawModuleHeaderV2) > bytes.size())
+						return truncated();
+					const auto* moduleHeader =
+					    reinterpret_cast<const FastCov::RawModuleHeaderV2*>(
+					        bytes.data() + offset);
+					offset += sizeof(FastCov::RawModuleHeaderV2);
 
-				if (offset + moduleHeader->regionSize_ > bytes.size())
-					return std::unexpected(MAKE_ERROR(
-					    L"Fast coverage dump is truncated: " + dumpPath.wstring()));
+					auto pathBytes = static_cast<std::size_t>(
+					                     moduleHeader->pathChars_) *
+					                 sizeof(wchar_t);
+					if (offset + pathBytes > bytes.size())
+						return truncated();
+					modulePath.resize(moduleHeader->pathChars_);
+					std::memcpy(
+					    modulePath.data(), bytes.data() + offset, pathBytes);
+					offset += pathBytes;
+					regionRva = moduleHeader->regionRva_;
+					regionSize = moduleHeader->regionSize_;
+				}
+				else
+				{
+					if (offset + sizeof(FastCov::RawModuleHeader) > bytes.size())
+						return truncated();
+					const auto* moduleHeader =
+					    reinterpret_cast<const FastCov::RawModuleHeader*>(
+					        bytes.data() + offset);
+					offset += sizeof(FastCov::RawModuleHeader);
+
+					modulePath.assign(moduleHeader->path_,
+					                  wcsnlen(moduleHeader->path_,
+					                          FastCov::MaxModulePathChars));
+					regionRva = moduleHeader->regionRva_;
+					regionSize = moduleHeader->regionSize_;
+				}
+
+				if (offset + regionSize > bytes.size())
+					return truncated();
 				const auto* regionBytes =
 				    reinterpret_cast<const std::uint8_t*>(bytes.data() +
 				                                          offset);
-				std::vector<std::uint8_t> region(
-				    regionBytes, regionBytes + moduleHeader->regionSize_);
-				offset += moduleHeader->regionSize_;
+				std::vector<std::uint8_t> region(regionBytes,
+				                                 regionBytes + regionSize);
+				offset += regionSize;
 
-				processModule(std::filesystem::path{moduleHeader->path_},
+				processModule(std::filesystem::path{modulePath},
 				              nullptr,
-				              moduleHeader->regionRva_,
+				              regionRva,
 				              &region);
 			}
 			return {};

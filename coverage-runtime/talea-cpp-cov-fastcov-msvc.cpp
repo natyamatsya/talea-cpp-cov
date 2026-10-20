@@ -15,21 +15,28 @@
 // recoverable by disassembly, which the host importer does. This runtime just
 // hands over the raw `.sancov` section and its module-relative address.
 //
-// The section is located by walking the module's own PE headers at exit, rather
-// than by planting section-boundary markers: a marker section can end up with
+// The section is located by walking the module's own PE headers, rather than
+// by planting section-boundary markers: a marker section can end up with
 // different attributes than the compiler's counters (LNK4078) and thus not be
 // merged with them, so the header walk is the reliable way to find the counters.
 //
-// At exit the runtime enumerates every loaded module and dumps each one that
-// carries a `.sancov` section - the main executable plus any instrumented DLL -
-// so coverage spans the whole process, not just the exe. Instrumented DLLs must
-// link this runtime too (they need the `_Sancov8bitUsed` anchor); to keep a
-// single dump, only the copy living in the main executable registers the exit
-// handler (see IsMainExecutable).
+// Every module that carries counters links this runtime (instrumented DLLs need
+// the `_Sancov8bitUsed` anchor), so each module has its own copy:
+//   - The copy in the main executable dumps, at process exit, every loaded
+//     module that has a `.sancov` section, so one file covers the process.
+//   - The copy in a DLL dumps that DLL alone when the DLL is unloaded, so a
+//     DLL freed before exit (FreeLibrary, QPluginLoader::unload) keeps its
+//     coverage. It skips the dump when the executable's copy already wrote one
+//     (DumpedEnvVar), which is the case for every DLL still loaded at exit.
+//
+// Paths have no length limit: the output path and the module paths are built
+// on the heap, files are opened through `\\?\` paths, and the dump stores each
+// module path with its length (FastCov::RawDumpVersion2).
 
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <cwchar>
 #include <windows.h>
 #include <tlhelp32.h>
 
@@ -39,8 +46,252 @@
 // here lets the target link without the clang_rt SanitizerCoverage runtime.
 extern "C" int _Sancov8bitUsed = 1;
 
+// The base address of the module this copy of the runtime is linked into.
+extern "C" IMAGE_DOS_HEADER __ImageBase;
+
 namespace
 {
+	//-------------------------------------------------------------------------
+	// A growable, null-terminated wide string on the process heap. The runtime
+	// avoids the CRT allocator: it runs from exit handlers, some of them during
+	// DLL unload.
+	class WideBuffer
+	{
+	public:
+		WideBuffer() = default;
+		WideBuffer(const WideBuffer&) = delete;
+		WideBuffer& operator=(const WideBuffer&) = delete;
+		~WideBuffer()
+		{
+			if (data_)
+				HeapFree(GetProcessHeap(), 0, data_);
+		}
+
+		// Capacity for chars characters plus the terminator.
+		bool Reserve(DWORD chars)
+		{
+			if (chars < capacity_)
+				return true;
+			auto bytes = (static_cast<SIZE_T>(chars) + 1) * sizeof(wchar_t);
+			auto* data = static_cast<wchar_t*>(
+			    data_ ? HeapReAlloc(GetProcessHeap(), 0, data_, bytes)
+			          : HeapAlloc(GetProcessHeap(), 0, bytes));
+			if (!data)
+				return false;
+			data_ = data;
+			capacity_ = chars + 1;
+			return true;
+		}
+
+		bool Append(const wchar_t* text, DWORD chars)
+		{
+			if (!Reserve(length_ + chars))
+				return false;
+			std::memcpy(data_ + length_, text, chars * sizeof(wchar_t));
+			length_ += chars;
+			data_[length_] = L'\0';
+			return true;
+		}
+
+		bool Append(wchar_t c) { return Append(&c, 1); }
+
+		bool Append(const wchar_t* text)
+		{
+			return Append(text, static_cast<DWORD>(std::wcslen(text)));
+		}
+
+		// For APIs that fill the buffer themselves; length_ is set afterwards.
+		wchar_t* Data() { return data_; }
+		DWORD Capacity() const { return capacity_; }
+		void SetLength(DWORD length)
+		{
+			length_ = length;
+			data_[length_] = L'\0';
+		}
+
+		const wchar_t* Get() const { return data_; }
+		DWORD Length() const { return length_; }
+		bool Empty() const { return length_ == 0; }
+
+	private:
+		wchar_t* data_ = nullptr;
+		DWORD capacity_ = 0;
+		DWORD length_ = 0;
+	};
+
+	//-------------------------------------------------------------------------
+	bool IsSeparator(wchar_t c) { return c == L'\\' || c == L'/'; }
+
+	//-------------------------------------------------------------------------
+	bool GetEnvironment(const wchar_t* name, WideBuffer& value)
+	{
+		auto required = GetEnvironmentVariableW(name, nullptr, 0);
+		if (required == 0 || !value.Reserve(required))
+			return false;
+		auto length = GetEnvironmentVariableW(name, value.Data(), required);
+		if (length == 0 || length >= required)
+			return false;
+		value.SetLength(length);
+		return true;
+	}
+
+	//-------------------------------------------------------------------------
+	// The full path of a loaded module, whatever its length.
+	bool GetModulePath(HMODULE module, WideBuffer& path)
+	{
+		for (DWORD size = MAX_PATH; size <= 0x10000; size *= 2)
+		{
+			if (!path.Reserve(size))
+				return false;
+			auto length = GetModuleFileNameW(module, path.Data(), size);
+			if (length == 0)
+				return false;
+			if (length < size)
+			{
+				path.SetLength(length);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	//-------------------------------------------------------------------------
+	// path as a `\\?\` path, which the file APIs accept beyond MAX_PATH. An
+	// absolute path gets the prefix directly (separators normalized, runs of
+	// separators collapsed: the prefix disables that normalization); a relative
+	// one is made absolute first.
+	bool ToExtendedPath(const WideBuffer& path, WideBuffer& extended)
+	{
+		const auto* p = path.Get();
+		if (std::wcsncmp(p, L"\\\\?\\", 4) == 0)
+			return extended.Append(p, path.Length());
+
+		WideBuffer absolute;
+		bool unc = IsSeparator(p[0]) && IsSeparator(p[1]);
+		bool drive = p[0] != L'\0' && p[1] == L':' && IsSeparator(p[2]);
+		if (unc || drive)
+		{
+			if (!absolute.Append(p, path.Length()))
+				return false;
+		}
+		else
+		{
+			auto required = GetFullPathNameW(p, 0, nullptr, nullptr);
+			if (required == 0 || !absolute.Reserve(required))
+				return false;
+			auto length =
+			    GetFullPathNameW(p, required, absolute.Data(), nullptr);
+			if (length == 0 || length >= required)
+				return false;
+			absolute.SetLength(length);
+			unc = IsSeparator(absolute.Get()[0]) &&
+			      IsSeparator(absolute.Get()[1]);
+		}
+
+		const auto* a = absolute.Get();
+		DWORD i = 0;
+		if (unc)
+		{
+			if (!extended.Append(L"\\\\?\\UNC\\"))
+				return false;
+			i = 2;
+		}
+		else if (!extended.Append(L"\\\\?\\"))
+			return false;
+
+		bool previousSeparator = false;
+		for (; i < absolute.Length(); ++i)
+		{
+			bool separator = IsSeparator(a[i]);
+			if (separator && previousSeparator)
+				continue;
+			if (!extended.Append(separator ? L'\\' : a[i]))
+				return false;
+			previousSeparator = separator;
+		}
+		return true;
+	}
+
+	//-------------------------------------------------------------------------
+	// The module's file name without directory and extension.
+	void AppendStem(WideBuffer& out, HMODULE module)
+	{
+		WideBuffer path;
+		if (!GetModulePath(module, path))
+			return;
+		DWORD start = 0;
+		DWORD end = path.Length();
+		for (DWORD i = 0; i < path.Length(); ++i)
+			if (IsSeparator(path.Get()[i]))
+				start = i + 1;
+		for (DWORD i = end; i > start; --i)
+			if (path.Get()[i - 1] == L'.')
+			{
+				end = i - 1;
+				break;
+			}
+		out.Append(path.Get() + start, end - start);
+	}
+
+	//-------------------------------------------------------------------------
+	void AppendNumber(WideBuffer& out, std::uint64_t value)
+	{
+		wchar_t digits[24];
+		DWORD count = 0;
+		do
+		{
+			digits[count++] = static_cast<wchar_t>(L'0' + (value % 10));
+			value /= 10;
+		} while (value != 0 && count < 24);
+		while (count != 0)
+			out.Append(digits[--count]);
+	}
+
+	//-------------------------------------------------------------------------
+	// Where to write the dump, as a `\\?\` path. When the output path names a
+	// directory (or ends with a separator), the dump goes to a per-process
+	// file inside it - "<exe-stem>_<pid>.fastcov", and for a DLL dumped at
+	// unload "<exe-stem>_<pid>_<dll-stem>_<tick>.fastcov" - so a parallel
+	// ctest -jN suite produces one dump per test process instead of every
+	// process clobbering a single shared file. A plain file path is used
+	// verbatim (an exact target, as in the importer round-trip test).
+	bool GetDumpPath(HMODULE dumpedDll, WideBuffer& dumpPath)
+	{
+		WideBuffer output;
+		if (!GetEnvironment(FastCov::OutputPathEnvVar, output))
+			return false;
+		WideBuffer extended;
+		if (!ToExtendedPath(output, extended))
+			return false;
+
+		auto attrs = GetFileAttributesW(extended.Get());
+		bool isDir = IsSeparator(output.Get()[output.Length() - 1]) ||
+		             (attrs != INVALID_FILE_ATTRIBUTES &&
+		              (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0);
+		if (!dumpPath.Append(extended.Get(), extended.Length()))
+			return false;
+		if (!isDir)
+			return true;
+
+		if (!IsSeparator(extended.Get()[extended.Length() - 1]))
+			dumpPath.Append(L'\\');
+		AppendStem(dumpPath, nullptr);
+		dumpPath.Append(L'_');
+		AppendNumber(dumpPath, GetCurrentProcessId());
+		if (dumpedDll)
+		{
+			// A DLL can be loaded and unloaded repeatedly within one process;
+			// the counter value keeps each unload's dump distinct.
+			LARGE_INTEGER tick{};
+			QueryPerformanceCounter(&tick);
+			dumpPath.Append(L'_');
+			AppendStem(dumpPath, dumpedDll);
+			dumpPath.Append(L'_');
+			AppendNumber(dumpPath, static_cast<std::uint64_t>(tick.QuadPart));
+		}
+		return dumpPath.Append(L".fastcov");
+	}
+
 	//-------------------------------------------------------------------------
 	void WriteAll(HANDLE file, const void* data, DWORD size)
 	{
@@ -77,74 +328,64 @@ namespace
 	}
 
 	//-------------------------------------------------------------------------
+	// Writes one module record: RawModuleHeaderV2, the path, then the region.
+	void WriteModule(HANDLE file,
+	                 HMODULE module,
+	                 std::uint32_t regionRva,
+	                 std::uint32_t regionSize)
+	{
+		WideBuffer path;
+		GetModulePath(module, path);
+
+		FastCov::RawModuleHeaderV2 moduleHeader{};
+		moduleHeader.pathChars_ = path.Length();
+		moduleHeader.regionRva_ = regionRva;
+		moduleHeader.regionSize_ = regionSize;
+
+		WriteAll(file, &moduleHeader, sizeof(moduleHeader));
+		WriteAll(file,
+		         path.Get(),
+		         static_cast<DWORD>(path.Length() * sizeof(wchar_t)));
+		WriteAll(file,
+		         reinterpret_cast<std::uint8_t*>(module) + regionRva,
+		         regionSize);
+	}
+
+	//-------------------------------------------------------------------------
+	HANDLE CreateDump(HMODULE dumpedDll, std::uint32_t moduleCount)
+	{
+		WideBuffer dumpPath;
+		if (!GetDumpPath(dumpedDll, dumpPath))
+			return INVALID_HANDLE_VALUE;
+		auto file = CreateFileW(dumpPath.Get(),
+		                        GENERIC_WRITE,
+		                        0,
+		                        nullptr,
+		                        CREATE_ALWAYS,
+		                        FILE_ATTRIBUTE_NORMAL,
+		                        nullptr);
+		if (file == INVALID_HANDLE_VALUE)
+			return file;
+
+		FastCov::RawDumpHeader header{};
+		header.magic_ = FastCov::RawDumpMagic;
+		header.version_ = FastCov::RawDumpVersion2;
+		header.moduleCount_ = moduleCount;
+		header.reserved_ = 0;
+		WriteAll(file, &header, sizeof(header));
+		return file;
+	}
+
+	//-------------------------------------------------------------------------
+	// Process exit, in the main executable's copy: dump every loaded module
+	// with a .sancov section - the executable and any instrumented DLL. System
+	// and uninstrumented modules have no such section and are skipped.
 	void OnExit()
 	{
-		wchar_t path[FastCov::MaxModulePathChars];
-		auto length = GetEnvironmentVariableW(
-		    FastCov::OutputPathEnvVar, path, FastCov::MaxModulePathChars);
-		if (length == 0 || length >= FastCov::MaxModulePathChars)
-			return;
+		// Tells the DLL copies, whose unload handlers run after this one, that
+		// their modules are in this dump.
+		SetEnvironmentVariableW(FastCov::DumpedEnvVar, L"1");
 
-		// If the output path names a directory (or ends with a separator), write
-		// a per-process file inside it, "<exe-stem>_<pid>.fastcov". A parallel
-		// ctest -jN suite then produces one dump per test process instead of
-		// every process clobbering a single shared file. A plain file path is
-		// used verbatim (so an exact target - e.g. the importer round-trip test
-		// - keeps its behavior).
-		{
-			auto attrs = GetFileAttributesW(path);
-			bool isDir =
-			    (length > 0 &&
-			     (path[length - 1] == L'\\' || path[length - 1] == L'/')) ||
-			    (attrs != INVALID_FILE_ATTRIBUTES &&
-			     (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0);
-			if (isDir)
-			{
-				wchar_t exePath[FastCov::MaxModulePathChars];
-				auto exeLen = GetModuleFileNameW(
-				    nullptr, exePath, FastCov::MaxModulePathChars);
-				std::uint32_t stemStart = 0;
-				std::uint32_t stemEnd = exeLen;
-				for (std::uint32_t i = 0; i < exeLen; ++i)
-					if (exePath[i] == L'\\' || exePath[i] == L'/')
-						stemStart = i + 1;
-				for (std::uint32_t i = exeLen; i > stemStart; --i)
-					if (exePath[i - 1] == L'.')
-					{
-						stemEnd = i - 1;
-						break;
-					}
-
-				std::uint32_t p = length;
-				auto put = [&](wchar_t c) {
-					if (p + 1 < FastCov::MaxModulePathChars)
-						path[p++] = c;
-				};
-				if (path[length - 1] != L'\\' && path[length - 1] != L'/')
-					put(L'\\');
-				for (std::uint32_t i = stemStart; i < stemEnd; ++i)
-					put(exePath[i]);
-				put(L'_');
-				wchar_t pid[16];
-				std::uint32_t pidLen = 0;
-				auto id = GetCurrentProcessId();
-				do
-				{
-					pid[pidLen++] = static_cast<wchar_t>(L'0' + (id % 10));
-					id /= 10;
-				} while (id != 0 && pidLen < 16);
-				while (pidLen != 0)
-					put(pid[--pidLen]);
-				const wchar_t ext[] = L".fastcov";
-				for (std::uint32_t i = 0; ext[i] != L'\0'; ++i)
-					put(ext[i]);
-				path[p] = L'\0';
-			}
-		}
-
-		// Every loaded module with a .sancov section is instrumented: the main
-		// executable and any instrumented DLL. System and uninstrumented
-		// modules have no such section and are skipped.
 		auto snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, 0);
 		if (snapshot == INVALID_HANDLE_VALUE)
 			return;
@@ -169,45 +410,23 @@ namespace
 			return;
 		}
 
-		auto file = CreateFileW(path,
-		                        GENERIC_WRITE,
-		                        0,
-		                        nullptr,
-		                        CREATE_ALWAYS,
-		                        FILE_ATTRIBUTE_NORMAL,
-		                        nullptr);
+		auto file = CreateDump(nullptr, moduleCount);
 		if (file == INVALID_HANDLE_VALUE)
 		{
 			CloseHandle(snapshot);
 			return;
 		}
 
-		FastCov::RawDumpHeader header{};
-		header.magic_ = FastCov::RawDumpMagic;
-		header.version_ = FastCov::DumpVersion;
-		header.moduleCount_ = moduleCount;
-		header.reserved_ = 0;
-		WriteAll(file, &header, sizeof(header));
-
-		// Second pass: write each instrumented module's header and .sancov
-		// region. The snapshot order is stable across the two passes.
+		// Second pass: write each instrumented module. The snapshot order is
+		// stable across the two passes.
 		entry.dwSize = sizeof(entry);
 		for (BOOL more = Module32FirstW(snapshot, &entry); more;
 		     more = Module32NextW(snapshot, &entry))
 		{
 			std::uint32_t regionRva = 0;
 			std::uint32_t regionSize = 0;
-			if (!FindSancovSection(entry.modBaseAddr, regionRva, regionSize))
-				continue;
-
-			FastCov::RawModuleHeader moduleHeader{};
-			GetModuleFileNameW(
-			    entry.hModule, moduleHeader.path_, FastCov::MaxModulePathChars);
-			moduleHeader.regionRva_ = regionRva;
-			moduleHeader.regionSize_ = regionSize;
-
-			WriteAll(file, &moduleHeader, sizeof(moduleHeader));
-			WriteAll(file, entry.modBaseAddr + regionRva, regionSize);
+			if (FindSancovSection(entry.modBaseAddr, regionRva, regionSize))
+				WriteModule(file, entry.hModule, regionRva, regionSize);
 		}
 
 		CloseHandle(file);
@@ -215,32 +434,42 @@ namespace
 	}
 
 	//-------------------------------------------------------------------------
-	// True if this runtime copy lives in the main executable. Instrumented DLLs
-	// link this runtime for the _Sancov8bitUsed anchor and would each register
-	// their own exit dump; gating on the main module keeps exactly one dump,
-	// written by the executable's copy, which enumerates every module anyway.
-	bool IsMainExecutable()
+	// DLL unload, in a DLL's copy: dump this DLL alone, unless the executable's
+	// copy already wrote it at process exit. Runs during DLL_PROCESS_DETACH, so
+	// it only calls kernel32 file and memory functions.
+	void OnUnload()
 	{
-		HMODULE self = nullptr;
-		if (!GetModuleHandleExW(
-		        GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-		            GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-		        reinterpret_cast<LPCWSTR>(&OnExit),
-		        &self))
-			return true; // best effort: dump rather than lose coverage
-		return self == GetModuleHandleW(nullptr);
+		WideBuffer dumped;
+		if (GetEnvironment(FastCov::DumpedEnvVar, dumped))
+			return;
+
+		auto module = reinterpret_cast<HMODULE>(&__ImageBase);
+		std::uint32_t regionRva = 0;
+		std::uint32_t regionSize = 0;
+		if (!FindSancovSection(reinterpret_cast<std::uint8_t*>(module),
+		                       regionRva,
+		                       regionSize))
+			return;
+
+		auto file = CreateDump(module, 1);
+		if (file == INVALID_HANDLE_VALUE)
+			return;
+		WriteModule(file, module, regionRva, regionSize);
+		CloseHandle(file);
 	}
 
 	//-------------------------------------------------------------------------
-	// Registers the exit dump. A namespace-scope object's constructor runs
+	// Registers the dump handler. A namespace-scope object's constructor runs
 	// during CRT startup; that is fine here (unlike the counter storage, this
-	// object is not touched by the compiler's coverage instrumentation).
+	// object is not touched by the compiler's coverage instrumentation). In a
+	// DLL, atexit registers with the DLL's own CRT, which runs the handler when
+	// the DLL is unloaded.
 	struct Registrar
 	{
 		Registrar()
 		{
-			if (IsMainExecutable())
-				atexit(OnExit);
+			auto self = reinterpret_cast<HMODULE>(&__ImageBase);
+			atexit(self == GetModuleHandleW(nullptr) ? OnExit : OnUnload);
 		}
 	} g_registrar;
 }

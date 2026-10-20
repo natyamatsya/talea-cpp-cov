@@ -31,7 +31,9 @@ add_executable(TaleaCppCovTest
 	UnifiedDiffCoverageFilterManagerTest.cpp
 	VehCoverageEngineTest.cpp
 	WildcardCoverageFilterTest.cpp
-	WildcardsTest.cpp)
+	WildcardsTest.cpp
+	# The fast-mode dump tests write and import beyond MAX_PATH.
+	"${CMAKE_SOURCE_DIR}/cmake/long-path-aware.manifest")
 
 talea_apply_conventions(TaleaCppCovTest)
 target_link_libraries(TaleaCppCovTest PRIVATE
@@ -44,7 +46,7 @@ target_link_libraries(TaleaCppCovTest PRIVATE
 add_dependencies(TaleaCppCovTest TestCoverageConsole VehCoverageHelper)
 # The fast-mode fixture exists only under MSVC (see TestFastCovConsole).
 if(TARGET TestFastCovConsole)
-	add_dependencies(TaleaCppCovTest TestFastCovConsole)
+	add_dependencies(TaleaCppCovTest TestFastCovConsole TestFastCovDllHost)
 endif()
 
 target_precompile_headers(TaleaCppCovTest PRIVATE stdafx.h)

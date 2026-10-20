@@ -1,6 +1,7 @@
 add_executable(talea-cpp-cov
 	talea-cpp-cov.cpp
-	main.cpp)
+	main.cpp
+	"${CMAKE_SOURCE_DIR}/cmake/long-path-aware.manifest")
 
 talea_apply_conventions(talea-cpp-cov)
 target_compile_definitions(talea-cpp-cov PRIVATE TALEA_CPP_COV_APP_EXPORTS)

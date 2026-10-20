@@ -21,13 +21,20 @@ namespace FastCov
 	constexpr std::uint32_t DumpMagic = 0x4346434F;   // "OCFC"
 	constexpr std::uint32_t DumpVersion = 1;
 
-	// Wide chars (including the null) reserved for a module path. Longer paths
-	// are truncated.
+	// Wide chars (including the null) reserved for a module path in the
+	// fixed-size records (ModuleEntry, RawModuleHeader). Longer paths are
+	// truncated there; RawModuleHeaderV2 stores the path with its length.
 	constexpr std::uint32_t MaxModulePathChars = 260;
 
 	// The environment variable the host sets to tell the runtime where to write
 	// the dump. When unset, the runtime writes nothing.
 	constexpr const wchar_t* OutputPathEnvVar = L"TALEA_CPP_COV_FASTCOV_OUTPUT";
+
+	// Set by the MSVC runtime in the main executable once it has written the
+	// process-exit dump, which covers every module still loaded. The runtime
+	// copies in DLLs, whose unload handlers run after it, then skip their own
+	// per-DLL dump.
+	constexpr const wchar_t* DumpedEnvVar = L"TALEA_CPP_COV_FASTCOV_DUMPED";
 
 #pragma pack(push, 1)
 	struct DumpHeader
@@ -68,22 +75,37 @@ namespace FastCov
 	// (clang) path.
 	constexpr std::uint32_t RawDumpMagic = 0x52464350;   // "PCFR"
 
+	// Raw dump versions. Version 1 (DumpVersion) stores each module path in a
+	// fixed MaxModulePathChars field; version 2 stores it with its length, so
+	// paths beyond MAX_PATH survive. The runtime writes version 2; the importer
+	// reads both.
+	constexpr std::uint32_t RawDumpVersion2 = 2;
+
 	struct RawDumpHeader
 	{
 		std::uint32_t magic_;        // RawDumpMagic
-		std::uint32_t version_;      // DumpVersion
+		std::uint32_t version_;      // DumpVersion or RawDumpVersion2
 		std::uint32_t moduleCount_;
 		std::uint32_t reserved_;
 	};
 
-	// Per module, immediately following the header (repeated moduleCount_
-	// times): a RawModuleHeader, then regionSize_ bytes of the .sancov region.
-	// A counter for module-relative address rva is at
+	// Version 1, per module, immediately following the header (repeated
+	// moduleCount_ times): a RawModuleHeader, then regionSize_ bytes of the
+	// .sancov region. A counter for module-relative address rva is at
 	// region[rva - regionRva_] when rva is in [regionRva_, regionRva_+size).
 	struct RawModuleHeader
 	{
 		wchar_t path_[MaxModulePathChars];
 		std::uint32_t regionRva_;    // module-relative address of the region
 		std::uint32_t regionSize_;   // bytes of .sancov that follow
+	};
+
+	// Version 2, per module: a RawModuleHeaderV2, then pathChars_ wide chars of
+	// the module path (no terminator), then regionSize_ bytes of the region.
+	struct RawModuleHeaderV2
+	{
+		std::uint32_t pathChars_;    // wide chars of the path that follow
+		std::uint32_t regionRva_;    // module-relative address of the region
+		std::uint32_t regionSize_;   // bytes of .sancov after the path
 	};
 }
